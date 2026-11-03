@@ -85,13 +85,16 @@ fun FeedList(
 
     LazyColumn(modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = LocalFeedBottomClearance.current)) {
         header?.invoke(this)
+        if (state.error != null && state.items.isNotEmpty()) item(key = "refresh-error") {
+            LoadErrorState(state.error, onRetry, onSignInAgain, Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
+        }
         when {
             state.loading -> item {
                 Box(Modifier.fillMaxWidth().padding(vertical = 64.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            state.error != null -> item {
+            state.error != null && state.items.isEmpty() -> item {
                 LoadErrorState(state.error, onRetry, onSignInAgain, Modifier.padding(vertical = 48.dp))
             }
             state.items.isEmpty() -> item {

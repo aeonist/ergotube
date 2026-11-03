@@ -51,6 +51,7 @@ sealed class InnerTubeException(message: String) : IOException(message) {
 class InnerTubeClient @Inject constructor(
     private val okHttp: OkHttpClient,
     private val sessions: SessionStore,
+    private val sessionHealth: app.freshtuber.data.account.SessionHealth,
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -95,13 +96,14 @@ class InnerTubeClient @Inject constructor(
             if (profile != null) rotateCookies(profile.id, url, response.headers)
             when {
                 response.code == 429 -> throw InnerTubeException.RateLimited()
-                profile != null && response.code == 401 -> throw InnerTubeException.SessionExpired()
+                profile != null && response.code == 401 -> { sessionHealth.expired(profile.id); throw InnerTubeException.SessionExpired() }
                 !response.isSuccessful -> throw InnerTubeException.Http(response.code)
             }
             val root = runCatching { json.parseToJsonElement(response.body.string()) }.getOrNull() as? JsonObject
                 ?: throw InnerTubeException.BadResponse()
             rememberVisitorData(profile?.id, root)
             if (profile != null && ResponseContext.isLoggedOut(root)) {
+                sessionHealth.expired(profile.id)
                 throw InnerTubeException.SessionExpired()
             }
             root

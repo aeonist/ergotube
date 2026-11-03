@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.floatPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 import app.freshtuber.ui.radial.ThumbArc
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -22,6 +23,21 @@ private val Context.settingsStore: DataStore<Preferences> by preferencesDataStor
 class AppSettings @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) {
+    val preferences: Flow<AppPreferences> = context.settingsStore.data.map { data ->
+        AppPreferences(features = AppFeature.entries.associateWith { data[booleanPreferencesKey(it.key)] ?: it.default },
+            theme = runCatching { ThemeMode.valueOf(data[THEME] ?: "System") }.getOrDefault(ThemeMode.System),
+            quality = data[QUALITY]?.coerceIn(144, 4320) ?: 1080,
+            downloadQuality = data[DOWNLOAD_QUALITY]?.coerceIn(144, 4320) ?: 720)
+    }
+    val backgroundPlayback: Flow<Boolean> = context.settingsStore.data.map { it[booleanPreferencesKey(AppFeature.BackgroundPlayback.key)] ?: true }
+    val shortsEnabled: Flow<Boolean> = context.settingsStore.data.map { it[booleanPreferencesKey(AppFeature.ShortsTab.key)] ?: true }
+    val downloadWifiOnly: Flow<Boolean> = context.settingsStore.data.map { it[booleanPreferencesKey(AppFeature.DownloadsWifi.key)] ?: true }
+    val downloadQuality: Flow<Int> = context.settingsStore.data.map { it[DOWNLOAD_QUALITY]?.coerceIn(144, 4320) ?: 720 }
+    suspend fun setFeature(feature: AppFeature, enabled: Boolean) { context.settingsStore.edit { it[booleanPreferencesKey(feature.key)] = enabled } }
+    suspend fun setTheme(theme: ThemeMode) { context.settingsStore.edit { it[THEME] = theme.name } }
+    suspend fun setDownloadQuality(height: Int) { context.settingsStore.edit { it[DOWNLOAD_QUALITY] = height.coerceIn(144, 4320) } }
+    suspend fun resetHiddenVideos() { context.settingsStore.edit { it.remove(HIDDEN_VIDEOS) } }
+
     val notificationsEnabled: Flow<Boolean> = context.settingsStore.data.map { it[NOTIFICATIONS] ?: true }
     suspend fun setNotifications(enabled: Boolean) { context.settingsStore.edit { it[NOTIFICATIONS] = enabled } }
 
@@ -57,10 +73,10 @@ class AppSettings @Inject constructor(
     val pipOnLeave: Flow<Boolean> = context.settingsStore.data.map { it[PIP] ?: true }
 
     /** Highest quality picked automatically, in lines (1080 = 1080p). */
-    val preferredQuality: Flow<Int> = context.settingsStore.data.map { it[QUALITY] ?: 1080 }
+    val preferredQuality: Flow<Int> = context.settingsStore.data.map { it[QUALITY]?.coerceIn(144, 4320) ?: 1080 }
 
     suspend fun setPreferredQuality(height: Int) {
-        context.settingsStore.edit { it[QUALITY] = height }
+        context.settingsStore.edit { it[QUALITY] = height.coerceIn(144, 4320) }
     }
 
     val leftHanded: Flow<Boolean> = context.settingsStore.data.map { it[LEFT_HAND] ?: false }
@@ -81,6 +97,8 @@ class AppSettings @Inject constructor(
     }
 
     private companion object {
+        val THEME = stringPreferencesKey("theme_mode")
+        val DOWNLOAD_QUALITY = intPreferencesKey("download_quality")
         val NOTIFICATIONS = booleanPreferencesKey("new_video_notifications")
         val HIDDEN_VIDEOS = androidx.datastore.preferences.core.stringSetPreferencesKey("hidden_videos")
         val VIDEO_PINNED = booleanPreferencesKey("video_pinned")

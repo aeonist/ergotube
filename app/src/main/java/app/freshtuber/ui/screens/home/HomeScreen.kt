@@ -44,6 +44,8 @@ import app.freshtuber.ui.feed.FeedNavigation
 import app.freshtuber.ui.feed.FeedPager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 
@@ -87,6 +89,13 @@ class HomeViewModel @Inject constructor(
                 extras = extras,
                 deArrowEnabled = { settings.deArrowEnabled.first() },
             )
+        }
+    }
+
+    init {
+        viewModelScope.launch {
+            kotlinx.coroutines.flow.combine(settings.shortsInFeeds, settings.deArrowEnabled) { shorts, branding -> shorts to branding }
+                .drop(1).collect { feed.refresh() }
         }
     }
 

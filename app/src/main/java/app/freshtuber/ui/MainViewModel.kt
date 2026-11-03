@@ -21,8 +21,13 @@ class MainViewModel @Inject constructor(
     private val settings: AppSettings,
     private val accounts: AccountRepository,
     val player: PlayerController,
+    network: app.freshtuber.core.connectivity.NetworkMonitor,
+    health: app.freshtuber.data.account.SessionHealth,
 ) : ViewModel() {
 
+    val online = network.online
+    val expiredSession = combine(accounts.state, health.expiredProfiles) { account, ids -> (account as? AccountState.SignedIn)?.active?.id in ids }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val shortsEnabled = settings.shortsEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val accountState = accounts.state
     val leftHanded = settings.leftHanded.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val thumbArc = settings.thumbArc.stateIn(viewModelScope, SharingStarted.Eagerly, app.freshtuber.ui.radial.ThumbArc())

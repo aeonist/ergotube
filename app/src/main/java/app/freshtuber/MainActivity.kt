@@ -13,6 +13,11 @@ import android.util.Rational
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.freshtuber.data.settings.AppFeature
+import app.freshtuber.data.settings.AppPreferences
+import app.freshtuber.data.settings.ThemeMode
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -38,6 +43,7 @@ class MainActivity : ComponentActivity() {
     private var inPictureInPicture by mutableStateOf(false)
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var pipOnLeave = true
+    private var backgroundPlayback = true
     private var leftPictureInPicture = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -49,10 +55,15 @@ class MainActivity : ComponentActivity() {
         val uiLocale = ConfigurationCompat.getLocales(resources.configuration)[0] ?: Locale.getDefault()
         NewPipeInitializer.updateLocale(uiLocale)
         lifecycleScope.launch { settings.pipOnLeave.collect { pipOnLeave = it } }
+        lifecycleScope.launch { settings.backgroundPlayback.collect { backgroundPlayback = it } }
 
         setContent {
-            AppTheme {
-                AppRoot(inPictureInPicture = inPictureInPicture, openVideo = externalVideoId, onVideoOpened = { externalVideoId = null })
+            val preferences by settings.preferences.collectAsStateWithLifecycle(AppPreferences())
+            val dark = when (preferences.theme) { ThemeMode.System -> isSystemInDarkTheme(); ThemeMode.Light -> false; else -> true }
+            AppTheme(darkTheme = dark, dynamicColor = preferences.enabled(AppFeature.DynamicColor), amoled = preferences.theme == ThemeMode.Amoled) {
+                androidx.compose.runtime.CompositionLocalProvider(app.freshtuber.ui.theme.LocalAppPreferences provides preferences) {
+                    AppRoot(inPictureInPicture = inPictureInPicture, openVideo = externalVideoId, onVideoOpened = { externalVideoId = null })
+                }
             }
         }
     }
@@ -105,6 +116,7 @@ class MainActivity : ComponentActivity() {
 
     /** Closing the floating window stops the video, as YouTube does. */
     override fun onStop() {
+        if (!backgroundPlayback && !isInPictureInPictureMode && !isChangingConfigurations) playerController.player.pause()
         super.onStop()
         controllerFuture?.let(MediaController::releaseFuture)
         controllerFuture = null

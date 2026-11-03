@@ -60,6 +60,7 @@ fun VideoCard(
     showChannel: Boolean = true,
     enableMenu: Boolean = false,
 ) {
+    val effectiveBranding = if (app.freshtuber.ui.theme.LocalAppPreferences.current.enabled(app.freshtuber.data.settings.AppFeature.DeArrow)) branding else null
     var hidden by remember(video.id) { mutableStateOf(false) }
     var menuAnchor by remember(video.id) { mutableStateOf<Offset?>(null) }
     var buttonCenter by remember { mutableStateOf(Offset.Zero) }
@@ -82,7 +83,7 @@ fun VideoCard(
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh),
         ) {
             AsyncImage(
-                model = branding?.thumbnailUrl ?: video.thumbnailUrl,
+                model = effectiveBranding?.thumbnailUrl ?: video.thumbnailUrl,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
@@ -112,7 +113,7 @@ fun VideoCard(
             }
             Column(Modifier.weight(1f)) {
                 Text(
-                    branding?.title ?: video.title,
+                    effectiveBranding?.title ?: video.title,
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Normal),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,

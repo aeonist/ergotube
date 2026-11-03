@@ -103,8 +103,9 @@ class FeedPager(
 
     private fun start(filterToken: String?, keepFilters: Boolean) {
         job?.cancel()
+        val keepItems = filterToken == null && !keepFilters
         _state.update {
-            it.copy(loading = true, error = null, items = emptyList(), moreFailed = false, endReached = false)
+            it.copy(loading = !keepItems || it.items.isEmpty(), error = null, items = if (keepItems) it.items else emptyList(), moreFailed = false, endReached = false)
         }
         job = scope.launch {
             try {

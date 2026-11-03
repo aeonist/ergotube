@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalContext
 fun AppTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     dynamicColor: Boolean = false,
+    amoled: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val colorScheme = when {
@@ -29,8 +30,10 @@ fun AppTheme(
     }
 
     MaterialTheme(
-        colorScheme = colorScheme,
+        colorScheme = if (amoled && darkTheme) colorScheme.copy(background = androidx.compose.ui.graphics.Color.Black, surface = androidx.compose.ui.graphics.Color.Black, surfaceContainerLowest = androidx.compose.ui.graphics.Color.Black) else colorScheme,
         typography = Typography(),
         content = content,
     )
 }
+
+val LocalAppPreferences = androidx.compose.runtime.staticCompositionLocalOf { app.freshtuber.data.settings.AppPreferences() }

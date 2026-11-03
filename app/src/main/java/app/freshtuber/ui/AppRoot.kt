@@ -96,6 +96,9 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     val leftHanded by viewModel.leftHanded.collectAsStateWithLifecycle()
     val thumbArc by viewModel.thumbArc.collectAsStateWithLifecycle()
     val accountState by viewModel.accountState.collectAsStateWithLifecycle()
+    val shortsEnabled by viewModel.shortsEnabled.collectAsStateWithLifecycle()
+    val online by viewModel.online.collectAsStateWithLifecycle()
+    val expired by viewModel.expiredSession.collectAsStateWithLifecycle()
     val identity = (accountState as? AccountState.SignedIn)?.active
     val filters = remember(identity?.id, identity?.activePageId) { RadialFilters() }
     val playerState by viewModel.player.state.collectAsStateWithLifecycle()
@@ -115,12 +118,29 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
         }
     }
 
+    val activity = androidx.activity.compose.LocalActivity.current
+    val lightBars = MaterialTheme.colorScheme.surface.let { it.red + it.green + it.blue > 1.5f } && currentDestination?.hasRoute<PlayerRoute>() != true
+    androidx.compose.runtime.SideEffect {
+        activity?.window?.let { window -> androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = lightBars
+            isAppearanceLightNavigationBars = lightBars
+        } }
+    }
     val keyboardVisible = WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
     val miniVisible = !fullScreen && !keyboardVisible && currentDestination?.hasRoute<ShortsRoute>() != true && playerState.nowPlaying?.isShort == false
     CompositionLocalProvider(LocalInPictureInPicture provides inPictureInPicture, LocalRadialFilters provides filters,
         app.freshtuber.ui.feed.LocalFeedBottomClearance provides if (miniVisible) 160.dp else 88.dp) {
     Box(Modifier.fillMaxSize()) {
     Scaffold(
+        topBar = {
+            if ((!online || expired) && !fullScreen) androidx.compose.foundation.layout.Column(Modifier.statusBarsPadding().fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
+                if (!online) androidx.compose.material3.Text(stringResource(R.string.offline_banner), modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodySmall)
+                if (expired) androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    androidx.compose.material3.Text(stringResource(R.string.error_session_expired), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                    androidx.compose.material3.TextButton(onClick = signIn) { androidx.compose.material3.Text(stringResource(R.string.welcome_sign_in)) }
+                }
+            }
+        },
         contentWindowInsets = if (currentDestination?.hasRoute<PlayerRoute>() == true || inPictureInPicture) WindowInsets(0, 0, 0, 0) else ScaffoldDefaults.contentWindowInsets,
     ) { innerPadding ->
         NavHost(
@@ -165,7 +185,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
             composable<PlaylistRoute> { ListScreen(navigation, onBack = { navController.popBackStack() }, onSignIn = signIn) }
             composable<ChannelRoute> { ListScreen(navigation, onBack = { navController.popBackStack() }, onSignIn = signIn) }
             composable<AccountRoute> { AccountScreen(onSignIn = signIn) }
-            composable<SettingsRoute> { SettingsScreen(onCalibrate = { navController.navigate(CalibrationRoute) }) }
+            composable<SettingsRoute> { SettingsScreen(onCalibrate = { navController.navigate(CalibrationRoute) }, onAccount = { navController.navigate(AccountRoute) }) }
             composable<CalibrationRoute> { app.freshtuber.ui.radial.CalibrationScreen(onBack = { navController.popBackStack() }) }
             composable<PlayerRoute> {
                 PlayerScreen(
@@ -189,7 +209,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
         }
     }
     if ((!fullScreen || playerMenuRequested) && currentDestination?.hasRoute<CalibrationRoute>() != true) {
-        val sections = TopLevelDestination.entries.map { section ->
+        val sections = TopLevelDestination.entries.filter { shortsEnabled || it != TopLevelDestination.Shorts }.map { section ->
             val title = stringResource(section.labelRes)
             val openSection = RadialItem("open:${section.name}", title, section.icon) { navController.navigateToTopLevel(section) }
             val children = when (section) {

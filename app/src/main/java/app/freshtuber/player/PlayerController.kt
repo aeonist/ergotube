@@ -59,6 +59,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
@@ -175,6 +176,14 @@ class PlayerController @Inject constructor(
 
     private var resolved: ResolvedVideo? = null
     private var segments: List<SkipSegment> = emptyList()
+    private var sponsorEnabled = true
+    init {
+        scope.launch { settings.sponsorBlockEnabled.collectLatest { enabled ->
+            sponsorEnabled = enabled
+            if (!enabled) segments = emptyList()
+            else resolved?.takeUnless { it.isLive }?.let { segments = extras.sponsorSegments(it.videoId) }
+        } }
+    }
     private var prefetchId: String? = null
     private var preloadJob: Job? = null
     private var loadJob: Job? = null
@@ -486,7 +495,7 @@ class PlayerController @Inject constructor(
             var sinceSave = 0
             while (isActive && player.isPlaying) {
                 val seconds = player.currentPosition / 1000.0
-                SponsorBlockRules.segmentAt(segments, seconds)?.let { segment ->
+                SponsorBlockRules.segmentAt(if (sponsorEnabled) segments else emptyList(), seconds)?.let { segment ->
                     player.seekTo((segment.end * 1000).toLong())
                     _events.tryEmit(PlayerEvent.SegmentSkipped(segment))
                 }
