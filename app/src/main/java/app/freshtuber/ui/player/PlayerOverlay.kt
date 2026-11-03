@@ -68,6 +68,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -100,7 +102,7 @@ fun PlayerOverlay(
     gesturesEnabled: Boolean,
     onBack: () -> Unit,
     onToggleFullscreen: () -> Unit,
-    onOpenSettings: () -> Unit,
+    onOpenSettings: (Offset?) -> Unit,
     onNext: (() -> Unit)?,
     onRetry: () -> Unit,
     onOpenActions: () -> Unit,
@@ -210,7 +212,7 @@ private fun Controls(
     fullscreen: Boolean,
     onBack: () -> Unit,
     onToggleFullscreen: () -> Unit,
-    onOpenSettings: () -> Unit,
+    onOpenSettings: (Offset?) -> Unit,
     onNext: (() -> Unit)?,
     onInteract: () -> Unit,
     leftHanded: Boolean,
@@ -218,10 +220,11 @@ private fun Controls(
     onOpenActions: () -> Unit,
     actionsExpanded: Boolean,
 ) {
+    var settingsPosition by remember { mutableStateOf<Offset?>(null) }
     val live = state.nowPlaying?.isLive == true
     Box(Modifier.fillMaxSize().background(Color(0x66000000))
         .windowInsetsPadding(if (fullscreen) WindowInsets.safeDrawing.union(WindowInsets.safeGestures).only(WindowInsetsSides.Horizontal)
-            else WindowInsets.safeGestures.only(WindowInsetsSides.Horizontal))) {
+            else WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))) {
         Row(
             Modifier
                 .fillMaxWidth()
@@ -240,10 +243,7 @@ private fun Controls(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-            onNext?.takeIf { !fullscreen }?.let { next ->
-                WhiteIcon(Icons.Rounded.SkipNext, stringResource(R.string.player_next)) { onInteract(); next() }
-            }
-            if (!fullscreen) WhiteIcon(Icons.Rounded.Settings, stringResource(R.string.player_settings)) { onInteract(); onOpenSettings() }
+
         }
 
         if ((!loading || fullscreen) && !actionsExpanded) {
@@ -268,16 +268,10 @@ private fun Controls(
                     onNext?.let { next -> add(RadialItem("next", stringResource(R.string.player_next), Icons.Rounded.SkipNext) { onInteract(); next() }) }
                     add(RadialItem("back", stringResource(R.string.action_back), Icons.AutoMirrored.Rounded.ArrowBack, action = onBack))
                     add(RadialItem("actions", stringResource(R.string.player_actions), Icons.Rounded.MoreHoriz) { onInteract(); onOpenActions() })
-                    add(RadialItem("settings", stringResource(R.string.player_settings), Icons.Rounded.Settings) { onInteract(); onOpenSettings() })
+                    add(RadialItem("settings", stringResource(R.string.player_settings), Icons.Rounded.Settings) { onInteract(); onOpenSettings(settingsPosition) })
                     add(RadialItem("exit", stringResource(R.string.player_exit_fullscreen), Icons.Rounded.FullscreenExit, action = onToggleFullscreen))
                 }
-                PlaybackArc(items, leftHanded, thumbArc, Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)).padding(top = 48.dp, bottom = 64.dp))
-            } else {
-                Row(Modifier.align(Alignment.Center), horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                    if (!live) WhiteIcon(Icons.Rounded.Replay10, stringResource(R.string.player_back_10)) { onInteract(); player.seekBack() }
-                    WhiteIcon(playIcon, stringResource(playLabel), toggle)
-                    if (!live) WhiteIcon(Icons.Rounded.Forward10, stringResource(R.string.player_forward_10)) { onInteract(); player.seekForward() }
-                }
+                PlaybackArc(items, leftHanded, thumbArc, Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom)).padding(top = 48.dp, bottom = 64.dp), onSettingsPosition = { settingsPosition = it })
             }
         }
 
@@ -315,7 +309,7 @@ private fun Controls(
 
 /** Already unfolded when the video is tapped; no secondary menu trigger. */
 @Composable
-private fun PlaybackArc(items: List<RadialItem>, left: Boolean, arc: ThumbArc, modifier: Modifier) {
+private fun PlaybackArc(items: List<RadialItem>, left: Boolean, arc: ThumbArc, modifier: Modifier, onSettingsPosition: (Offset) -> Unit) {
     val density = LocalDensity.current
     BoxWithConstraints(modifier) {
         val layout = app.freshtuber.ui.radial.RadialGeometry.layout(maxWidth.value, maxHeight.value, left, arc, false)
@@ -325,7 +319,7 @@ private fun PlaybackArc(items: List<RadialItem>, left: Boolean, arc: ThumbArc, m
                 items.chunked(4).forEach { group ->
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         (if (left) group.reversed() else group).forEach { item ->
-                            IconButton(item.action, enabled = item.enabled, modifier = Modifier.size(48.dp).background(Color(0xCC181818), CircleShape),
+                            IconButton(item.action, enabled = item.enabled, modifier = Modifier.size(48.dp).then(if (item.id == "settings") Modifier.onGloballyPositioned { onSettingsPosition(it.positionOnScreen() + Offset(it.size.width / 2f, it.size.height / 2f)) } else Modifier).background(Color(0xCC181818), CircleShape),
                                 colors = IconButtonDefaults.iconButtonColors(contentColor = Color.White)) { Icon(item.icon!!, item.title) }
                         }
                     }
@@ -338,7 +332,7 @@ private fun PlaybackArc(items: List<RadialItem>, left: Boolean, arc: ThumbArc, m
             val p = points[index]
             IconButton(onClick = item.action, enabled = item.enabled, modifier = Modifier.offset {
                 androidx.compose.ui.unit.IntOffset(with(density) { (p.x - 24).dp.roundToPx() }, with(density) { (p.y - 24).dp.roundToPx() })
-            }.size(48.dp).background(Color(0xCC181818), CircleShape),
+            }.size(48.dp).then(if (item.id == "settings") Modifier.onGloballyPositioned { onSettingsPosition(it.positionOnScreen() + Offset(it.size.width / 2f, it.size.height / 2f)) } else Modifier).background(Color(0xCC181818), CircleShape),
                 colors = IconButtonDefaults.iconButtonColors(contentColor = Color.White)) {
                 Icon(item.icon!!, item.title)
             }

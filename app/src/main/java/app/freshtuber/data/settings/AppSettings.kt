@@ -22,6 +22,9 @@ private val Context.settingsStore: DataStore<Preferences> by preferencesDataStor
 class AppSettings @Inject constructor(
     @param:ApplicationContext private val context: Context,
 ) {
+    val hiddenVideos: Flow<Set<String>> = context.settingsStore.data.map { it[HIDDEN_VIDEOS] ?: emptySet() }
+    suspend fun hideVideo(id: String) { context.settingsStore.edit { it[HIDDEN_VIDEOS] = (it[HIDDEN_VIDEOS].orEmpty() + id) } }
+
     /** True once the user signed in or chose to continue without an account. */
     val welcomeDone: Flow<Boolean> = context.settingsStore.data.map { it[WELCOME_DONE] == true }
 
@@ -75,6 +78,7 @@ class AppSettings @Inject constructor(
     }
 
     private companion object {
+        val HIDDEN_VIDEOS = androidx.datastore.preferences.core.stringSetPreferencesKey("hidden_videos")
         val VIDEO_PINNED = booleanPreferencesKey("video_pinned")
         val ARC_VERTICAL = floatPreferencesKey("thumb_arc_vertical")
         val LEFT_HAND = booleanPreferencesKey("left_hand")

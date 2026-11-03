@@ -19,6 +19,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.*
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionOnScreen
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -49,7 +58,15 @@ fun VideoCard(
     branding: Branding? = null,
     onChannelClick: ((String) -> Unit)? = null,
     showChannel: Boolean = true,
+    enableMenu: Boolean = false,
 ) {
+    var hidden by remember(video.id) { mutableStateOf(false) }
+    var menuAnchor by remember(video.id) { mutableStateOf<Offset?>(null) }
+    var buttonCenter by remember { mutableStateOf(Offset.Zero) }
+    val feedActions: app.freshtuber.ui.feed.FeedVideoActions? = if (enableMenu) androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel() else null
+    val hiddenIds = feedActions?.hiddenVideos?.collectAsStateWithLifecycle()?.value.orEmpty()
+    if (hidden || video.id in hiddenIds) return
+    menuAnchor?.let { app.freshtuber.ui.feed.FeedVideoMenu(video, it, { hidden = true; feedActions?.hideVideo(video.id) }, { menuAnchor = null }) }
     Column(
         modifier
             .fillMaxWidth()
@@ -101,6 +118,9 @@ fun VideoCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 MetaLine(video, showChannel, Modifier.padding(top = 4.dp))
+            }
+            if (enableMenu) IconButton(onClick = { menuAnchor = buttonCenter }, modifier = Modifier.size(48.dp).onGloballyPositioned { buttonCenter = it.positionOnScreen() + Offset(it.size.width / 2f, it.size.height / 2f) }) {
+                Icon(Icons.Rounded.MoreVert, stringResource(R.string.video_more))
             }
         }
     }

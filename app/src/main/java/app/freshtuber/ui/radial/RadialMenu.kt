@@ -121,7 +121,9 @@ fun RadialMenu(
     anchorRoot: Offset? = null,
     anchorMargin: Float = 40f,
     pageSlots: Int = 6,
+    closeRoot: Offset? = null,
 ) {
+    var originReady by remember { mutableStateOf(false) }
     var menuOrigin by remember { mutableStateOf(Offset.Zero) }
     var expanded by remember { mutableStateOf(initiallyExpanded) }
     var path by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -162,7 +164,7 @@ fun RadialMenu(
             Box(Modifier.fillMaxSize().graphicsLayer { alpha = opacity }.background(scrimColor)
                 .clickable(onClickLabel = closeLabel) { expanded = false })
         }
-        BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(contentInsets).onGloballyPositioned { menuOrigin = it.positionInRoot() }) {
+        BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(contentInsets).onGloballyPositioned { menuOrigin = it.positionInRoot(); originReady = true }.graphicsLayer { alpha = if ((anchorRoot != null || closeRoot != null) && !originReady) 0f else 1f }) {
             val roomy = maxHeight > 400.dp
             val branch = path.fold(null as RadialItem?) { parent, id -> (parent?.children ?: items).firstOrNull { it.id == id } }
             val all = if (branch == null) items else listOf(
@@ -174,6 +176,7 @@ fun RadialMenu(
             val layout = remember(maxWidth, maxHeight, leftHanded, arc, preferredTarget, origin, anchorMargin, capacity) {
                 RadialGeometry.menuLayout(maxWidth.value, maxHeight.value, leftHanded, arc, preferredTarget, origin, anchorMargin, capacity)
             }
+            val closePoint = closeRoot?.let { ArcPoint((it.x - menuOrigin.x) / density.density, (it.y - menuOrigin.y) / density.density) } ?: layout.anchor
             val target = layout.outerTarget
             val chunks = mutableListOf<List<RadialItem>>()
             if (all.size <= capacity) chunks += all
@@ -268,12 +271,12 @@ fun RadialMenu(
                 }
             }
             if (showAnchor) Box(
-                Modifier.at(layout.anchor, 56f).clip(CircleShape).background(BrandColors.Red)
+                Modifier.at(closePoint, 56f).clip(CircleShape).background(BrandColors.Red)
                     .semantics {
                         contentDescription = if (expanded) closeLabel else openLabel; role = Role.Button
                         onClick { expanded = !expanded; interact(); true }
                     }
-                    .pointerInput(layout) {
+                    .pointerInput(layout, closePoint) {
                         awaitEachGesture {
                             val down = awaitFirstDown(); down.consume()
                             val wasOpen = expanded; expanded = true; dragging = true; interactions++; interact()
@@ -284,8 +287,8 @@ fun RadialMenu(
                                     val event = awaitPointerEvent()
                                     val change = event.changes.firstOrNull { it.id == down.id } ?: break
                                     if ((change.position - down.position).getDistance() > viewConfiguration.touchSlop) moved = true
-                                    val p = ArcPoint(layout.anchor.x + with(density) { (change.position.x - size.width / 2).toDp().value },
-                                        layout.anchor.y + with(density) { (change.position.y - size.height / 2).toDp().value })
+                                    val p = ArcPoint(closePoint.x + with(density) { (change.position.x - size.width / 2).toDp().value },
+                                        closePoint.y + with(density) { (change.position.y - size.height / 2).toDp().value })
                                     released = RadialGeometry.hit(p, currentPoints, target / 2)?.let { currentItems[it] }
                                     if (released?.id != hovered) {
                                         hovered = released?.id

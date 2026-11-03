@@ -324,6 +324,15 @@ class VideoViewModel @Inject constructor(
         perform(if (add) option.addCommand else option.removeCommand) { mark(!add) }
     }
 
+    fun notInterested(command: InnerTubeCommand?, onDone: () -> Unit) {
+        if (command == null || !signedIn) { onDone(); return }
+        viewModelScope.launch {
+            try { videos.perform(command); onDone() }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { _message.value = e.toMessage() }
+        }
+    }
+
     fun consumeMessage() {
         _message.value = null
     }

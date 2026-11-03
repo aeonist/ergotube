@@ -92,7 +92,7 @@ class ListViewModel @Inject constructor(
 
     private val source: FeedSource = when {
         section != null -> FeedSource.Browse(checkNotNull(section.browseId))
-        playlist != null -> FeedRepository.playlist(playlist.playlistId)
+        playlist != null -> FeedRepository.playlist(playlist.playlistId, playlist.seedVideoId)
         else -> FeedSource.Browse(checkNotNull(channelId), FeedRepository.CHANNEL_VIDEOS_TAB)
     }
 

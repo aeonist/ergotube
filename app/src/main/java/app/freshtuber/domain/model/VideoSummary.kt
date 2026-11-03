@@ -21,6 +21,7 @@ data class VideoSummary(
     val isShort: Boolean = false,
     /** How much of it the signed-in user watched, 0..100. */
     val watchedPercent: Int? = null,
+    val notInterested: app.freshtuber.innertube.InnerTubeCommand? = null,
 )
 
 data class PlaylistSummary(
@@ -30,6 +31,7 @@ data class PlaylistSummary(
     /** "12 видео" */
     val videoCountText: String? = null,
     val channelName: String? = null,
+    val seedVideoId: String? = null,
 )
 
 data class ChannelSummary(

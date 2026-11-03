@@ -51,7 +51,7 @@ val LocalFeedBottomClearance = androidx.compose.runtime.staticCompositionLocalOf
 /** What a tap on a list item opens. */
 interface FeedNavigation {
     fun openVideo(videoId: String)
-    fun openPlaylist(playlistId: String, title: String)
+    fun openPlaylist(playlistId: String, title: String, seedVideoId: String? = null)
     fun openChannel(channelId: String)
 }
 
@@ -68,6 +68,7 @@ fun FeedList(
     emptyMessage: String,
     modifier: Modifier = Modifier,
     showChannel: Boolean = true,
+    videoActions: Boolean = false,
     onSignInAgain: (() -> Unit)? = null,
     header: (LazyListScope.() -> Unit)? = null,
 ) {
@@ -105,9 +106,10 @@ fun FeedList(
                             onClick = { navigation.openVideo(item.video.id) },
                             onChannelClick = navigation::openChannel,
                             showChannel = showChannel,
+                            enableMenu = videoActions,
                         )
                         is FeedItem.Playlist -> PlaylistRow(item.playlist) {
-                            navigation.openPlaylist(item.playlist.id, item.playlist.title)
+                            navigation.openPlaylist(item.playlist.id, item.playlist.title, item.playlist.seedVideoId)
                         }
                         is FeedItem.Channel -> ChannelRow(item.channel) { navigation.openChannel(item.channel.id) }
                     }

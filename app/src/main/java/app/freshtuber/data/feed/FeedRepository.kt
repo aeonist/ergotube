@@ -24,6 +24,7 @@ import javax.inject.Singleton
 /** A YouTube page that is a list: a browse id, or a continuation token of a list already open. */
 sealed interface FeedSource {
     data class Browse(val browseId: String, val params: String? = null) : FeedSource
+    data class Mix(val playlistId: String, val seedVideoId: String? = null) : FeedSource
     data class Search(val query: String) : FeedSource
     data class Kiosk(val kiosk: ExtractorSearchSource.Kiosk) : FeedSource
 }
@@ -44,6 +45,10 @@ class FeedRepository @Inject constructor(
 
     suspend fun load(source: FeedSource): FeedPage = withContext(Dispatchers.IO) {
         when (source) {
+            is FeedSource.Mix -> FeedParser.parseMix(innerTube.post("next", buildJsonObject {
+                put("playlistId", source.playlistId)
+                source.seedVideoId?.let { put("videoId", it) }
+            }))
             is FeedSource.Browse -> parseBrowse(source,
                 innerTube.post("browse", buildJsonObject {
                     put("browseId", source.browseId)
@@ -62,6 +67,7 @@ class FeedRepository @Inject constructor(
     /** Next page of [source] (or a filter chip's view of it) from a continuation token. */
     suspend fun loadMore(source: FeedSource, token: String): FeedPage = withContext(Dispatchers.IO) {
         when (source) {
+            is FeedSource.Mix -> FeedParser.parseMix(innerTube.post("next", kotlinx.serialization.json.Json.parseToJsonElement(token) as JsonObject))
             is FeedSource.Search -> if (isSignedIn) {
                 FeedParser.parse(innerTube.post("search", continuation(token)))
             } else {
@@ -113,7 +119,10 @@ class FeedRepository @Inject constructor(
         /** Protobuf params for a channel's "Videos" tab, as youtube.com sends them. */
         const val CHANNEL_VIDEOS_TAB = "EgZ2aWRlb3PyBgQKAjoA"
 
-        fun playlist(id: String) = FeedSource.Browse(if (id.startsWith("VL")) id else "VL$id")
+        fun playlist(id: String, seedVideoId: String? = null): FeedSource {
+            val plain = id.removePrefix("VL")
+            return if (plain.startsWith("RD")) FeedSource.Mix(plain, seedVideoId) else FeedSource.Browse(if (id.startsWith("VL")) id else "VL$id")
+        }
     }
 }
 

@@ -118,6 +118,7 @@ fun HomeScreen(
     FeedList(
         state = state,
         navigation = navigation,
+        videoActions = true,
         onRetry = viewModel.feed::refresh,
         onLoadMore = viewModel.feed::loadMore,
         emptyMessage = stringResource(R.string.feed_empty),

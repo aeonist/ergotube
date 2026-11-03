@@ -168,4 +168,7 @@
     <string name="radial_share_short">Share</string>
     <string name="radial_comments_short">Discuss</string>
     <string name="radial_like_short">Like</string>
+    <string name="feed_not_interested">Not interested</string>
+    <string name="feed_download">Download</string>
+    <string name="feed_save_sign_in">Sign in to save videos to playlists.</string>
 </resources>

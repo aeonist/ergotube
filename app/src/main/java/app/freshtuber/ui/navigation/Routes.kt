@@ -25,7 +25,7 @@ import kotlinx.serialization.Serializable
 @Serializable data object WelcomeRoute
 @Serializable data object LoginRoute
 @Serializable data class LibraryListRoute(val section: String)
-@Serializable data class PlaylistRoute(val playlistId: String, val title: String)
+@Serializable data class PlaylistRoute(val playlistId: String, val title: String, val seedVideoId: String? = null)
 @Serializable data class ChannelRoute(val channelId: String)
 
 /**

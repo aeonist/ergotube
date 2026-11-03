@@ -16,3 +16,8 @@ only a nudge), reel_seq (Shorts sequence). They hold public data only.
 modeled after YouTube.js RichGrid/HomeFeed: main recommendation, regional news shelf,
 Shorts shelf, ad slot, filters and distinct continuation tokens. It is not a captured
 signed-in response and contains no account data. It tests Home's container boundaries.
+
+- `mix_next.json.gz`: anonymous WEB `next` response for RDdQw4w9WgXcQ, captured 2026-11-03; reduced to the playlist panel, 25 videos. No account cookies. Mix request shape verified against NewPipeExtractor YoutubeMixPlaylistExtractor.
+- `feed_actions.json`: structural menu fixture; matching NOT_INTERESTED feedback and an unrelated feedback action, using dummy tokens. Feedback request verified against YouTube.js FeedbackEndpoint.
+
+- `mix_more.json.gz`: the next anonymous watch-next playlist panel, requested with the last video endpoint from mix_next; 25 entries, additional video IDs (the generated mix changes over time).

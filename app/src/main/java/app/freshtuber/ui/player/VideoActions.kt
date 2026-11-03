@@ -235,7 +235,7 @@ fun VideoActionsMenu(
             RadialItem("channel-actions", channelTitle, Icons.Rounded.AccountCircle, children = channelItems) {},
         )
     }
-    RadialMenu(items, left, arc, initiallyExpanded = true, showAnchor = true, anchorRoot = anchorRoot,
+    RadialMenu(items, left, arc, initiallyExpanded = true, showAnchor = true, closeRoot = anchorRoot,
         onExpandedChange = { if (!it) onDismiss() },
         heading = when (group) { VideoActionGroup.Video -> videoTitle; VideoActionGroup.Channel -> listOfNotNull(channelTitle, state.details?.channel?.name).joinToString(" · "); VideoActionGroup.All -> stringResource(R.string.player_actions) },
         instruction = stringResource(R.string.radial_choose_action))

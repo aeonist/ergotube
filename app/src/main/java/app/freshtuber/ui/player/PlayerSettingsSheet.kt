@@ -22,6 +22,7 @@ fun PlayerSettingsSheet(
     controller: PlayerController,
     leftHanded: Boolean,
     arc: ThumbArc,
+    centerOnScreen: androidx.compose.ui.geometry.Offset? = null,
     onDismiss: () -> Unit,
 ) {
     var sleepOpen by remember { mutableStateOf(false) }
@@ -73,7 +74,8 @@ fun PlayerSettingsSheet(
         SleepTimerDial(state.sleepTimer, arc, leftHanded,
             onBack = { sleepOpen = false },
             onSet = { controller.setSleepTimer(it); onDismiss() })
-    } else RadialMenu(items, leftHanded, arc, initiallyExpanded = true, closeOnAction = false,
+    } else if (centerOnScreen != null) app.freshtuber.ui.radial.TouchRadialMenu(items, centerOnScreen, onDismiss)
+    else RadialMenu(items, leftHanded, arc, initiallyExpanded = true, closeOnAction = false,
         onExpandedChange = { if (!it && !sleepOpen) onDismiss() },
         heading = stringResource(R.string.player_settings), instruction = stringResource(R.string.radial_choose_action))
 }

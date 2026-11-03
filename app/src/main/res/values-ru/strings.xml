@@ -166,4 +166,7 @@
     <string name="radial_share_short">Отправка</string>
     <string name="radial_comments_short">Обсудить</string>
     <string name="radial_like_short">Лайк</string>
+    <string name="feed_not_interested">Не интересует</string>
+    <string name="feed_download">Скачать</string>
+    <string name="feed_save_sign_in">Войди в аккаунт, чтобы сохранять видео в плейлисты.</string>
 </resources>

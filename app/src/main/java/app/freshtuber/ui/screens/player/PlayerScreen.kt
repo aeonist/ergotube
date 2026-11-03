@@ -23,6 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
@@ -50,7 +51,6 @@ fun PlayerScreen(
     onBack: () -> Unit,
     onSignIn: () -> Unit,
     onAdvanced: (String) -> Unit,
-    onOpenNavigation: () -> Unit,
     viewModel: VideoViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -68,6 +68,7 @@ fun PlayerScreen(
     var actionGroup by remember { mutableStateOf<VideoActionGroup?>(null) }
     val thumbArc by menuSettings.arc.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    var settingsPosition by remember { mutableStateOf<androidx.compose.ui.geometry.Offset?>(null) }
     var settingsOpen by rememberSaveable { mutableStateOf(false) }
     var fullscreenRequested by rememberSaveable { mutableStateOf(false) }
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -127,7 +128,7 @@ fun PlayerScreen(
                 gesturesEnabled = gestures,
                 onBack = { if (fullscreenRequested) fullscreenRequested = false else onBack() },
                 onToggleFullscreen = { fullscreenRequested = !fullscreen },
-                onOpenSettings = { settingsOpen = true },
+                onOpenSettings = { position -> settingsPosition = position; settingsOpen = true },
                 onNext = if (playerState.queue.isNotEmpty()) viewModel::playNext else null,
                 onRetry = viewModel::retryPlayback,
                 onOpenActions = { actionGroup = VideoActionGroup.All },
@@ -148,11 +149,17 @@ fun PlayerScreen(
         if (fullscreen) {
             playerArea(Modifier.fillMaxSize())
         } else {
-            Box(Modifier.fillMaxSize().background(Color.Black).statusBarsPadding()
-                .navigationBarsPadding().background(MaterialTheme.colorScheme.surface)) {
+            BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black).statusBarsPadding()
+                .navigationBarsPadding().background(MaterialTheme.colorScheme.surface).then(Modifier.clipToBounds())) {
                 val details = state.details
+                val videoHeight = maxWidth / videoAspect
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                val videoHeightPx = with(density) { videoHeight.roundToPx() }
+                val videoOffset by remember(pinned, videoHeightPx, details) { derivedStateOf {
+                    if (pinned || details == null) 0 else if (listState.firstVisibleItemIndex == 0) -listState.firstVisibleItemScrollOffset else -videoHeightPx
+                } }
                 Column(Modifier.fillMaxSize()) {
-                    if (pinned || details == null) playerArea(Modifier.fillMaxWidth().aspectRatio(videoAspect))
+                    if (pinned || details == null) Spacer(Modifier.fillMaxWidth().height(videoHeight))
                     if (pinned && details != null) TitleBlock(details)
                     Box(Modifier.weight(1f)) {
                         when {
@@ -162,28 +169,17 @@ fun PlayerScreen(
                             details == null -> LoadErrorState(state.error ?: LoadError.Unknown, viewModel::load, onSignIn)
                             else -> VideoBody(details, navigation, listState,
                                 showTitle = !pinned,
-                                videoHeader = if (!pinned) ({ playerArea(Modifier.fillMaxWidth().aspectRatio(videoAspect)) }) else null)
+                                videoHeader = if (!pinned) ({ Spacer(Modifier.fillMaxWidth().height(videoHeight)) }) else null)
                         }
                     }
                 }
-                Column(Modifier.align(if (leftHanded) Alignment.BottomStart else Alignment.BottomEnd)
-                    .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)).padding(8.dp),
-                    horizontalAlignment = if (leftHanded) Alignment.Start else Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (details != null) VideoActionGroups(state, onOpen = { actionGroup = it }, onPosition = { group, position -> groupPositions[group] = position })
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        if (leftHanded) NavigationAnchor(onOpenNavigation)
-                        if (!leftHanded) ActionIcon(Icons.Rounded.Fullscreen, stringResource(R.string.player_fullscreen)) { fullscreenRequested = true }
-                        ActionIcon(if (pinned) Icons.Rounded.Lock else Icons.Rounded.LockOpen,
-                            stringResource(if (pinned) R.string.player_unpin else R.string.player_pin), selected = pinned) {
-                            // Reset before changing the lazy header; keyed-item preservation must not hide the video.
-                            listState.requestScrollToItem(0)
-                            menuSettings.setPinned(!pinned)
-                        }
-                        if (leftHanded) ActionIcon(Icons.Rounded.Fullscreen, stringResource(R.string.player_fullscreen)) { fullscreenRequested = true }
-                        if (!leftHanded) NavigationAnchor(onOpenNavigation)
-                    }
-                }
+                playerArea(Modifier.fillMaxWidth().height(videoHeight).offset { androidx.compose.ui.unit.IntOffset(0, videoOffset) })
+                PortraitControls(viewModel.player, state, leftHanded, pinned, playerState.queue.isNotEmpty(),
+                    viewModel::playNext, { fullscreenRequested = true }, {
+                        listState.requestScrollToItem(0)
+                        menuSettings.setPinned(!pinned)
+                    }, { position -> settingsPosition = position; settingsOpen = true },
+                    { actionGroup = it }, { group, position -> groupPositions[group] = position })
             }
         }
     }
@@ -193,7 +189,7 @@ fun PlayerScreen(
     }
     if (comments.opened) CommentsSheet(comments, viewModel, navigation::openChannel)
     if (picker.opened) PlaylistPickerSheet(picker, viewModel)
-    if (settingsOpen) PlayerSettingsSheet(playerState, viewModel.controller, leftHanded, thumbArc, onDismiss = { settingsOpen = false })
+    if (settingsOpen) PlayerSettingsSheet(playerState, viewModel.controller, leftHanded, thumbArc, centerOnScreen = settingsPosition, onDismiss = { settingsOpen = false })
 }
 
 /** Landscape and hidden system bars while full screen; everything restored on exit. */
@@ -244,7 +240,7 @@ private fun VideoBody(
                     modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp))
             }
             items(details.related, key = { "r:${it.id}" }) { video ->
-                VideoCard(video, onClick = { navigation.openVideo(video.id) }, onChannelClick = navigation::openChannel)
+                VideoCard(video, onClick = { navigation.openVideo(video.id) }, onChannelClick = navigation::openChannel, enableMenu = true)
             }
         }
     }

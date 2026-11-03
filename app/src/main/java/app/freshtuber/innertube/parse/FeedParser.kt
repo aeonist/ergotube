@@ -62,6 +62,24 @@ object FeedParser {
         )
     }
 
+    /** Mixes are watch-next playlist panels, not browse playlists. */
+    fun parseMix(root: JsonElement): FeedPage {
+        val panel = root.path("contents", "twoColumnWatchNextResults", "playlist", "playlist")
+            ?: root.findAll("playlistPanelRenderer").firstOrNull() ?: return FeedPage(emptyList())
+        val page = parse(panel)
+        val last = panel.findAll("playlistPanelVideoRenderer").lastOrNull()
+        val endpoint = last.path("navigationEndpoint", "watchEndpoint") as? JsonObject
+        val playlistId = endpoint.str("playlistId") ?: panel.str("playlistId")
+        val videoId = endpoint.str("videoId") ?: last.str("videoId")
+        val next = if (playlistId != null && videoId != null && page.items.size > 1) kotlinx.serialization.json.buildJsonObject {
+            put("playlistId", kotlinx.serialization.json.JsonPrimitive(playlistId))
+            put("videoId", kotlinx.serialization.json.JsonPrimitive(videoId))
+            endpoint?.get("index")?.let { put("playlistIndex", it) }
+            endpoint?.get("params")?.let { put("params", it) }
+        }.toString() else null
+        return page.copy(continuation = next)
+    }
+
     /** Home owns only the main grid, never videos nested in editorial or Shorts shelves.
      * RichGrid and append/reload commands match YouTube.js HomeFeed's page containers.
      */
@@ -116,6 +134,7 @@ object FeedParser {
             detailText = details.joinToString(" • ").ifEmpty { null },
             isLive = isLive,
             watchedPercent = v.findAll("thumbnailOverlayResumePlaybackRenderer").firstOrNull().int("percentDurationWatched"),
+            notInterested = notInterested(v),
         )
     }
 
@@ -152,6 +171,7 @@ object FeedParser {
                         detailText = detail,
                         isLive = liveBadge,
                         watchedPercent = v.findAll("thumbnailOverlayProgressBarViewModel").firstOrNull().int("startPercent"),
+                        notInterested = notInterested(v),
                     ),
                 )
             }
@@ -162,6 +182,7 @@ object FeedParser {
                     thumbnailUrl = v.obj("contentImage").findAll("image").firstNotNullOfOrNull { it.bestSourceUrl() },
                     videoCountText = badges.firstNotNullOfOrNull { it.str("text") },
                     channelName = channelName ?: rows.firstOrNull().rowParts().firstOrNull(),
+                    seedVideoId = v.findAll("watchEndpoint").firstNotNullOfOrNull { it.str("videoId") },
                 ),
             )
             else -> null
@@ -219,11 +240,37 @@ object FeedParser {
         return FeedFilter(title, continuationToken(v), selected)
     }
 
+    /** Match the action's icon, never localized text or an unrelated feedback token. */
+    private fun notInterested(v: JsonElement): app.freshtuber.innertube.InnerTubeCommand? {
+        fun action(element: JsonElement): JsonObject? {
+            when (element) {
+                is JsonObject -> {
+                    element.values.forEach { child -> action(child)?.let { return it } }
+                    val icons = element.findAll("icon") + element.findAll("leadingIcon")
+                    if (icons.any { it.str("iconType") == "NOT_INTERESTED" || it.str("iconName") == "NOT_INTERESTED" } &&
+                        element.findAll("feedbackEndpoint").isNotEmpty()) return element
+                }
+                is JsonArray -> element.forEach { child -> action(child)?.let { return it } }
+                else -> Unit
+            }
+            return null
+        }
+        val item = action(v) ?: return null
+        val endpoint = item.findAll("feedbackEndpoint").firstOrNull() ?: return null
+        val token = endpoint.str("feedbackToken") ?: return null
+        return app.freshtuber.innertube.InnerTubeCommand("feedback", kotlinx.serialization.json.buildJsonObject {
+            put("feedbackTokens", JsonArray(listOf(kotlinx.serialization.json.JsonPrimitive(token))))
+            put("shouldMerge", kotlinx.serialization.json.JsonPrimitive(endpoint.bool("shouldMerge") == true))
+            put("isFeedbackTokenUnencrypted", kotlinx.serialization.json.JsonPrimitive(endpoint.bool("isFeedbackTokenUnencrypted") == true))
+        })
+    }
+
     private val VIDEO_RENDERERS = setOf(
         "videoRenderer",
         "compactVideoRenderer",
         "gridVideoRenderer",
         "playlistVideoRenderer",
+        "playlistPanelVideoRenderer",
         "videoWithContextRenderer",
     )
 }

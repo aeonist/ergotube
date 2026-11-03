@@ -106,8 +106,8 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     val navigation = remember(navController) {
         object : FeedNavigation {
             override fun openVideo(videoId: String) = navController.navigate(PlayerRoute(videoId))
-            override fun openPlaylist(playlistId: String, title: String) =
-                navController.navigate(PlaylistRoute(playlistId, title))
+            override fun openPlaylist(playlistId: String, title: String, seedVideoId: String?) =
+                navController.navigate(PlaylistRoute(playlistId, title, seedVideoId))
             override fun openChannel(channelId: String) = navController.navigate(ChannelRoute(channelId))
         }
     }
@@ -167,7 +167,6 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
                     navigation,
                     onBack = { navController.popBackStack() },
                     onSignIn = signIn,
-                    onOpenNavigation = { playerMenuRequested = true },
                     onAdvanced = { next ->
                         navController.navigate(PlayerRoute(next)) { popUpTo<PlayerRoute> { inclusive = true } }
                     },
@@ -178,8 +177,8 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     val nowPlaying = playerState.nowPlaying
     if (!fullScreen && currentDestination?.hasRoute<ShortsRoute>() != true && nowPlaying != null && !nowPlaying.isShort) {
         Box(Modifier.align(androidx.compose.ui.Alignment.BottomCenter)
-            .windowInsetsPadding(WindowInsets.safeDrawing.union(WindowInsets.safeGestures).only(WindowInsetsSides.Bottom))
-            .padding(bottom = 0.dp)) {
+            .background(androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainer)
+            .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))) {
             MiniPlayer(player = viewModel.player.player, nowPlaying = nowPlaying,
                 onOpen = { navController.navigate(PlayerRoute(nowPlaying.videoId)) }, onClose = viewModel.player::stop)
         }
