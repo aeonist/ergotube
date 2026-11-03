@@ -152,12 +152,14 @@ fun NavigationAnchor(onClick: () -> Unit) {
 fun VideoMoreMenu(videoId: String, viewModel: VideoViewModel, left: Boolean, arc: ThumbArc, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val share = stringResource(R.string.video_share)
+    val downloadNotifications = app.freshtuber.ui.components.rememberDownloadNotifications()
     val items = listOf(
         RadialItem("save", stringResource(R.string.video_save), Icons.Rounded.BookmarkBorder, shortTitle = stringResource(R.string.radial_save_short)) { viewModel.openPlaylistPicker() },
         RadialItem("share", share, Icons.Rounded.Share) {
             context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
                 .putExtra(Intent.EXTRA_TEXT, "https://youtu.be/$videoId"), share))
         },
+        RadialItem("download", stringResource(R.string.feed_download), Icons.Rounded.Download) { downloadNotifications(); viewModel.download() },
     )
     RadialMenu(items, left, arc, initiallyExpanded = true, showAnchor = false,
         onExpandedChange = { if (!it) onDismiss() },
@@ -205,6 +207,7 @@ fun VideoActionsMenu(
     val likeCount = (if (liked) state.details?.likeCountTextLiked ?: state.details?.likeCountText else state.details?.likeCountText)
         ?.takeIf { it.any(Char::isDigit) }
     fun withCount(label: String, count: String?) = listOfNotNull(label, count).joinToString("\n")
+    val downloadNotifications = app.freshtuber.ui.components.rememberDownloadNotifications()
     val videoItems = listOf(
         RadialItem("like", withCount(stringResource(R.string.video_like), likeCount),
             if (liked) Icons.Rounded.ThumbUp else Icons.Rounded.ThumbUpOffAlt, selected = liked, shortTitle = withCount(stringResource(R.string.radial_like_short), likeCount)) { viewModel.toggleLike() },
@@ -218,6 +221,7 @@ fun VideoActionsMenu(
             context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
                 .putExtra(Intent.EXTRA_TEXT, "https://youtu.be/${viewModel.videoId}"), shareLabel))
         },
+        RadialItem("download", stringResource(R.string.feed_download), Icons.Rounded.Download) { downloadNotifications(); viewModel.download() },
     )
     val enableNotifications = app.freshtuber.ui.components.rememberNotificationPermission { viewModel.setLocalNotifications(true) }
     val channelItems = state.details?.channel?.let { channel -> listOf(

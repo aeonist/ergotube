@@ -36,7 +36,8 @@ Done: stages 1–5 (skeleton, Google login, account feeds/video page/comments/Sh
 
 Latest trial: stage 5.7 adds recommendation-centered action fans, permanent portrait playback controls, gear-anchored settings, stable close/arc origins, retained video surface on pin changes and RD mix loading. APK `apk/ErgoTube-stage5.7-debug.apk`; 104 tests pass. See latest DECISIONS/BACKLOG and review for validation limits.
 
-## Next, in order
-1. Stage 6 — local subscriptions without an account + new-video notifications (WorkManager, anonymous RSS). Takeout/NewPipe import is optional, later.
-2. Stage 7 — settings screen for all toggles in `AppSettings`, errors, offline, expired sign-in.
-3. Stage 8 — downloads and offline playback.
+## Current release
+Stages 6–8 complete as ErgoTube 1.0.0 (versionCode 2). Local RSS subscriptions and notifications, bottom search, complete settings/theme/recovery, persistent WorkManager downloads with pause/resume/retry/delete, local artwork/captions/metadata and offline playback. Downloads use separate progressive video/audio files merged by Media3, no muxing dependency. Room schema 4 migrates every released schema 1–3. 113 JVM tests and 10 API37 instrumentation tests pass; lint has zero errors, Debug and minified Release build successfully. The final phone/emulator validation and limitations live in docs/DECISIONS.md and .impeccable/review/stage8-review.md. APK: apk/ErgoTube-stage8-debug.apk. User revoked the original five-hour limit and requests autonomous testing; do not ask them to carry out QA.
+
+## Optional future work
+Takeout/NewPipe subscription import is outside the completed eight-stage plan. Do not start it without a new request. Continue committing validated changes; never publish or push without authorization.

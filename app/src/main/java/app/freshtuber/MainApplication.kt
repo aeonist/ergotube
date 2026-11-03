@@ -19,12 +19,14 @@ import javax.inject.Inject
 class MainApplication : Application(), SingletonImageLoader.Factory {
 
     @Inject lateinit var extractorDownloader: ExtractorDownloader
+    @Inject lateinit var downloads: app.freshtuber.data.downloads.Downloads
     @Inject lateinit var okHttpClient: OkHttpClient
 
     override fun onCreate() {
         super.onCreate()
         NewPipeInitializer.init(extractorDownloader, currentLocale(resources.configuration))
         app.freshtuber.background.SubscriptionWorker.schedule(this)
+        downloads.start()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {

@@ -227,4 +227,24 @@
     <string name="quality_resolution">%1$dp</string>
     <string name="offline_banner">Нет сети. Локальная лента и скачанные видео остаются доступны.</string>
     <string name="settings_playback_quality">Качество по умолчанию</string>
+    <string name="download_downloading">Скачивается…</string>
+    <string name="download_complete">Доступно без интернета</string>
+    <string name="download_waiting">Ожидание сети или Wi-Fi</string>
+    <string name="download_paused">На паузе</string>
+    <string name="download_deleting">Удаляется…</string>
+    <string name="download_pause">Пауза</string>
+    <string name="download_resume">Продолжить</string>
+    <string name="download_play">Смотреть</string>
+    <string name="download_delete">Удалить скачанное</string>
+    <string name="download_delete_confirm">Удалить «%1$s» с этого устройства?</string>
+    <string name="download_empty">Видео без интернета</string>
+    <string name="download_empty_hint">Нажми «Скачать» в меню видео. Скачанные ролики можно смотреть без сети.</string>
+    <string name="download_storage_hint">Хранятся на этом устройстве. Качество и загрузка по Wi-Fi — в настройках.</string>
+    <string name="download_queued_message">Добавлено в «Скачанные» в библиотеке</string>
+    <string name="download_exists">Это видео уже есть в скачанных</string>
+    <string name="download_error_space">Не хватает памяти. Освободи место и повтори.</string>
+    <string name="download_error_storage">Не удалось открыть файл. Удали его и скачай заново.</string>
+    <string name="download_error_unsupported">Прямую трансляцию или недоступный поток скачать нельзя</string>
+    <string name="download_error_network">Загрузка прервана. Проверь соединение и повтори.</string>
+    <string name="download_error_background">Android не запустил фоновую загрузку. Оставь приложение открытым и повтори.</string>
 </resources>

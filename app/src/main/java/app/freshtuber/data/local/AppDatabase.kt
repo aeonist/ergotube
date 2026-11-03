@@ -32,9 +32,10 @@ interface PlaybackPositionDao {
     suspend fun deleteOlderThan(before: Long)
 }
 
-@Database(entities = [PlaybackPosition::class, app.freshtuber.data.subscriptions.LocalChannel::class, app.freshtuber.data.subscriptions.LocalVideo::class], version = 3, exportSchema = true)
+@Database(entities = [PlaybackPosition::class, app.freshtuber.data.subscriptions.LocalChannel::class, app.freshtuber.data.subscriptions.LocalVideo::class, app.freshtuber.data.downloads.Download::class], version = 4, exportSchema = true)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun localSubscriptions(): app.freshtuber.data.subscriptions.LocalSubscriptionDao
+    abstract fun downloads(): app.freshtuber.data.downloads.DownloadDao
     abstract fun playbackPositions(): PlaybackPositionDao
 }
 
@@ -50,5 +51,11 @@ val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
 val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
     override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
         db.execSQL("ALTER TABLE local_videos ADD COLUMN isShort INTEGER NOT NULL DEFAULT 0")
+    }
+}
+
+val MIGRATION_3_4 = object : androidx.room.migration.Migration(3, 4) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS downloads (videoId TEXT NOT NULL PRIMARY KEY, title TEXT NOT NULL, channelName TEXT, channelId TEXT, thumbnailUrl TEXT, status TEXT NOT NULL, workId TEXT NOT NULL, requestedHeight INTEGER NOT NULL, height INTEGER NOT NULL, durationSeconds INTEGER NOT NULL, bytesDone INTEGER NOT NULL, bytesTotal INTEGER NOT NULL, videoFingerprint TEXT, audioFingerprint TEXT, videoMime TEXT, audioMime TEXT, codecMime TEXT, separateAudio INTEGER NOT NULL, subtitleMime TEXT, subtitleLanguage TEXT, subtitleLabel TEXT, error TEXT, createdAt INTEGER NOT NULL)")
     }
 }

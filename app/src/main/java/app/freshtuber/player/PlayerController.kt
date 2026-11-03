@@ -82,6 +82,7 @@ data class NowPlaying(
     /** -1 when subtitles are off. */
     val subtitleIndex: Int,
     val channel: app.freshtuber.domain.model.ChannelSummary? = null,
+    val isOffline: Boolean = false,
 )
 
 sealed interface SleepTimer {
@@ -125,6 +126,7 @@ class PlayerController @Inject constructor(
     private val settings: AppSettings,
     private val videos: VideoRepository,
     private val accounts: AccountRepository,
+    private val downloads: app.freshtuber.data.downloads.Downloads,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -181,7 +183,7 @@ class PlayerController @Inject constructor(
         scope.launch { settings.sponsorBlockEnabled.collectLatest { enabled ->
             sponsorEnabled = enabled
             if (!enabled) segments = emptyList()
-            else resolved?.takeUnless { it.isLive }?.let { segments = extras.sponsorSegments(it.videoId) }
+            else resolved?.takeUnless { it.isLive || _state.value.nowPlaying?.isOffline == true }?.let { segments = extras.sponsorSegments(it.videoId) }
         } }
     }
     private var prefetchId: String? = null
@@ -240,7 +242,8 @@ class PlayerController @Inject constructor(
         _state.update { it.copy(loadingId = videoId, error = null) }
         loadJob = scope.launch {
             try {
-                val video = resolver.resolve(videoId)
+                val local = downloads.localVideo(videoId)
+                val video = local ?: resolver.resolve(videoId)
                 if (BuildConfig.DEBUG && isShort) Log.d("ShortsTiming", "resolve_ms=${SystemClock.elapsedRealtime() - startedAt}")
                 resolved = video
                 reportedWatch = false
@@ -248,6 +251,7 @@ class PlayerController @Inject constructor(
                 val qualityIndex = StreamChoice.pick(tracks, settings.preferredQuality.first())
                 val nowPlaying = NowPlaying(
                     videoId = videoId,
+                    isOffline = local != null,
                     channel = video.channel,
                     title = video.title,
                     channelName = video.channelName,
@@ -266,7 +270,7 @@ class PlayerController @Inject constructor(
                 player.prepare()
                 player.playWhenReady = true
                 segments = emptyList()
-                if (!video.isLive && settings.sponsorBlockEnabled.first()) {
+                if (local == null && !video.isLive && settings.sponsorBlockEnabled.first()) {
                     segments = extras.sponsorSegments(videoId)
                 }
             } catch (e: CancellationException) {
@@ -472,7 +476,7 @@ class PlayerController @Inject constructor(
 
         // Media3 parses sidecar captions during extraction into cues. SingleSampleMediaSource
         // sends legacy TTML samples, which the current TextRenderer rejects.
-        val factory = DefaultMediaSourceFactory(dataSourceFactory)
+        val factory = DefaultMediaSourceFactory(if (nowPlaying.isOffline) androidx.media3.datasource.DefaultDataSource.Factory(context) else dataSourceFactory)
         if (video.isLive && video.hlsUrl != null) {
             return factory.createMediaSource(item(video.hlsUrl, withSubtitles = true).buildUpon()
                 .setMimeType(androidx.media3.common.MimeTypes.APPLICATION_M3U8).build())
@@ -538,7 +542,7 @@ class PlayerController @Inject constructor(
         positions.get(videoId)?.positionMs?.takeIf { it >= MIN_RESUME_MS }
 
     private fun reportWatchOnce() {
-        if (reportedWatch) return
+        if (reportedWatch || _state.value.nowPlaying?.isOffline == true) return
         val now = _state.value.nowPlaying ?: return
         if (accounts.state.value !is AccountState.SignedIn) return
         reportedWatch = true

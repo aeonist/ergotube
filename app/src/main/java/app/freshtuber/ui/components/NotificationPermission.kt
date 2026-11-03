@@ -15,6 +15,17 @@ import androidx.core.content.ContextCompat
 import android.content.pm.PackageManager
 import app.freshtuber.R
 
+/** Downloads still start when notification permission is declined. */
+@Composable
+fun rememberDownloadNotifications(): () -> Unit {
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    return {
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED)
+            launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+}
+
 @Composable
 fun rememberNotificationPermission(onAllowed: () -> Unit): () -> Unit {
     val context = LocalContext.current

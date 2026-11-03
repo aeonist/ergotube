@@ -1,6 +1,9 @@
 package app.freshtuber.ui.screens.shorts
 
 import androidx.compose.runtime.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.ui.res.stringResource
@@ -42,6 +45,11 @@ import app.freshtuber.player.PlayerController
 import app.freshtuber.ui.player.VideoSurface
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
@@ -85,7 +93,7 @@ class ShortsViewModel @Inject constructor(
     private val extras: CommunityExtras,
     private val settings: AppSettings,
     val controller: PlayerController,
-    private val localSubscriptions: app.freshtuber.data.subscriptions.LocalSubscriptions,
+    private val downloads: app.freshtuber.data.downloads.Downloads, private val localSubscriptions: app.freshtuber.data.subscriptions.LocalSubscriptions,
 ) : ViewModel() {
     private val _state = MutableStateFlow(ShortsUiState())
     val state: StateFlow<ShortsUiState> = _state.asStateFlow()
@@ -125,7 +133,7 @@ class ShortsViewModel @Inject constructor(
     fun actionsFactory(id: String) = object : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            VideoViewModel(SavedStateHandle(mapOf("videoId" to id)), videos, accounts, extras, settings, controller, localSubscriptions) as T
+            VideoViewModel(SavedStateHandle(mapOf("videoId" to id)), videos, accounts, extras, settings, controller, localSubscriptions, downloads) as T
     }
 
     /** Shorts stop when the tab is left; regular videos keep playing in the mini player. */
@@ -205,10 +213,13 @@ private fun ShortPage(
     onTap: () -> Unit,
     onDoubleTap: () -> Unit,
 ) {
+    val progress = player?.let { rememberProgress(it) }
+    val tapLabel = stringResource(if (progress?.isPlaying == true) R.string.player_pause else R.string.player_play)
     Box(
         Modifier
             .fillMaxSize()
             .background(Color.Black)
+            .semantics { contentDescription = tapLabel; role = Role.Button; onClick(label = tapLabel) { onTap(); true } }
             .pointerInput(onTap, onDoubleTap) { detectTapGestures(onTap = { onTap() }, onDoubleTap = { onDoubleTap() }) },
     ) {
         if (player != null) {
@@ -221,8 +232,11 @@ private fun ShortPage(
                 modifier = Modifier.fillMaxSize(),
             )
         }
-        val buffering = player?.let { rememberProgress(it).buffering } ?: false
-        if (loading || buffering) CircularProgressIndicator(Modifier.align(Alignment.Center), color = Color.White)
+        if (loading || progress?.buffering == true) CircularProgressIndicator(Modifier.align(Alignment.Center), color = Color.White)
+        else if (player != null && progress != null && !progress.isPlaying && !player.playWhenReady && progress.durationMs > 0) {
+            Icon(Icons.Rounded.PlayArrow, null, tint = Color.White,
+                modifier = Modifier.align(Alignment.Center).size(72.dp).background(Color(0xAA000000), CircleShape).padding(16.dp))
+        }
 
     }
 }

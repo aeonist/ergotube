@@ -33,13 +33,13 @@ import androidx.compose.ui.window.Popup
 
 @HiltViewModel
 class FeedVideoActions @Inject constructor(private val videos: VideoRepository, private val accounts: AccountRepository,
-    private val extras: CommunityExtras, private val settings: AppSettings, private val controller: PlayerController, private val localSubscriptions: app.freshtuber.data.subscriptions.LocalSubscriptions) : ViewModel() {
+    private val extras: CommunityExtras, private val settings: AppSettings, private val controller: PlayerController, private val downloads: app.freshtuber.data.downloads.Downloads, private val localSubscriptions: app.freshtuber.data.subscriptions.LocalSubscriptions) : ViewModel() {
     val hiddenVideos = settings.hiddenVideos.stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
     fun hideVideo(id: String) { viewModelScope.launch { settings.hideVideo(id) } }
     fun factory(id: String) = object : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            VideoViewModel(SavedStateHandle(mapOf("videoId" to id)), videos, accounts, extras, settings, controller, localSubscriptions) as T
+            VideoViewModel(SavedStateHandle(mapOf("videoId" to id)), videos, accounts, extras, settings, controller, localSubscriptions, downloads) as T
     }
 }
 
@@ -53,10 +53,12 @@ fun FeedVideoMenu(video: VideoSummary, anchor: Offset, onHidden: () -> Unit, onD
     val message by actions.message.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var menuOpen by remember { mutableStateOf(true) }
+    var downloading by remember { mutableStateOf(false) }
+    val downloadNotifications = app.freshtuber.ui.components.rememberDownloadNotifications()
     val snackbar = remember { SnackbarHostState() }
     val text = message?.let { stringResource(if (it == VideoMessage.NeedsSignIn && !menuOpen) R.string.feed_save_sign_in else it.textRes()) }
     LaunchedEffect(message) {
-        if (message != null) { snackbar.showSnackbar(text.orEmpty()); actions.consumeMessage(); if (!menuOpen) onDismiss() }
+        if (message != null) { snackbar.showSnackbar(text.orEmpty()); actions.consumeMessage(); if (!menuOpen || downloading) onDismiss() }
     }
     LaunchedEffect(picker.opened) { if (!menuOpen && !picker.opened && message == null) onDismiss() }
     val share = stringResource(R.string.video_share)
@@ -72,7 +74,7 @@ fun FeedVideoMenu(video: VideoSummary, anchor: Offset, onHidden: () -> Unit, onD
             context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
                 .putExtra(Intent.EXTRA_TEXT, "https://youtu.be/${video.id}"), share)); onDismiss()
         },
-        RadialItem("download", stringResource(R.string.feed_download), Icons.Rounded.Download, enabled = false) {},
+        RadialItem("download", stringResource(R.string.feed_download), Icons.Rounded.Download) { downloadNotifications(); downloading = true; actions.download(video) },
     ), anchor, onDismiss)
     if (message != null) Popup(alignment = Alignment.TopCenter) { SnackbarHost(snackbar) }
     if (picker.opened) PlaylistPickerSheet(picker, actions)

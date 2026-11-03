@@ -61,8 +61,10 @@ fun LoginWebView(
         },
         onRelease = { webView ->
             onWebView(null)
-            webView.stopLoading()
-            webView.destroy()
+            if (webView.tag !== DestroyedWebView) {
+                webView.stopLoading()
+                webView.destroy()
+            }
         },
     )
 }
@@ -108,8 +110,21 @@ private fun WebView.presentAsChrome(context: Context) {
     }
 }
 
+private object DestroyedWebView
+
 private class LoginClient(private val events: LoginWebViewEvents) : WebViewClient() {
     private var captured = false
+    private var rendererGone = false
+
+    override fun onRenderProcessGone(view: WebView, detail: android.webkit.RenderProcessGoneDetail): Boolean {
+        rendererGone = true
+        (view.parent as? android.view.ViewGroup)?.removeView(view)
+        view.tag = DestroyedWebView
+        view.destroy()
+        events.onCanGoBack(false)
+        events.onLoadFailed()
+        return true
+    }
 
     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
         // Stay on the web: no intent:// or other app links from inside the sign-in flow.
@@ -142,7 +157,9 @@ private class LoginClient(private val events: LoginWebViewEvents) : WebViewClien
 
     /** The page config may need a moment after load; retry a few times before going without it. */
     private fun readConfig(view: WebView, attempt: Int) {
+        if (rendererGone || !view.isAttachedToWindow) return
         view.evaluateJavascript(LoginCaptureRules.READ_CONFIG_JS) { raw ->
+            if (rendererGone) return@evaluateJavascript
             val config = LoginCaptureRules.parseConfigResult(raw)
             if (config?.visitorData == null && attempt < CONFIG_RETRIES) {
                 view.postDelayed({ readConfig(view, attempt + 1) }, CONFIG_RETRY_DELAY_MS)

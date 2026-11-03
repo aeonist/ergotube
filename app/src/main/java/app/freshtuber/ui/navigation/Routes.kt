@@ -17,6 +17,7 @@ import kotlinx.serialization.Serializable
 @Serializable data object ShortsRoute
 @Serializable data object SubscriptionsRoute
 @Serializable data object SearchRoute
+@Serializable data object DownloadsRoute
 @Serializable data object LibraryRoute
 @Serializable data object AccountRoute
 @Serializable data object CalibrationRoute

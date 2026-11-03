@@ -40,6 +40,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.toRoute
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -91,7 +92,12 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
 
     val navController = rememberNavController()
     androidx.compose.runtime.LaunchedEffect(openVideo) {
-        if (openVideo != null) { navController.navigate(PlayerRoute(openVideo)) { launchSingleTop = true }; onVideoOpened() }
+        if (openVideo != null) {
+            val current = navController.currentBackStackEntry
+            val sameVideo = current?.destination?.hasRoute<PlayerRoute>() == true && current.toRoute<PlayerRoute>().videoId == openVideo
+            if (!sameVideo) navController.navigate(PlayerRoute(openVideo))
+            onVideoOpened()
+        }
     }
     val leftHanded by viewModel.leftHanded.collectAsStateWithLifecycle()
     val thumbArc by viewModel.thumbArc.collectAsStateWithLifecycle()
@@ -134,7 +140,10 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     Scaffold(
         topBar = {
             if ((!online || expired) && !fullScreen) androidx.compose.foundation.layout.Column(Modifier.statusBarsPadding().fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
-                if (!online) androidx.compose.material3.Text(stringResource(R.string.offline_banner), modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), style = MaterialTheme.typography.bodySmall)
+                if (!online) androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    androidx.compose.material3.Text(stringResource(R.string.offline_banner), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                    androidx.compose.material3.TextButton(onClick = { navController.navigate(app.freshtuber.ui.navigation.DownloadsRoute) { launchSingleTop = true } }) { androidx.compose.material3.Text(stringResource(R.string.library_downloads)) }
+                }
                 if (expired) androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                     androidx.compose.material3.Text(stringResource(R.string.error_session_expired), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
                     androidx.compose.material3.TextButton(onClick = signIn) { androidx.compose.material3.Text(stringResource(R.string.welcome_sign_in)) }
@@ -177,10 +186,11 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
             composable<SearchRoute> { SearchScreen(navigation, onSignIn = signIn) }
             composable<LibraryRoute> {
                 LibraryScreen(
-                    onOpenSection = { navController.navigate(LibraryListRoute(it.name)) },
+                    onOpenSection = { if (it == LibrarySection.Downloads) navController.navigate(app.freshtuber.ui.navigation.DownloadsRoute) else navController.navigate(LibraryListRoute(it.name)) },
                     onSignIn = signIn,
                 )
             }
+            composable<app.freshtuber.ui.navigation.DownloadsRoute> { app.freshtuber.ui.screens.downloads.DownloadsScreen(onBack = { navController.popBackStack() }, onVideo = { navController.navigate(PlayerRoute(it)) }, onSearch = { navController.navigate(SearchRoute) }) }
             composable<LibraryListRoute> { ListScreen(navigation, onBack = { navController.popBackStack() }, onSignIn = signIn) }
             composable<PlaylistRoute> { ListScreen(navigation, onBack = { navController.popBackStack() }, onSignIn = signIn) }
             composable<ChannelRoute> { ListScreen(navigation, onBack = { navController.popBackStack() }, onSignIn = signIn) }
@@ -214,10 +224,10 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
             val openSection = RadialItem("open:${section.name}", title, section.icon) { navController.navigateToTopLevel(section) }
             val children = when (section) {
                 TopLevelDestination.Home -> emptyList()
-                TopLevelDestination.Library -> LibrarySection.entries.filter { it.browseId != null }.map { part ->
+                TopLevelDestination.Library -> LibrarySection.entries.map { part ->
                     RadialItem("library:${part.name}", stringResource(part.titleRes), part.icon,
                         shortTitle = stringResource(if (part == LibrarySection.Liked) R.string.radial_liked_short else part.titleRes)) {
-                        navController.navigate(LibraryListRoute(part.name))
+                        if (part == LibrarySection.Downloads) navController.navigate(app.freshtuber.ui.navigation.DownloadsRoute) else navController.navigate(LibraryListRoute(part.name))
                     }
                 }
                 TopLevelDestination.Account -> {

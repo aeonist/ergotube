@@ -50,7 +50,7 @@ class PlaybackService : MediaSessionService() {
                     session: MediaSession, info: MediaSession.ControllerInfo, command: SessionCommand, args: Bundle,
                 ): ListenableFuture<SessionResult> {
                     if (command.customAction != next.customAction) {
-                        return Futures.immediateFuture(SessionResult(SessionResult.RESULT_ERROR_NOT_SUPPORTED))
+                        return Futures.immediateFuture(SessionResult(androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED))
                     }
                     controller.playNext()
                     return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))

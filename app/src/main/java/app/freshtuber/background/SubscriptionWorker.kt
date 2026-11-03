@@ -13,6 +13,8 @@ import java.util.concurrent.TimeUnit
 @InstallIn(SingletonComponent::class)
 interface BackgroundDependencies {
     fun subscriptions(): LocalSubscriptions
+    fun downloads(): app.freshtuber.data.downloads.Downloads
+    fun notifications(): AppNotifications
 }
 
 class SubscriptionWorker(context: Context, parameters: WorkerParameters) : CoroutineWorker(context, parameters) {

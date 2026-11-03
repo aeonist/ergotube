@@ -73,7 +73,7 @@ data class PlaylistPickerState(
 )
 
 /** One-off problems shown as a snackbar. */
-enum class VideoMessage { NeedsSignIn, ActionFailed, TooManyActions, CommentPosted }
+enum class VideoMessage { NeedsSignIn, ActionFailed, TooManyActions, CommentPosted, DownloadQueued, DownloadExists }
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -85,6 +85,7 @@ class VideoViewModel @Inject constructor(
     private val settings: AppSettings,
     val controller: PlayerController,
     private val localSubscriptions: app.freshtuber.data.subscriptions.LocalSubscriptions,
+    private val downloads: app.freshtuber.data.downloads.Downloads,
 ) : ViewModel() {
 
     val videoId: String = savedState.get<String>("videoId") ?: savedState.toRoute<PlayerRoute>().videoId
@@ -148,14 +149,18 @@ class VideoViewModel @Inject constructor(
         _state.update { it.copy(loading = true, error = null) }
         viewModelScope.launch {
             try {
-                val details = withChannelFallback(videos.details(videoId))
+                val local = downloads.available(videoId)
+                val saved = downloads.details(videoId)
+                val loaded = if (saved != null && !downloads.isOnline()) saved else try { videos.details(videoId) }
+                    catch (e: CancellationException) { throw e } catch (e: Exception) { saved ?: throw e }
+                val details = withChannelFallback(loaded)
                 _state.update {
                     it.copy(details = details, loading = false, likeStatus = details.likeStatus, subscribed = if (signedIn) details.subscribed else it.localSubscribed)
                 }
                 if (controller.state.value.nowPlaying?.videoId == videoId || controller.state.value.loadingId == videoId) {
                     controller.setQueue(details.related)
                 }
-                if (settings.dislikesEnabled.first()) {
+                if (local == null && settings.dislikesEnabled.first()) {
                     extras.dislikes(videoId)?.let { count -> _state.update { it.copy(dislikes = count) } }
                 }
             } catch (e: CancellationException) {
@@ -163,6 +168,18 @@ class VideoViewModel @Inject constructor(
             } catch (e: Exception) {
                 _state.update { it.copy(loading = false, error = e.toLoadError()) }
             }
+        }
+    }
+
+    fun download(summary: app.freshtuber.domain.model.VideoSummary? = null) {
+        viewModelScope.launch {
+            try {
+                val details = _state.value.details
+                val now = controller.state.value.nowPlaying?.takeIf { it.videoId == videoId }
+                val video = summary ?: app.freshtuber.domain.model.VideoSummary(videoId, details?.title ?: now?.title.orEmpty(),
+                    channelName = details?.channel?.name ?: now?.channelName, channelId = details?.channel?.id ?: now?.channel?.id, thumbnailUrl = now?.thumbnailUrl)
+                _message.value = if (downloads.enqueue(video)) VideoMessage.DownloadQueued else VideoMessage.DownloadExists
+            } catch (e: CancellationException) { throw e } catch (_: Exception) { _message.value = VideoMessage.ActionFailed }
         }
     }
 

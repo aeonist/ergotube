@@ -57,7 +57,7 @@ class LocalSubscriptions @Inject constructor(private val db: AppDatabase, privat
             if (current.initialized) fresh = entries.filterIndexed { index, video -> inserted[index] != -1L && video.publishedAt >= current.addedAt }
             dao.save(current.copy(initialized = true, lastCheckedAt = System.currentTimeMillis(), syncFailed = false))
         }
-        if (notify && channel.notifications && settings.notificationsEnabled.first()) {
+        if (notify && dao.get(channel.id)?.notifications == true && settings.notificationsEnabled.first()) {
             val shorts = settings.shortsInFeeds.first()
             fresh.filter { shorts || !it.isShort }.take(5).forEach(notifications::video)
         }

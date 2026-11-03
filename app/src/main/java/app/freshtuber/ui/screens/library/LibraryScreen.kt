@@ -37,7 +37,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
-/** Library sections; each is a YouTube list. [browseId] null means not available yet. */
+/** Cloud lists use a browse id; downloads are stored on the device. */
 enum class LibrarySection(
     val browseId: String?,
     @param:StringRes val titleRes: Int,
@@ -64,10 +64,6 @@ fun LibraryScreen(
     viewModel: LibraryViewModel = hiltViewModel(),
 ) {
     val signedIn by viewModel.signedIn.collectAsStateWithLifecycle()
-    if (signedIn == false) {
-        SignInPrompt(stringResource(R.string.library_signed_out), onSignIn)
-        return
-    }
     Column(Modifier.fillMaxSize().padding(top = 8.dp)) {
         Text(
             stringResource(R.string.nav_library),
@@ -75,15 +71,15 @@ fun LibraryScreen(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
         )
         LibrarySection.entries.forEach { section ->
-            val available = section.browseId != null
+            val available = section == LibrarySection.Downloads || signedIn == true
             ListItem(
                 headlineContent = { Text(stringResource(section.titleRes)) },
                 supportingContent = if (available) null else {
-                    { Text(stringResource(R.string.stub_coming_in_stage, 8)) }
+                    { Text(stringResource(R.string.action_needs_sign_in)) }
                 },
                 leadingContent = { Icon(section.icon, contentDescription = null) },
                 colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
-                modifier = Modifier.clickable(enabled = available) { onOpenSection(section) },
+                modifier = Modifier.clickable { if (available) onOpenSection(section) else onSignIn() },
             )
         }
     }

@@ -145,11 +145,11 @@ fun PlayerScreen(
     }
 
     Scaffold(modifier = Modifier.semantics { if (settingsOpen || actionGroup != null) hideFromAccessibility() },
-        contentWindowInsets = WindowInsets(0, 0, 0, 0), snackbarHost = { SnackbarHost(snackbar) }) { _ ->
+        contentWindowInsets = WindowInsets(0, 0, 0, 0), snackbarHost = { SnackbarHost(snackbar) }) { padding ->
         if (fullscreen) {
-            playerArea(Modifier.fillMaxSize())
+            playerArea(Modifier.fillMaxSize().consumeWindowInsets(padding))
         } else {
-            BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black).statusBarsPadding()
+            BoxWithConstraints(Modifier.fillMaxSize().consumeWindowInsets(padding).background(Color.Black).statusBarsPadding()
                 .navigationBarsPadding().background(MaterialTheme.colorScheme.surface).then(Modifier.clipToBounds())) {
                 val details = state.details
                 val videoHeight = minOf(maxWidth / videoAspect, maxHeight * 0.6f)
@@ -160,7 +160,7 @@ fun PlayerScreen(
                 } }
                 Column(Modifier.fillMaxSize()) {
                     if (pinned || details == null) Spacer(Modifier.fillMaxWidth().height(videoHeight))
-                    if (pinned && details != null) TitleBlock(details)
+                    if (pinned && details != null) TitleBlock(details, playerState.nowPlaying?.isOffline == true)
                     Box(Modifier.weight(1f)) {
                         when {
                             state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -169,6 +169,7 @@ fun PlayerScreen(
                             details == null -> LoadErrorState(state.error ?: LoadError.Unknown, viewModel::load, onSignIn)
                             else -> VideoBody(details, navigation, listState,
                                 showTitle = !pinned,
+                                offline = playerState.nowPlaying?.isOffline == true,
                                 videoHeader = if (!pinned) ({ Spacer(Modifier.fillMaxWidth().height(videoHeight)) }) else null)
                         }
                     }
@@ -199,13 +200,14 @@ private fun FullscreenEffect(fullscreen: Boolean, requested: Boolean) {
     DisposableEffect(fullscreen, requested) {
         val window = activity.window
         val insets = WindowCompat.getInsetsController(window, window.decorView)
-        val oldCutout = window.attributes.layoutInDisplayCutoutMode
+        val oldCutout = if (android.os.Build.VERSION.SDK_INT >= 28) window.attributes.layoutInDisplayCutoutMode else 0
         val oldStatusIcons = insets.isAppearanceLightStatusBars
         window.setBackgroundDrawable(ColorDrawable(android.graphics.Color.BLACK))
         insets.isAppearanceLightStatusBars = false
         if (fullscreen) {
-            window.attributes = window.attributes.apply {
-                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+            if (android.os.Build.VERSION.SDK_INT >= 28) window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode = if (android.os.Build.VERSION.SDK_INT >= 30) WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                    else WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
             }
             insets.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             insets.hide(WindowInsetsCompat.Type.systemBars())
@@ -215,7 +217,15 @@ private fun FullscreenEffect(fullscreen: Boolean, requested: Boolean) {
         // Rotate only when the button asked for it; a rotated phone already is landscape.
         if (requested) activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         onDispose {
-            window.attributes = window.attributes.apply { layoutInDisplayCutoutMode = oldCutout }
+            if (android.os.Build.VERSION.SDK_INT >= 28) window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode = if (android.os.Build.VERSION.SDK_INT >= 30 && oldCutout == WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS)
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                else when (oldCutout) {
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES -> WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_NEVER -> WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_NEVER
+                    else -> WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
+                }
+            }
             insets.isAppearanceLightStatusBars = oldStatusIcons
             if (requested) activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
             insets.show(WindowInsetsCompat.Type.systemBars())
@@ -229,11 +239,12 @@ private fun VideoBody(
     navigation: FeedNavigation,
     listState: LazyListState,
     showTitle: Boolean,
+    offline: Boolean = false,
     videoHeader: (@Composable () -> Unit)? = null,
 ) {
     LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 152.dp)) {
         videoHeader?.let { item(key = "video") { it() } }
-        if (showTitle) item(key = "info") { TitleBlock(details) }
+        if (showTitle) item(key = "info") { TitleBlock(details, offline) }
         if (details.related.isNotEmpty()) {
             item(key = "related-title") {
                 Text(stringResource(R.string.video_related), style = MaterialTheme.typography.titleMedium,
@@ -248,7 +259,7 @@ private fun VideoBody(
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun TitleBlock(details: VideoDetails) {
+private fun TitleBlock(details: VideoDetails, offline: Boolean = false) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     Column(
         Modifier
@@ -258,7 +269,7 @@ private fun TitleBlock(details: VideoDetails) {
     ) {
         Text(details.title, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Text(
-            listOfNotNull(details.viewsText, details.dateText).joinToString(" · "),
+            listOfNotNull(if (offline) stringResource(R.string.download_complete) else null, details.viewsText, details.dateText).joinToString(" · "),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp),
@@ -287,4 +298,6 @@ internal fun VideoMessage.textRes(): Int = when (this) {
     VideoMessage.ActionFailed -> R.string.action_failed
     VideoMessage.TooManyActions -> R.string.error_too_many_actions
     VideoMessage.CommentPosted -> R.string.comment_posted
+    VideoMessage.DownloadQueued -> R.string.download_queued_message
+    VideoMessage.DownloadExists -> R.string.download_exists
 }

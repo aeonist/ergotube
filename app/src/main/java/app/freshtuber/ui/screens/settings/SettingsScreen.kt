@@ -74,6 +74,7 @@ fun SettingsScreen(onCalibrate: () -> Unit, onAccount: () -> Unit, viewModel: Se
     val arc by menu.arc.collectAsStateWithLifecycle()
     var vertical by remember(arc) { mutableFloatStateOf(arc.verticalRadius) }
     var radius by remember(arc) { mutableFloatStateOf(arc.radius) }
+    val resources = androidx.compose.ui.platform.LocalResources.current
     val context = androidx.compose.ui.platform.LocalContext.current
     val snackbar = remember { SnackbarHostState() }
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current
@@ -87,7 +88,7 @@ fun SettingsScreen(onCalibrate: () -> Unit, onAccount: () -> Unit, viewModel: Se
         systemNotifications = true
         viewModel.feature(app.freshtuber.data.settings.AppFeature.Notifications, true)
     }
-    LaunchedEffect(viewModel) { viewModel.messages.collect { snackbar.showSnackbar(context.getString(it)) } }
+    LaunchedEffect(viewModel, resources) { viewModel.messages.collect { snackbar.showSnackbar(resources.getString(it)) } }
     var clearHidden by remember { mutableStateOf(false) }
     var clearImages by remember { mutableStateOf(false) }
     var remove by remember { mutableStateOf<app.freshtuber.data.subscriptions.LocalChannel?>(null) }
