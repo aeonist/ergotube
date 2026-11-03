@@ -152,7 +152,7 @@ fun PlayerScreen(
             BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black).statusBarsPadding()
                 .navigationBarsPadding().background(MaterialTheme.colorScheme.surface).then(Modifier.clipToBounds())) {
                 val details = state.details
-                val videoHeight = maxWidth / videoAspect
+                val videoHeight = minOf(maxWidth / videoAspect, maxHeight * 0.6f)
                 val density = androidx.compose.ui.platform.LocalDensity.current
                 val videoHeightPx = with(density) { videoHeight.roundToPx() }
                 val videoOffset by remember(pinned, videoHeightPx, details) { derivedStateOf {

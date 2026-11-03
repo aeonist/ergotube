@@ -85,6 +85,7 @@ class ShortsViewModel @Inject constructor(
     private val extras: CommunityExtras,
     private val settings: AppSettings,
     val controller: PlayerController,
+    private val localSubscriptions: app.freshtuber.data.subscriptions.LocalSubscriptions,
 ) : ViewModel() {
     private val _state = MutableStateFlow(ShortsUiState())
     val state: StateFlow<ShortsUiState> = _state.asStateFlow()
@@ -124,7 +125,7 @@ class ShortsViewModel @Inject constructor(
     fun actionsFactory(id: String) = object : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            VideoViewModel(SavedStateHandle(mapOf("videoId" to id)), videos, accounts, extras, settings, controller) as T
+            VideoViewModel(SavedStateHandle(mapOf("videoId" to id)), videos, accounts, extras, settings, controller, localSubscriptions) as T
     }
 
     /** Shorts stop when the tab is left; regular videos keep playing in the mini player. */

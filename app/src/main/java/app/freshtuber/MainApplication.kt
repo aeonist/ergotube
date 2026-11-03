@@ -24,6 +24,7 @@ class MainApplication : Application(), SingletonImageLoader.Factory {
     override fun onCreate() {
         super.onCreate()
         NewPipeInitializer.init(extractorDownloader, currentLocale(resources.configuration))
+        app.freshtuber.background.SubscriptionWorker.schedule(this)
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {

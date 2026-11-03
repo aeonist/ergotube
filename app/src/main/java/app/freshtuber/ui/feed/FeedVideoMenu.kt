@@ -33,13 +33,13 @@ import androidx.compose.ui.window.Popup
 
 @HiltViewModel
 class FeedVideoActions @Inject constructor(private val videos: VideoRepository, private val accounts: AccountRepository,
-    private val extras: CommunityExtras, private val settings: AppSettings, private val controller: PlayerController) : ViewModel() {
+    private val extras: CommunityExtras, private val settings: AppSettings, private val controller: PlayerController, private val localSubscriptions: app.freshtuber.data.subscriptions.LocalSubscriptions) : ViewModel() {
     val hiddenVideos = settings.hiddenVideos.stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
     fun hideVideo(id: String) { viewModelScope.launch { settings.hideVideo(id) } }
     fun factory(id: String) = object : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T =
-            VideoViewModel(SavedStateHandle(mapOf("videoId" to id)), videos, accounts, extras, settings, controller) as T
+            VideoViewModel(SavedStateHandle(mapOf("videoId" to id)), videos, accounts, extras, settings, controller, localSubscriptions) as T
     }
 }
 

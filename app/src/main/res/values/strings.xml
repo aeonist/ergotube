@@ -171,4 +171,14 @@
     <string name="feed_not_interested">Not interested</string>
     <string name="feed_download">Download</string>
     <string name="feed_save_sign_in">Sign in to save videos to playlists.</string>
+    <string name="notification_new_videos">New videos</string>
+    <string name="notification_permission_title">Allow notifications</string>
+    <string name="notification_permission_hint">Enable notifications in Android settings to hear about new videos.</string>
+    <string name="local_subscriptions_empty">Follow a channel to see its recent videos here. Subscriptions stay on this device.</string>
+    <string name="local_on_device">On device</string>
+    <string name="local_find_channels">Find channels</string>
+    <string name="action_refresh">Refresh</string>
+    <string name="source_youtube">YouTube</string>
+    <string name="action_refreshing">Refreshing…</string>
+    <string name="local_sync_failed">Some channels could not be refreshed. Saved videos are still available.</string>
 </resources>

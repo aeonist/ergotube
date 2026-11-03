@@ -73,7 +73,7 @@ import app.freshtuber.ui.screens.subscriptions.SubscriptionsScreen
 import app.freshtuber.ui.screens.welcome.WelcomeScreen
 
 @Composable
-fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewModel()) {
+fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewModel(), openVideo: String? = null, onVideoOpened: () -> Unit = {}) {
     val loadedStart by viewModel.startRoute.collectAsStateWithLifecycle()
     // The graph's start is fixed on first load; later changes are handled by navigation.
     var startRoute by remember { mutableStateOf<Any?>(null) }
@@ -90,6 +90,9 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     }
 
     val navController = rememberNavController()
+    androidx.compose.runtime.LaunchedEffect(openVideo) {
+        if (openVideo != null) { navController.navigate(PlayerRoute(openVideo)) { launchSingleTop = true }; onVideoOpened() }
+    }
     val leftHanded by viewModel.leftHanded.collectAsStateWithLifecycle()
     val thumbArc by viewModel.thumbArc.collectAsStateWithLifecycle()
     val accountState by viewModel.accountState.collectAsStateWithLifecycle()
@@ -112,8 +115,10 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
         }
     }
 
+    val keyboardVisible = WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
+    val miniVisible = !fullScreen && !keyboardVisible && currentDestination?.hasRoute<ShortsRoute>() != true && playerState.nowPlaying?.isShort == false
     CompositionLocalProvider(LocalInPictureInPicture provides inPictureInPicture, LocalRadialFilters provides filters,
-        app.freshtuber.ui.feed.LocalFeedBottomClearance provides if (playerState.nowPlaying?.isShort == false) 160.dp else 88.dp) {
+        app.freshtuber.ui.feed.LocalFeedBottomClearance provides if (miniVisible) 160.dp else 88.dp) {
     Box(Modifier.fillMaxSize()) {
     Scaffold(
         contentWindowInsets = if (currentDestination?.hasRoute<PlayerRoute>() == true || inPictureInPicture) WindowInsets(0, 0, 0, 0) else ScaffoldDefaults.contentWindowInsets,
@@ -148,7 +153,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
             }
             composable<HomeRoute> { HomeScreen(navigation, onSignIn = signIn, onAccount = { navController.navigate(AccountRoute) }) }
             composable<ShortsRoute> { ShortsScreen(navigation, onSignIn = signIn) }
-            composable<SubscriptionsRoute> { SubscriptionsScreen(navigation, onSignIn = signIn) }
+            composable<SubscriptionsRoute> { SubscriptionsScreen(navigation, onSignIn = signIn, onSearch = { navController.navigateToTopLevel(TopLevelDestination.Search) }) }
             composable<SearchRoute> { SearchScreen(navigation, onSignIn = signIn) }
             composable<LibraryRoute> {
                 LibraryScreen(
@@ -175,7 +180,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
         }
     }
     val nowPlaying = playerState.nowPlaying
-    if (!fullScreen && currentDestination?.hasRoute<ShortsRoute>() != true && nowPlaying != null && !nowPlaying.isShort) {
+    if (miniVisible && nowPlaying != null) {
         Box(Modifier.align(androidx.compose.ui.Alignment.BottomCenter)
             .background(androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainer)
             .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))) {
@@ -226,7 +231,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
                 }
         }
         androidx.compose.runtime.key(currentDestination?.route, playerMenuRequested) {
-            RadialMenu(sections, leftHanded, thumbArc, Modifier.imePadding().padding(bottom = if (!fullScreen && nowPlaying?.isShort == false) 72.dp else 0.dp),
+            RadialMenu(sections, leftHanded, thumbArc, Modifier.imePadding().padding(bottom = if (miniVisible) 72.dp else 0.dp),
                 initiallyExpanded = playerMenuRequested, showAnchor = !fullScreen,
                 anchorMargin = 36f,
                 pageSlots = 5,

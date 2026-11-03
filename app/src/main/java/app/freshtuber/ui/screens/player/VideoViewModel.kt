@@ -30,6 +30,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -42,6 +45,8 @@ data class VideoUiState(
     val likeStatus: LikeStatus = LikeStatus.Indifferent,
     val subscribed: Boolean? = null,
     val dislikes: Long? = null,
+    val localSubscribed: Boolean = false,
+    val localNotifications: Boolean = false,
 )
 
 data class CommentsUiState(
@@ -70,6 +75,7 @@ data class PlaylistPickerState(
 /** One-off problems shown as a snackbar. */
 enum class VideoMessage { NeedsSignIn, ActionFailed, TooManyActions, CommentPosted }
 
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class VideoViewModel @Inject constructor(
     savedState: SavedStateHandle,
@@ -78,6 +84,7 @@ class VideoViewModel @Inject constructor(
     private val extras: CommunityExtras,
     private val settings: AppSettings,
     val controller: PlayerController,
+    private val localSubscriptions: app.freshtuber.data.subscriptions.LocalSubscriptions,
 ) : ViewModel() {
 
     val videoId: String = savedState.get<String>("videoId") ?: savedState.toRoute<PlayerRoute>().videoId
@@ -121,6 +128,12 @@ class VideoViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            _state.map { it.details?.channel?.id }.distinctUntilChanged().flatMapLatest { id -> localSubscriptions.channel(id) }.collect { channel ->
+                _state.update { it.copy(localSubscribed = channel != null, localNotifications = channel?.notifications == true,
+                    subscribed = if (signedIn) it.subscribed else channel != null) }
+            }
+        }
+        viewModelScope.launch {
             controller.state.collect { playback ->
                 val channel = playback.nowPlaying?.takeIf { it.videoId == videoId }?.channel
                 if (channel != null) _state.update { current ->
@@ -137,7 +150,7 @@ class VideoViewModel @Inject constructor(
             try {
                 val details = withChannelFallback(videos.details(videoId))
                 _state.update {
-                    it.copy(details = details, loading = false, likeStatus = details.likeStatus, subscribed = details.subscribed)
+                    it.copy(details = details, loading = false, likeStatus = details.likeStatus, subscribed = if (signedIn) details.subscribed else it.localSubscribed)
                 }
                 if (controller.state.value.nowPlaying?.videoId == videoId || controller.state.value.loadingId == videoId) {
                     controller.setQueue(details.related)
@@ -175,7 +188,14 @@ class VideoViewModel @Inject constructor(
     fun toggleSubscription() {
         val details = _state.value.details ?: return
         val channelId = details.channel?.id ?: return
-        if (!requireSignIn()) return
+        if (!signedIn) {
+            viewModelScope.launch {
+                try { localSubscriptions.toggle(details.channel!!); localSubscriptions.refresh() }
+                catch (e: CancellationException) { throw e }
+                catch (e: Exception) { _message.value = e.toMessage() }
+            }
+            return
+        }
         val subscribe = _state.value.subscribed != true
         val command = if (subscribe) {
             details.subscribeCommand ?: InnerTubeCommand.subscribe(channelId)
@@ -185,6 +205,15 @@ class VideoViewModel @Inject constructor(
         val before = _state.value.subscribed
         _state.update { it.copy(subscribed = subscribe) }
         perform(command) { _state.update { it.copy(subscribed = before) } }
+    }
+
+    fun setLocalNotifications(enabled: Boolean) {
+        val channel = _state.value.details?.channel ?: return
+        viewModelScope.launch {
+            try { localSubscriptions.notify(channel, enabled); localSubscriptions.refresh() }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { _message.value = e.toMessage() }
+        }
     }
 
     // --- Comments.

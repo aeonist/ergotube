@@ -219,11 +219,14 @@ fun VideoActionsMenu(
                 .putExtra(Intent.EXTRA_TEXT, "https://youtu.be/${viewModel.videoId}"), shareLabel))
         },
     )
+    val enableNotifications = app.freshtuber.ui.components.rememberNotificationPermission { viewModel.setLocalNotifications(true) }
     val channelItems = state.details?.channel?.let { channel -> listOf(
         RadialItem("channel", stringResource(R.string.channel_open), Icons.Rounded.AccountCircle) { openChannel(channel.id) },
         RadialItem("subscription", stringResource(if (state.subscribed == true) R.string.channel_unsubscribe else R.string.channel_subscribe),
             if (state.subscribed == true) Icons.Rounded.PersonRemove else Icons.Rounded.PersonAdd,
             selected = state.subscribed == true) { viewModel.toggleSubscription() },
+        RadialItem("notifications", stringResource(R.string.notification_new_videos), Icons.Rounded.Notifications,
+            selected = state.localNotifications) { if (state.localNotifications) viewModel.setLocalNotifications(false) else enableNotifications() },
     ) }.orEmpty()
     val videoTitle = stringResource(R.string.video_group)
     val channelTitle = stringResource(R.string.channel_group)

@@ -73,6 +73,7 @@ class ListViewModel @Inject constructor(
     private val feeds: FeedRepository,
     private val videos: VideoRepository,
     private val accounts: AccountRepository,
+    private val localSubscriptions: app.freshtuber.data.subscriptions.LocalSubscriptions,
     settings: AppSettings,
     extras: CommunityExtras,
 ) : ViewModel() {
@@ -109,7 +110,8 @@ class ListViewModel @Inject constructor(
     private suspend fun loadFirst(): FeedPage {
         val id = channelId ?: return feeds.load(source)
         val (header, page) = feeds.channel(id)
-        _header.value = header
+        _header.value = if (header != null && accounts.state.value !is AccountState.SignedIn)
+            header.copy(subscribed = localSubscriptions.channel(id).first() != null) else header
         return page
     }
 
@@ -117,7 +119,13 @@ class ListViewModel @Inject constructor(
     fun toggleSubscription() {
         val header = _header.value ?: return
         if (accounts.state.value !is AccountState.SignedIn) {
-            _actionError.value = LoadError.SessionExpired
+            val subscribe = header.subscribed != true
+            _header.value = header.copy(subscribed = subscribe)
+            viewModelScope.launch {
+                try { localSubscriptions.toggle(header.channel); localSubscriptions.refresh() }
+                catch (e: CancellationException) { throw e }
+                catch (e: Exception) { _header.value = header; _actionError.value = e.toLoadError() }
+            }
             return
         }
         val subscribe = header.subscribed != true

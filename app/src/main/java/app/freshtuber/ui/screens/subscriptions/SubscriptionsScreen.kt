@@ -12,6 +12,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.*
+import androidx.compose.foundation.layout.Row
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -53,7 +60,20 @@ class SubscriptionsViewModel @Inject constructor(
     accounts: AccountRepository,
     settings: AppSettings,
     extras: CommunityExtras,
+    val local: app.freshtuber.data.subscriptions.LocalSubscriptions,
 ) : ViewModel() {
+
+    val refreshing = kotlinx.coroutines.flow.MutableStateFlow(false)
+    private val failure = kotlinx.coroutines.flow.MutableStateFlow(false)
+    val localChannels = local.channels.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val localState = kotlinx.coroutines.flow.combine(local.videos, refreshing, failure, settings.shortsInFeeds) { videos, loading, failed, shorts ->
+        app.freshtuber.ui.feed.FeedUiState(items = videos.filter { shorts || !it.isShort }.map { FeedItem.Video(it.summary()) }, loading = loading && videos.isEmpty(),
+            error = if (failed && videos.isEmpty()) app.freshtuber.ui.feed.LoadError.Network else null)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, app.freshtuber.ui.feed.FeedUiState())
+    fun refreshLocal() { if (refreshing.value) return; viewModelScope.launch {
+        refreshing.value = true
+        try { failure.value = local.refresh() > 0 } finally { refreshing.value = false }
+    } }
 
     val feed = AccountScopedFeed(viewModelScope, accounts) { signedIn ->
         signedIn ?: return@AccountScopedFeed null
@@ -80,27 +100,47 @@ class SubscriptionsViewModel @Inject constructor(
 fun SubscriptionsScreen(
     navigation: FeedNavigation,
     onSignIn: () -> Unit,
+    onSearch: () -> Unit,
     viewModel: SubscriptionsViewModel = hiltViewModel(),
 ) {
     val signedIn by viewModel.feed.signedIn.collectAsStateWithLifecycle()
-    if (signedIn == false) {
-        SignInPrompt(stringResource(R.string.subscriptions_signed_out), onSignIn)
-        return
-    }
     val state by viewModel.feed.state.collectAsStateWithLifecycle()
     val channelsState by viewModel.channels.state.collectAsStateWithLifecycle()
     val channels = channelsState.items.filterIsInstance<FeedItem.Channel>().map { it.channel }
 
+    val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
+    val localState by viewModel.localState.collectAsStateWithLifecycle()
+    val localChannels by viewModel.localChannels.collectAsStateWithLifecycle()
+    var localMode by rememberSaveable(signedIn) { mutableStateOf(signedIn != true) }
+    LaunchedEffect(localMode) { if (localMode) viewModel.refreshLocal() }
     FeedList(
-        state = state,
+        state = if (localMode) localState else state,
         navigation = navigation,
-        onRetry = viewModel.feed::refresh,
-        onLoadMore = viewModel.feed::loadMore,
-        emptyMessage = stringResource(R.string.feed_empty),
+        onRetry = { if (localMode) viewModel.refreshLocal() else { viewModel.feed.refresh() } },
+        onLoadMore = { if (!localMode) { viewModel.feed.loadMore() } },
+        emptyMessage = stringResource(if (localMode) R.string.local_subscriptions_empty else R.string.feed_empty),
         onSignInAgain = onSignIn,
         header = {
-            if (channels.isNotEmpty()) {
-                item(key = "channels") { ChannelStrip(channels, navigation::openChannel) }
+            item(key = "local-controls") {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    Text(stringResource(R.string.nav_subscriptions), style = MaterialTheme.typography.titleLarge)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (signedIn == true) {
+                            FilterChip(selected = !localMode, onClick = { localMode = false }, label = { Text(stringResource(R.string.source_youtube)) })
+                            FilterChip(selected = localMode, onClick = { localMode = true }, label = { Text(stringResource(R.string.local_on_device)) })
+                        } else Text(stringResource(R.string.local_on_device), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+                        if (localMode) TextButton(onClick = viewModel::refreshLocal, enabled = !refreshing) { Text(stringResource(if (refreshing) R.string.action_refreshing else R.string.action_refresh)) }
+                    }
+                    if (localMode && localChannels.any { it.syncFailed }) Text(stringResource(R.string.local_sync_failed), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
+            }
+            if (localMode && localChannels.isEmpty()) item(key = "find-channels") {
+                TextButton(onClick = onSearch, modifier = Modifier.padding(horizontal = 12.dp)) { Text(stringResource(R.string.local_find_channels)) }
+            }
+            val strip = if (localMode) localChannels.map { ChannelSummary(it.id, it.name, it.avatarUrl) } else channels
+            if (strip.isNotEmpty()) {
+                item(key = "channels") { ChannelStrip(strip, navigation::openChannel) }
             }
         },
     )

@@ -32,7 +32,23 @@ interface PlaybackPositionDao {
     suspend fun deleteOlderThan(before: Long)
 }
 
-@Database(entities = [PlaybackPosition::class], version = 1, exportSchema = true)
+@Database(entities = [PlaybackPosition::class, app.freshtuber.data.subscriptions.LocalChannel::class, app.freshtuber.data.subscriptions.LocalVideo::class], version = 3, exportSchema = true)
 abstract class AppDatabase : RoomDatabase() {
+    abstract fun localSubscriptions(): app.freshtuber.data.subscriptions.LocalSubscriptionDao
     abstract fun playbackPositions(): PlaybackPositionDao
+}
+
+
+val MIGRATION_1_2 = object : androidx.room.migration.Migration(1, 2) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS local_channels (id TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL, avatarUrl TEXT, notifications INTEGER NOT NULL, addedAt INTEGER NOT NULL, initialized INTEGER NOT NULL, lastCheckedAt INTEGER NOT NULL, syncFailed INTEGER NOT NULL)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS local_videos (id TEXT NOT NULL PRIMARY KEY, channelId TEXT NOT NULL, channelName TEXT NOT NULL, title TEXT NOT NULL, thumbnailUrl TEXT, publishedAt INTEGER NOT NULL, FOREIGN KEY(channelId) REFERENCES local_channels(id) ON UPDATE NO ACTION ON DELETE CASCADE)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS index_local_videos_channelId ON local_videos(channelId)")
+    }
+}
+
+val MIGRATION_2_3 = object : androidx.room.migration.Migration(2, 3) {
+    override fun migrate(db: androidx.sqlite.db.SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE local_videos ADD COLUMN isShort INTEGER NOT NULL DEFAULT 0")
+    }
 }

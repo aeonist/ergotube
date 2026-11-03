@@ -1,6 +1,7 @@
 package app.freshtuber
 
 import android.app.PictureInPictureParams
+import android.content.Intent
 import android.content.ComponentName
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -33,6 +34,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var playerController: PlayerController
     @Inject lateinit var settings: AppSettings
 
+    private var externalVideoId by mutableStateOf<String?>(null)
     private var inPictureInPicture by mutableStateOf(false)
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var pipOnLeave = true
@@ -41,6 +43,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        acceptIntent(intent)
         // Keeps the content region in sync with the per-app language (Android 13+), which the
         // activity sees even when the Application context does not.
         val uiLocale = ConfigurationCompat.getLocales(resources.configuration)[0] ?: Locale.getDefault()
@@ -49,9 +52,19 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             AppTheme {
-                AppRoot(inPictureInPicture = inPictureInPicture)
+                AppRoot(inPictureInPicture = inPictureInPicture, openVideo = externalVideoId, onVideoOpened = { externalVideoId = null })
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        acceptIntent(intent)
+    }
+
+    private fun acceptIntent(intent: Intent?) {
+        externalVideoId = intent?.getStringExtra("videoId")?.takeIf { it.matches(Regex("[A-Za-z0-9_-]{11}")) }
     }
 
     override fun onStart() {

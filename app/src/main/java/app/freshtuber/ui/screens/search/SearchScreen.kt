@@ -1,5 +1,6 @@
 package app.freshtuber.ui.screens.search
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.fillMaxSize
@@ -41,19 +42,38 @@ fun SearchScreen(
     onSignIn: () -> Unit,
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
+    val menu: app.freshtuber.ui.screens.settings.MenuSettingsViewModel = hiltViewModel()
+    val left by menu.leftHanded.collectAsStateWithLifecycle()
+    val bottomClearance = if (app.freshtuber.ui.feed.LocalFeedBottomClearance.current > 88.dp) 72.dp else 0.dp
     val state by viewModel.state.collectAsStateWithLifecycle()
     val hasQuery by viewModel.hasQuery.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
     var submitted by rememberSaveable { mutableStateOf("") }
     val keyboard = LocalSoftwareKeyboardController.current
 
-    Column(Modifier.fillMaxSize().imePadding()) {
+    Column(Modifier.fillMaxSize().imePadding().padding(bottom = bottomClearance)) {
+
+
+        Box(Modifier.weight(1f)) {
+        if (!hasQuery) {
+            MessageState(stringResource(R.string.search_idle))
+        } else {
+            FeedList(
+                state = state,
+                navigation = navigation,
+                onRetry = viewModel::retry,
+                onLoadMore = viewModel::loadMore,
+                emptyMessage = stringResource(R.string.search_empty, submitted),
+                onSignInAgain = onSignIn,
+            )
+        }
+        }
         TextField(
             value = query,
             onValueChange = { query = it },
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(start = if (left) 88.dp else 12.dp, end = if (left) 12.dp else 88.dp, top = 8.dp, bottom = 8.dp),
             placeholder = { Text(stringResource(R.string.search_hint)) },
             leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null) },
             trailingIcon = {
@@ -79,17 +99,5 @@ fun SearchScreen(
             }),
         )
 
-        if (!hasQuery) {
-            MessageState(stringResource(R.string.search_idle))
-        } else {
-            FeedList(
-                state = state,
-                navigation = navigation,
-                onRetry = viewModel::retry,
-                onLoadMore = viewModel::loadMore,
-                emptyMessage = stringResource(R.string.search_empty, submitted),
-                onSignInAgain = onSignIn,
-            )
-        }
     }
 }

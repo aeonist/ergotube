@@ -48,7 +48,7 @@ object AppModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
-        Room.databaseBuilder(context, AppDatabase::class.java, "freshtuber.db").build()
+        Room.databaseBuilder(context, AppDatabase::class.java, "freshtuber.db").addMigrations(app.freshtuber.data.local.MIGRATION_1_2, app.freshtuber.data.local.MIGRATION_2_3).build()
 
     @Provides
     fun providePlaybackPositions(database: AppDatabase): PlaybackPositionDao = database.playbackPositions()

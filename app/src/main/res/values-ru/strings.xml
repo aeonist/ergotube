@@ -169,4 +169,14 @@
     <string name="feed_not_interested">Не интересует</string>
     <string name="feed_download">Скачать</string>
     <string name="feed_save_sign_in">Войди в аккаунт, чтобы сохранять видео в плейлисты.</string>
+    <string name="notification_new_videos">Новые видео</string>
+    <string name="notification_permission_title">Разрешить уведомления</string>
+    <string name="notification_permission_hint">Разреши уведомления в настройках Android, чтобы узнавать о новых видео.</string>
+    <string name="local_subscriptions_empty">Подпишись на канал, и его последние видео появятся здесь. Подписки хранятся на этом устройстве.</string>
+    <string name="local_on_device">На устройстве</string>
+    <string name="local_find_channels">Найти каналы</string>
+    <string name="action_refresh">Обновить</string>
+    <string name="source_youtube">YouTube</string>
+    <string name="action_refreshing">Обновление…</string>
+    <string name="local_sync_failed">Некоторые каналы не удалось обновить. Сохранённая лента остаётся доступна.</string>
 </resources>

@@ -19,6 +19,7 @@ navigation = "2.10.2"
 # Pinned below 1.11.x: 1.11.1 hides media controls on Android 17 (see Metrolist #4404). Revisit in stage 4.
 media3 = "1.10.1"
 room = "2.8.5"
+work = "2.11.2"
 datastore = "1.2.1"
 webkit = "1.18.0"
 
@@ -59,6 +60,8 @@ androidx-media3-exoplayer-hls = { module = "androidx.media3:media3-exoplayer-hls
 androidx-media3-datasource-okhttp = { module = "androidx.media3:media3-datasource-okhttp", version.ref = "media3" }
 androidx-media3-session = { module = "androidx.media3:media3-session", version.ref = "media3" }
 androidx-media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
+
+androidx-work-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
 
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
