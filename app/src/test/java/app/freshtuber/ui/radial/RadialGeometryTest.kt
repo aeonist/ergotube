@@ -197,4 +197,25 @@ class RadialGeometryTest {
         }
     }
 
+    @Test fun `portrait space keeps full size buttons even at minimum reach`() {
+        for (left in listOf(false, true)) for (slots in listOf(5, 6)) {
+            val layout = RadialGeometry.menuLayout(360f, 700f, left, ThumbArc(80f, 90f, 80f), anchorMargin = 36f, slots = slots)
+            assertEquals(64f, layout.outerTarget, 0f)
+            assertTrue(layout.capacity(true) >= slots)
+            assertEquals(80f, layout.radius, 0f)
+        }
+    }
+
+    @Test fun `edge aligned menu keeps large font targets inside short windows`() {
+        for (left in listOf(false, true)) for (height in listOf(260f, 500f, 700f)) {
+            val layout = RadialGeometry.menuLayout(320f, height, left, ThumbArc(80f, 70f, 80f),
+                preferredTarget = 83f, anchorMargin = 36f, slots = 5)
+            assertTrue(layout.capacity(true) >= 5)
+            layout.points(5, true).forEach { p ->
+                assertTrue(p.x - layout.outerTarget / 2 >= 7.99f && p.x + layout.outerTarget / 2 <= 312.01f)
+                assertTrue(p.y - layout.outerTarget / 2 >= 7.99f && p.y + layout.outerTarget / 2 <= height - 7.99f)
+            }
+        }
+    }
+
 }

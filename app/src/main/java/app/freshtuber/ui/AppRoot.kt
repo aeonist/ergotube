@@ -229,8 +229,9 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
         androidx.compose.runtime.key(currentDestination?.route, playerMenuRequested) {
             RadialMenu(sections, leftHanded, thumbArc, Modifier.imePadding().padding(bottom = if (!fullScreen && nowPlaying?.isShort == false) 72.dp else 0.dp),
                 initiallyExpanded = playerMenuRequested, showAnchor = !fullScreen,
-                anchorMargin = if (nowPlaying?.isShort == true) 36f else 40f,
-                contentInsets = if (nowPlaying?.isShort == true) WindowInsets.safeDrawing else WindowInsets.safeDrawing.union(WindowInsets.safeGestures),
+                anchorMargin = 36f,
+                pageSlots = 5,
+                contentInsets = WindowInsets.safeDrawing.union(WindowInsets.safeGestures.only(WindowInsetsSides.Vertical)),
                 onExpandedChange = { if (!it) playerMenuRequested = false })
         }
     }

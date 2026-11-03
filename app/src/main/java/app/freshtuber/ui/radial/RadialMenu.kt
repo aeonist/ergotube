@@ -120,6 +120,7 @@ fun RadialMenu(
     instruction: String? = null,
     anchorRoot: Offset? = null,
     anchorMargin: Float = 40f,
+    pageSlots: Int = 6,
 ) {
     var menuOrigin by remember { mutableStateOf(Offset.Zero) }
     var expanded by remember { mutableStateOf(initiallyExpanded) }
@@ -169,9 +170,9 @@ fun RadialMenu(
             ) + branch.children
             val preferredTarget = (64f * density.fontScale).coerceIn(64f, 96f)
             val origin = anchorRoot?.let { ArcPoint((it.x - menuOrigin.x) / density.density, (it.y - menuOrigin.y) / density.density) }
-            val capacity = 6
-            val layout = remember(maxWidth, maxHeight, leftHanded, arc, preferredTarget, origin, anchorMargin) {
-                RadialGeometry.menuLayout(maxWidth.value, maxHeight.value, leftHanded, arc, preferredTarget, origin, anchorMargin)
+            val capacity = pageSlots.coerceIn(3, 6)
+            val layout = remember(maxWidth, maxHeight, leftHanded, arc, preferredTarget, origin, anchorMargin, capacity) {
+                RadialGeometry.menuLayout(maxWidth.value, maxHeight.value, leftHanded, arc, preferredTarget, origin, anchorMargin, capacity)
             }
             val target = layout.outerTarget
             val chunks = mutableListOf<List<RadialItem>>()

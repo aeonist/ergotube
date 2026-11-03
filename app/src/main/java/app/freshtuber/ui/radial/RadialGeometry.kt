@@ -114,34 +114,38 @@ object RadialGeometry {
             targetGap = 8f, rectangularTargets = true, startAngle = start)
     }
 
-    /** Keep six slots on an arc. Preserve horizontal reach first when a tiny ellipse is too short. */
+    /** Fit the largest buttons first; use available arc length before reducing their size. */
     fun menuLayout(width: Float, height: Float, left: Boolean, arc: ThumbArc,
-        preferredTarget: Float = 64f, origin: ArcPoint? = null, anchorMargin: Float = 40f): ArcLayout {
-        fun measured(size: Float) = singleLevelLayout(width, height, left, arc, size, origin, anchorMargin)
-        for (size in preferredTarget.toInt().coerceIn(48, 128) downTo 48) {
-            val layout = measured(size.toFloat())
-            if (layout.capacity(true) >= 6) return layout
-        }
-        val compact = measured(48f)
-        val availableX = ((if (left) width - compact.anchor.x else compact.anchor.x) - 32f).coerceAtLeast(compact.radius)
-        val availableY = (compact.anchor.y - 32f).coerceAtLeast(compact.verticalRadius)
-        fun stretched(x: Float, y: Float) = compact.copy(radius = x, outerRadius = x,
-            verticalRadius = y, outerVerticalRadius = y)
-        // Add only the missing length; the anchor and page membership never change.
+        preferredTarget: Float = 64f, origin: ArcPoint? = null, anchorMargin: Float = 40f,
+        slots: Int = 6): ArcLayout {
+        val count = slots.coerceIn(3, 6)
         fun firstFit(low: Float, high: Float, candidate: (Float) -> ArcLayout): ArcLayout? {
-            if (candidate(high).capacity(true) < 6) return null
+            if (candidate(high).capacity(true) < count) return null
             var lower = low
             var upper = high
             repeat(12) {
                 val middle = (lower + upper) / 2
-                if (candidate(middle).capacity(true) >= 6) upper = middle else lower = middle
+                if (candidate(middle).capacity(true) >= count) upper = middle else lower = middle
             }
             return candidate(upper)
         }
-        firstFit(compact.verticalRadius, availableY) { stretched(compact.radius, it) }?.let { return it }
-        firstFit(compact.radius, availableX) { stretched(it, availableY) }?.let { return it }
-        // A short landscape window may also need the full quarter ellipse.
-        return stretched(availableX, availableY).copy(startAngle = 0f, sweep = 90f)
+        var last = singleLevelLayout(width, height, left, arc, 48f, origin, anchorMargin)
+        for (size in preferredTarget.toInt().coerceIn(48, 128) downTo 48) {
+            val layout = singleLevelLayout(width, height, left, arc, size.toFloat(), origin, anchorMargin)
+            if (layout.capacity(true) >= count) return layout
+            val edge = size / 2f + 8f
+            val availableX = ((if (left) width - layout.anchor.x else layout.anchor.x) - edge).coerceAtLeast(layout.radius)
+            val availableY = (layout.anchor.y - edge).coerceAtLeast(layout.verticalRadius)
+            fun stretched(x: Float, y: Float) = layout.copy(radius = x, outerRadius = x,
+                verticalRadius = y, outerVerticalRadius = y)
+            // Preserve the user's horizontal reach while using empty space above the arc.
+            firstFit(layout.verticalRadius, availableY) { stretched(layout.radius, it) }?.let { return it }
+            firstFit(layout.radius, availableX) { stretched(it, availableY) }?.let { return it }
+            val quarter = singleLevelLayout(width, height, left, arc.copy(sweep = 90f), size.toFloat(), origin, anchorMargin)
+            last = stretched(availableX, availableY).copy(startAngle = quarter.startAngle, sweep = quarter.sweep)
+            if (last.capacity(true) >= count) return last
+        }
+        return last
     }
 
     fun hit(point: ArcPoint, targets: List<ArcPoint>, targetRadius: Float = 28f): Int? =
