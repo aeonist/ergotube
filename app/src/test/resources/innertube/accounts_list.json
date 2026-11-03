@@ -1,0 +1,70 @@
+{
+  "responseContext": { "mainAppWebResponseContext": { "loggedOut": false } },
+  "actions": [
+    {
+      "getMultiPageMenuAction": {
+        "menu": {
+          "multiPageMenuRenderer": {
+            "sections": [
+              {
+                "accountSectionListRenderer": {
+                  "header": {
+                    "googleAccountHeaderRenderer": {
+                      "name": { "simpleText": "Тестовый Аккаунт" },
+                      "email": { "simpleText": "fixture@example.test" }
+                    }
+                  },
+                  "contents": [
+                    {
+                      "accountItemSectionRenderer": {
+                        "contents": [
+                          {
+                            "accountItem": {
+                              "accountName": { "simpleText": "Тестовый Аккаунт" },
+                              "accountPhoto": { "thumbnails": [ { "url": "https://yt3.example.test/own=s88", "width": 88, "height": 88 } ] },
+                              "isSelected": true,
+                              "channelHandle": { "simpleText": "@fixture" },
+                              "accountByline": { "simpleText": "Нет подписчиков" },
+                              "serviceEndpoint": {
+                                "selectActiveIdentityEndpoint": {
+                                  "supportedTokens": [
+                                    { "accountStateToken": { "hasChannel": true, "isMerged": false, "obfuscatedGaiaId": "107654321" } },
+                                    { "offlineCacheKeyToken": { "clientCacheKey": "fixture-cache" } },
+                                    { "accountSigninToken": { "signinUrl": "/signin?action_handle_signin=true&authuser=0" } },
+                                    { "datasyncIdToken": { "datasyncIdToken": "107654321||" } }
+                                  ]
+                                }
+                              }
+                            }
+                          },
+                          {
+                            "accountItem": {
+                              "accountName": { "runs": [ { "text": "Бренд " }, { "text": "Канал" } ] },
+                              "accountPhoto": { "thumbnails": [ { "url": "https://yt3.example.test/brand=s48", "width": 48, "height": 48 } ] },
+                              "isSelected": false,
+                              "channelHandle": { "simpleText": "@brand-fixture" },
+                              "accountByline": { "simpleText": "12 подписчиков" },
+                              "serviceEndpoint": {
+                                "selectActiveIdentityEndpoint": {
+                                  "supportedTokens": [
+                                    { "pageIdToken": { "pageId": "990011" } },
+                                    { "accountSigninToken": { "signinUrl": "/signin?action_handle_signin=true&authuser=0&pageid=990011" } },
+                                    { "datasyncIdToken": { "datasyncIdToken": "990011||107654321" } }
+                                  ]
+                                }
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

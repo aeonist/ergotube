@@ -1,0 +1,734 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-02T16:56:53.541486+00:00",
+  "title": "Design System: ErgoTube",
+  "extensions": {
+    "colorMeta": {
+      "brand-red": {
+        "role": "primary",
+        "displayName": "Brand Red",
+        "tonalRamp": [
+          "oklch(15.0% 0.0510 23.6)",
+          "oklch(26.4% 0.1274 23.6)",
+          "oklch(37.9% 0.2039 23.6)",
+          "oklch(49.3% 0.2549 23.6)",
+          "oklch(60.7% 0.2549 23.6)",
+          "oklch(72.1% 0.2039 23.6)",
+          "oklch(83.6% 0.1274 23.6)",
+          "oklch(95.0% 0.0382 23.6)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "brand-on-red": {
+        "role": "neutral",
+        "displayName": "Brand On Red",
+        "tonalRamp": [
+          "oklch(15.0% 0.0000 0.0)",
+          "oklch(26.4% 0.0000 0.0)",
+          "oklch(37.9% 0.0000 0.0)",
+          "oklch(49.3% 0.0000 0.0)",
+          "oklch(60.7% 0.0000 0.0)",
+          "oklch(72.1% 0.0000 0.0)",
+          "oklch(83.6% 0.0000 0.0)",
+          "oklch(95.0% 0.0000 0.0)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "badge-background": {
+        "role": "neutral",
+        "displayName": "Badge Background",
+        "tonalRamp": [
+          "oklch(15.0% 0.0000 0.0)",
+          "oklch(26.4% 0.0000 0.0)",
+          "oklch(37.9% 0.0000 0.0)",
+          "oklch(49.3% 0.0000 0.0)",
+          "oklch(60.7% 0.0000 0.0)",
+          "oklch(72.1% 0.0000 0.0)",
+          "oklch(83.6% 0.0000 0.0)",
+          "oklch(95.0% 0.0000 0.0)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "dark-primary": {
+        "role": "primary",
+        "displayName": "Dark Primary",
+        "tonalRamp": [
+          "oklch(15.0% 0.0000 0.0)",
+          "oklch(26.4% 0.0000 0.0)",
+          "oklch(37.9% 0.0000 0.0)",
+          "oklch(49.3% 0.0000 0.0)",
+          "oklch(60.7% 0.0000 0.0)",
+          "oklch(72.1% 0.0000 0.0)",
+          "oklch(83.6% 0.0000 0.0)",
+          "oklch(95.0% 0.0000 0.0)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "dark-background": {
+        "role": "neutral",
+        "displayName": "Dark Background",
+        "tonalRamp": [
+          "oklch(15.0% 0.0000 0.0)",
+          "oklch(26.4% 0.0000 0.0)",
+          "oklch(37.9% 0.0000 0.0)",
+          "oklch(49.3% 0.0000 0.0)",
+          "oklch(60.7% 0.0000 0.0)",
+          "oklch(72.1% 0.0000 0.0)",
+          "oklch(83.6% 0.0000 0.0)",
+          "oklch(95.0% 0.0000 0.0)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "dark-secondary": {
+        "role": "secondary",
+        "displayName": "Dark Secondary",
+        "tonalRamp": [
+          "oklch(15.0% 0.0000 0.0)",
+          "oklch(26.4% 0.0000 0.0)",
+          "oklch(37.9% 0.0000 0.0)",
+          "oklch(49.3% 0.0000 0.0)",
+          "oklch(60.7% 0.0000 0.0)",
+          "oklch(72.1% 0.0000 0.0)",
+          "oklch(83.6% 0.0000 0.0)",
+          "oklch(95.0% 0.0000 0.0)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "dark-link": {
+        "role": "tertiary",
+        "displayName": "Dark Link",
+        "tonalRamp": [
+          "oklch(15.0% 0.0322 248.4)",
+          "oklch(26.4% 0.0804 248.4)",
+          "oklch(37.9% 0.1287 248.4)",
+          "oklch(49.3% 0.1609 248.4)",
+          "oklch(60.7% 0.1609 248.4)",
+          "oklch(72.1% 0.1287 248.4)",
+          "oklch(83.6% 0.0804 248.4)",
+          "oklch(95.0% 0.0241 248.4)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "dark-link-container": {
+        "role": "tertiary",
+        "displayName": "Dark Link Container",
+        "tonalRamp": [
+          "oklch(15.0% 0.0097 255.9)",
+          "oklch(26.4% 0.0243 255.9)",
+          "oklch(37.9% 0.0389 255.9)",
+          "oklch(49.3% 0.0487 255.9)",
+          "oklch(60.7% 0.0487 255.9)",
+          "oklch(72.1% 0.0389 255.9)",
+          "oklch(83.6% 0.0243 255.9)",
+          "oklch(95.0% 0.0073 255.9)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "dark-on-link-container": {
+        "role": "tertiary",
+        "displayName": "Dark On Link Container",
+        "tonalRamp": [
+          "oklch(15.0% 0.0072 252.1)",
+          "oklch(26.4% 0.0181 252.1)",
+          "oklch(37.9% 0.0290 252.1)",
+          "oklch(49.3% 0.0362 252.1)",
+          "oklch(60.7% 0.0362 252.1)",
+          "oklch(72.1% 0.0290 252.1)",
+          "oklch(83.6% 0.0181 252.1)",
+          "oklch(95.0% 0.0054 252.1)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "dark-container-lowest": {
+        "role": "neutral",
+        "displayName": "Dark Container Lowest",
+        "tonalRamp": [
+          "oklch(15.0% 0.0000 0.0)",
+          "oklch(26.4% 0.0000 0.0)",
+          "oklch(37.9% 0.0000 0.0)",
+          "oklch(49.3% 0.0000 0.0)",
+          "oklch(60.7% 0.0000 0.0)",
+          "oklch(72.1% 0.0000 0.0)",
+          "oklch(83.6% 0.0000 0.0)",
+          "oklch(95.0% 0.0000 0.0)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "dark-container-low": {
+        "role": "neutral",
+        "displayName": "Dark Container Low",
+        "tonalRamp": [
+          "oklch(15.0% 0.0000 0.0)",
+          "oklch(26.4% 0.0000 0.0)",
+          "oklch(37.9% 0.0000 0.0)",
+          "oklch(49.3% 0.0000 0.0)",
+          "oklch(60.7% 0.0000 0.0)",
+          "oklch(72.1% 0.0000 0.0)",
+          "oklch(83.6% 0.0000 0.0)",
+          "oklch(95.0% 0.0000 0.0)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "dark-container": {
+        "role": "neutral",
+        "displayName": "Dark Container",
+        "tonalRamp": [
+          "oklch(15.0% 0.0000 0.0)",
+          "oklch(26.4% 0.0000 0.0)",
+          "oklch(37.9% 0.0000 0.0)",
+          "oklch(49.3% 0.0000 0.0)",
+          "oklch(60.7% 0.0000 0.0)",
+          "oklch(72.1% 0.0000 0.0)",
+          "oklch(83.6% 0.0000 0.0)",
+          "oklch(95.0% 0.0000 0.0)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "dark-container-high": {
+        "role": "neutral",
+        "displayName": "Dark Container High",
+        "tonalRamp": [
+          "oklch(15.0% 0.0000 0.0)",
+          "oklch(26.4% 0.0000 0.0)",
+          "oklch(37.9% 0.0000 0.0)",
+          "oklch(49.3% 0.0000 0.0)",
+          "oklch(60.7% 0.0000 0.0)",
+          "oklch(72.1% 0.0000 0.0)",
+          "oklch(83.6% 0.0000 0.0)",
+          "oklch(95.0% 0.0000 0.0)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "dark-container-highest": {
+        "role": "neutral",
+        "displayName": "Dark Container Highest",
+        "tonalRamp": [
+          "oklch(15.0% 0.0000 0.0)",
+          "oklch(26.4% 0.0000 0.0)",
+          "oklch(37.9% 0.0000 0.0)",
+          "oklch(49.3% 0.0000 0.0)",
+          "oklch(60.7% 0.0000 0.0)",
+          "oklch(72.1% 0.0000 0.0)",
+          "oklch(83.6% 0.0000 0.0)",
+          "oklch(95.0% 0.0000 0.0)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "dark-outline": {
+        "role": "neutral",
+        "displayName": "Dark Outline",
+        "tonalRamp": [
+          "oklch(15.0% 0.0000 0.0)",
+          "oklch(26.4% 0.0000 0.0)",
+          "oklch(37.9% 0.0000 0.0)",
+          "oklch(49.3% 0.0000 0.0)",
+          "oklch(60.7% 0.0000 0.0)",
+          "oklch(72.1% 0.0000 0.0)",
+          "oklch(83.6% 0.0000 0.0)",
+          "oklch(95.0% 0.0000 0.0)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "dark-outline-variant": {
+        "role": "neutral",
+        "displayName": "Dark Outline Variant",
+        "tonalRamp": [
+          "oklch(15.0% 0.0000 0.0)",
+          "oklch(26.4% 0.0000 0.0)",
+          "oklch(37.9% 0.0000 0.0)",
+          "oklch(49.3% 0.0000 0.0)",
+          "oklch(60.7% 0.0000 0.0)",
+          "oklch(72.1% 0.0000 0.0)",
+          "oklch(83.6% 0.0000 0.0)",
+          "oklch(95.0% 0.0000 0.0)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "dark-error": {
+        "role": "neutral",
+        "displayName": "Dark Error",
+        "tonalRamp": [
+          "oklch(15.0% 0.0365 25.9)",
+          "oklch(26.4% 0.0911 25.9)",
+          "oklch(37.9% 0.1458 25.9)",
+          "oklch(49.3% 0.1823 25.9)",
+          "oklch(60.7% 0.1823 25.9)",
+          "oklch(72.1% 0.1458 25.9)",
+          "oklch(83.6% 0.0911 25.9)",
+          "oklch(95.0% 0.0273 25.9)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "light-primary": {
+        "role": "primary",
+        "displayName": "Light Primary",
+        "tonalRamp": [
+          "oklch(15.0% 0.0000 0.0)",
+          "oklch(26.4% 0.0000 0.0)",
+          "oklch(37.9% 0.0000 0.0)",
+          "oklch(49.3% 0.0000 0.0)",
+          "oklch(60.7% 0.0000 0.0)",
+          "oklch(72.1% 0.0000 0.0)",
+          "oklch(83.6% 0.0000 0.0)",
+          "oklch(95.0% 0.0000 0.0)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "light-background": {
+        "role": "neutral",
+        "displayName": "Light Background",
+        "tonalRamp": [
+          "oklch(15.0% 0.0000 0.0)",
+          "oklch(26.4% 0.0000 0.0)",
+          "oklch(37.9% 0.0000 0.0)",
+          "oklch(49.3% 0.0000 0.0)",
+          "oklch(60.7% 0.0000 0.0)",
+          "oklch(72.1% 0.0000 0.0)",
+          "oklch(83.6% 0.0000 0.0)",
+          "oklch(95.0% 0.0000 0.0)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "light-secondary": {
+        "role": "secondary",
+        "displayName": "Light Secondary",
+        "tonalRamp": [
+          "oklch(15.0% 0.0000 0.0)",
+          "oklch(26.4% 0.0000 0.0)",
+          "oklch(37.9% 0.0000 0.0)",
+          "oklch(49.3% 0.0000 0.0)",
+          "oklch(60.7% 0.0000 0.0)",
+          "oklch(72.1% 0.0000 0.0)",
+          "oklch(83.6% 0.0000 0.0)",
+          "oklch(95.0% 0.0000 0.0)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "light-link": {
+        "role": "tertiary",
+        "displayName": "Light Link",
+        "tonalRamp": [
+          "oklch(15.0% 0.0390 259.0)",
+          "oklch(26.4% 0.0976 259.0)",
+          "oklch(37.9% 0.1561 259.0)",
+          "oklch(49.3% 0.1951 259.0)",
+          "oklch(60.7% 0.1951 259.0)",
+          "oklch(72.1% 0.1561 259.0)",
+          "oklch(83.6% 0.0976 259.0)",
+          "oklch(95.0% 0.0293 259.0)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "light-link-container": {
+        "role": "tertiary",
+        "displayName": "Light Link Container",
+        "tonalRamp": [
+          "oklch(15.0% 0.0055 239.7)",
+          "oklch(26.4% 0.0138 239.7)",
+          "oklch(37.9% 0.0221 239.7)",
+          "oklch(49.3% 0.0276 239.7)",
+          "oklch(60.7% 0.0276 239.7)",
+          "oklch(72.1% 0.0221 239.7)",
+          "oklch(83.6% 0.0138 239.7)",
+          "oklch(95.0% 0.0041 239.7)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "light-on-link-container": {
+        "role": "tertiary",
+        "displayName": "Light On Link Container",
+        "tonalRamp": [
+          "oklch(15.0% 0.0200 256.1)",
+          "oklch(26.4% 0.0500 256.1)",
+          "oklch(37.9% 0.0800 256.1)",
+          "oklch(49.3% 0.1000 256.1)",
+          "oklch(60.7% 0.1000 256.1)",
+          "oklch(72.1% 0.0800 256.1)",
+          "oklch(83.6% 0.0500 256.1)",
+          "oklch(95.0% 0.0150 256.1)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "light-container-low": {
+        "role": "neutral",
+        "displayName": "Light Container Low",
+        "tonalRamp": [
+          "oklch(15.0% 0.0000 0.0)",
+          "oklch(26.4% 0.0000 0.0)",
+          "oklch(37.9% 0.0000 0.0)",
+          "oklch(49.3% 0.0000 0.0)",
+          "oklch(60.7% 0.0000 0.0)",
+          "oklch(72.1% 0.0000 0.0)",
+          "oklch(83.6% 0.0000 0.0)",
+          "oklch(95.0% 0.0000 0.0)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "light-container": {
+        "role": "neutral",
+        "displayName": "Light Container",
+        "tonalRamp": [
+          "oklch(15.0% 0.0000 0.0)",
+          "oklch(26.4% 0.0000 0.0)",
+          "oklch(37.9% 0.0000 0.0)",
+          "oklch(49.3% 0.0000 0.0)",
+          "oklch(60.7% 0.0000 0.0)",
+          "oklch(72.1% 0.0000 0.0)",
+          "oklch(83.6% 0.0000 0.0)",
+          "oklch(95.0% 0.0000 0.0)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "light-container-high": {
+        "role": "neutral",
+        "displayName": "Light Container High",
+        "tonalRamp": [
+          "oklch(15.0% 0.0000 0.0)",
+          "oklch(26.4% 0.0000 0.0)",
+          "oklch(37.9% 0.0000 0.0)",
+          "oklch(49.3% 0.0000 0.0)",
+          "oklch(60.7% 0.0000 0.0)",
+          "oklch(72.1% 0.0000 0.0)",
+          "oklch(83.6% 0.0000 0.0)",
+          "oklch(95.0% 0.0000 0.0)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "light-container-highest": {
+        "role": "neutral",
+        "displayName": "Light Container Highest",
+        "tonalRamp": [
+          "oklch(15.0% 0.0000 0.0)",
+          "oklch(26.4% 0.0000 0.0)",
+          "oklch(37.9% 0.0000 0.0)",
+          "oklch(49.3% 0.0000 0.0)",
+          "oklch(60.7% 0.0000 0.0)",
+          "oklch(72.1% 0.0000 0.0)",
+          "oklch(83.6% 0.0000 0.0)",
+          "oklch(95.0% 0.0000 0.0)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "light-outline": {
+        "role": "neutral",
+        "displayName": "Light Outline",
+        "tonalRamp": [
+          "oklch(15.0% 0.0000 0.0)",
+          "oklch(26.4% 0.0000 0.0)",
+          "oklch(37.9% 0.0000 0.0)",
+          "oklch(49.3% 0.0000 0.0)",
+          "oklch(60.7% 0.0000 0.0)",
+          "oklch(72.1% 0.0000 0.0)",
+          "oklch(83.6% 0.0000 0.0)",
+          "oklch(95.0% 0.0000 0.0)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "light-outline-variant": {
+        "role": "neutral",
+        "displayName": "Light Outline Variant",
+        "tonalRamp": [
+          "oklch(15.0% 0.0000 0.0)",
+          "oklch(26.4% 0.0000 0.0)",
+          "oklch(37.9% 0.0000 0.0)",
+          "oklch(49.3% 0.0000 0.0)",
+          "oklch(60.7% 0.0000 0.0)",
+          "oklch(72.1% 0.0000 0.0)",
+          "oklch(83.6% 0.0000 0.0)",
+          "oklch(95.0% 0.0000 0.0)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "light-error": {
+        "role": "neutral",
+        "displayName": "Light Error",
+        "tonalRamp": [
+          "oklch(15.0% 0.0436 29.2)",
+          "oklch(26.4% 0.1089 29.2)",
+          "oklch(37.9% 0.1742 29.2)",
+          "oklch(49.3% 0.2178 29.2)",
+          "oklch(60.7% 0.2178 29.2)",
+          "oklch(72.1% 0.1742 29.2)",
+          "oklch(83.6% 0.1089 29.2)",
+          "oklch(95.0% 0.0327 29.2)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "video-ground": {
+        "role": "neutral",
+        "displayName": "Video Ground",
+        "tonalRamp": [
+          "oklch(15.0% 0.0000 0.0)",
+          "oklch(26.4% 0.0000 0.0)",
+          "oklch(37.9% 0.0000 0.0)",
+          "oklch(49.3% 0.0000 0.0)",
+          "oklch(60.7% 0.0000 0.0)",
+          "oklch(72.1% 0.0000 0.0)",
+          "oklch(83.6% 0.0000 0.0)",
+          "oklch(95.0% 0.0000 0.0)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      },
+      "player-controls-scrim": {
+        "role": "neutral",
+        "displayName": "Player Controls Scrim",
+        "tonalRamp": [
+          "oklch(15.0% 0.0000 0.0)",
+          "oklch(26.4% 0.0000 0.0)",
+          "oklch(37.9% 0.0000 0.0)",
+          "oklch(49.3% 0.0000 0.0)",
+          "oklch(60.7% 0.0000 0.0)",
+          "oklch(72.1% 0.0000 0.0)",
+          "oklch(83.6% 0.0000 0.0)",
+          "oklch(95.0% 0.0000 0.0)"
+        ],
+        "rampPurpose": "Synthesized OKLCH preview strip only; not an implemented Android tonal scale."
+      }
+    },
+    "typographyMeta": {
+      "headline-small": {
+        "displayName": "Headline Small",
+        "purpose": "Settings heading.",
+        "nativeFontSize": "24sp",
+        "nativeLineHeight": "32sp",
+        "nativeLetterSpacing": "0sp"
+      },
+      "title-large": {
+        "displayName": "Title Large",
+        "purpose": "Video detail heading; home wordmark overrides weight to 700.",
+        "nativeFontSize": "22sp",
+        "nativeLineHeight": "28sp",
+        "nativeLetterSpacing": "0sp"
+      },
+      "title-medium": {
+        "displayName": "Title Medium",
+        "purpose": "Section headings and outer-menu caption; video cards override weight to 400.",
+        "nativeFontSize": "16sp",
+        "nativeLineHeight": "24sp",
+        "nativeLetterSpacing": "0.2sp"
+      },
+      "title-small": {
+        "displayName": "Title Small",
+        "purpose": "Player title, mini-player title and compact headings.",
+        "nativeFontSize": "14sp",
+        "nativeLineHeight": "20sp",
+        "nativeLetterSpacing": "0.1sp"
+      },
+      "body-large": {
+        "displayName": "Body Large",
+        "purpose": "Calibration instructions and main reading text.",
+        "nativeFontSize": "16sp",
+        "nativeLineHeight": "24sp",
+        "nativeLetterSpacing": "0.5sp"
+      },
+      "body-medium": {
+        "displayName": "Body Medium",
+        "purpose": "Settings questions and explanatory text.",
+        "nativeFontSize": "14sp",
+        "nativeLineHeight": "20sp",
+        "nativeLetterSpacing": "0.2sp"
+      },
+      "body-small": {
+        "displayName": "Body Small",
+        "purpose": "Video metadata, secondary hints and current Home filter.",
+        "nativeFontSize": "12sp",
+        "nativeLineHeight": "16sp",
+        "nativeLetterSpacing": "0.4sp"
+      },
+      "label-large": {
+        "displayName": "Label Large",
+        "purpose": "Buttons and video actions.",
+        "nativeFontSize": "14sp",
+        "nativeLineHeight": "20sp",
+        "nativeLetterSpacing": "0.1sp"
+      },
+      "label-medium": {
+        "displayName": "Label Medium",
+        "purpose": "Duration/live badges and playback times.",
+        "nativeFontSize": "12sp",
+        "nativeLineHeight": "16sp",
+        "nativeLetterSpacing": "0.5sp"
+      },
+      "label-small": {
+        "displayName": "Label Small",
+        "purpose": "Compact outer radial target labels; two lines maximum.",
+        "nativeFontSize": "11sp",
+        "nativeLineHeight": "16sp",
+        "nativeLetterSpacing": "0.5sp"
+      }
+    },
+    "shadows": [
+      {
+        "name": "sampled-custom-surfaces",
+        "value": "none",
+        "purpose": "Sampled feed cards, radial targets and mini-player rely on tone. Material components keep their native library defaults."
+      }
+    ],
+    "motion": [
+      {
+        "name": "radial-opacity",
+        "value": "animateFloatAsState (Compose default)",
+        "purpose": "Open/close menu fade; no independently authored easing or duration token."
+      },
+      {
+        "name": "player-controls",
+        "value": "AnimatedVisibility fadeIn()/fadeOut()",
+        "purpose": "Native Compose control visibility transition; no custom CSS motion contract."
+      },
+      {
+        "name": "player-menu-idle",
+        "value": "4000ms",
+        "purpose": "Player menu closes after inactivity and remains open during drag; behavioral timeout, not animation duration."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "radial-caption-height",
+        "value": "320dp",
+        "purpose": "Caption and hint appear only above this safe height; all arc capacity uses measured geometry."
+      }
+    ],
+    "native": {
+      "platform": "Android / Jetpack Compose / Material 3 1.4.0",
+      "unitMapping": "Frontmatter layout/radius/component px numbers map to dp; typography px numbers map to sp. CSS previews correspond only to Android density 1 and fontScale 1; runtime uses native units and system scaling.",
+      "fontResolution": "Theme.kt uses Typography() with the platform default sans-serif; Roboto on the reviewed API37 emulator, not a bundled font guarantee.",
+      "componentPreviews": "Self-contained HTML/CSS translations for inspection only, not Android implementations. CSS hover/focus affordances approximate native Material feedback and are not extra product tokens. Neutral thumbnail preview is intentionally not media evidence.",
+      "geometrySource": "app/src/main/java/app/freshtuber/ui/radial/RadialGeometry.kt",
+      "themeSources": [
+        "app/src/main/java/app/freshtuber/ui/theme/Color.kt",
+        "app/src/main/java/app/freshtuber/ui/theme/Theme.kt"
+      ],
+      "authority": [
+        "PRODUCT.md",
+        ".impeccable/surfaces/app-src-main-java-app-freshtuber-ui.md"
+      ],
+      "visualEvidence": [
+        ".impeccable/review/phone-home.png",
+        ".impeccable/review/phone-menu.png",
+        ".impeccable/review/phone-calibration.png",
+        ".impeccable/review/phone-settings.png",
+        ".impeccable/review/phone-notification.png",
+        ".impeccable/review/phone-fullscreen-cutout.png"
+      ],
+      "reviewLimit": "Records the implemented stage-5 identity. Final player/large-font repair review is separate; this document does not certify all behavior. Source owns exact current dimensions. Android notification colors are OS-owned.",
+      "notCanonized": [
+        "Initial finish-review player target collisions and broken outer-label wrapping are defects under repair.",
+        "System Remove animations is required by PRODUCT.md but custom compliance is not certified here.",
+        "Tablet composition and complete settings UI are not established at stage 5."
+      ]
+    }
+  },
+  "components": [
+    {
+      "name": "Primary action",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Native filled Material action; baseline preview of the 48dp minimum used for major actions.",
+      "html": "<button class=\"ds-primary\">Сохранить дугу</button>",
+      "css": ".ds-primary{font-family:Roboto,Arial,sans-serif;background:#F1F1F1;color:#0F0F0F;min-height:48px;padding:0 24px;border:0;border-radius:999px;font-size:14px;font-weight:500;letter-spacing:.1px}.ds-primary:hover{background-image:linear-gradient(#ffffff14,#ffffff14)}.ds-primary:active{background-image:linear-gradient(#ffffff24,#ffffff24)}.ds-primary:focus-visible{outline:2px solid #3EA6FF;outline-offset:3px;}.ds-primary:disabled{opacity:.38}"
+    },
+    {
+      "name": "Tonal action",
+      "kind": "button",
+      "refersTo": "button-tonal",
+      "description": "Neutral filled secondary action, as used for an existing subscription and retry.",
+      "html": "<button class=\"ds-tonal\">Подписка оформлена</button>",
+      "css": ".ds-tonal{font-family:Roboto,Arial,sans-serif;background:#272727;color:#F1F1F1;min-height:48px;padding:0 24px;border:0;border-radius:999px;font-size:14px;font-weight:500}.ds-tonal:hover{background-image:linear-gradient(#ffffff14,#ffffff14)}.ds-tonal:active{background-image:linear-gradient(#ffffff24,#ffffff24)}.ds-tonal:focus-visible{outline:2px solid #3EA6FF;outline-offset:3px;}"
+    },
+    {
+      "name": "Text action",
+      "kind": "button",
+      "refersTo": "button-text",
+      "description": "Quiet native action on the app ground.",
+      "html": "<button class=\"ds-text\">Сбросить дугу</button>",
+      "css": ".ds-text{font-family:Roboto,Arial,sans-serif;background:transparent;color:#F1F1F1;min-height:48px;padding:0 12px;border:0;border-radius:999px;font-size:14px;font-weight:500}.ds-text:hover{background-image:linear-gradient(#ffffff14,#ffffff14)}.ds-text:active{background-image:linear-gradient(#ffffff24,#ffffff24)}.ds-text:focus-visible{outline:2px solid #3EA6FF;outline-offset:3px;}"
+    },
+    {
+      "name": "Search field",
+      "kind": "input",
+      "refersTo": "search-field",
+      "description": "Rounded single-line search; keyboard and text editing remain Android-owned.",
+      "html": "<label class=\"ds-search\"><svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" aria-hidden=\"true\"><circle cx=\"10.5\" cy=\"10.5\" r=\"6.5\"/><path d=\"m16 16 5 5\"/></svg><input aria-label=\"Поиск\" placeholder=\"Поиск\" /></label>",
+      "css": ".ds-search{display:flex;align-items:center;gap:12px;background:#272727;color:#F1F1F1;padding:0 16px;min-height:56px;border-radius:24px}.ds-search input{font-family:Roboto,Arial,sans-serif;font-size:16px;line-height:24px;min-width:0;width:100%;border:0;outline:0;background:transparent;color:#F1F1F1}.ds-search input::placeholder{color:#AAAAAA}.ds-search:hover{background:#303030}.ds-search:focus-within{outline:2px solid #3EA6FF;outline-offset:3px;}"
+    },
+    {
+      "name": "Video card",
+      "kind": "card",
+      "refersTo": "video-thumbnail",
+      "description": "Flat full-width media column. Neutral preview area stands in for the real thumbnail; no stock artwork is added.",
+      "html": "<button class=\"ds-video\"><span class=\"ds-thumb\"><span class=\"ds-duration\">3:00</span></span><span class=\"ds-video-title\">Название видео</span><span class=\"ds-video-meta\">Канал · просмотры</span></button>",
+      "css": ".ds-video{font-family:Roboto,Arial,sans-serif;display:block;width:min(100%,400px);text-align:left;border:0;background:#0F0F0F;color:#F1F1F1;padding:4px 12px 20px}.ds-thumb{display:block;position:relative;aspect-ratio:16/9;border-radius:12px;background:#272727}.ds-duration{position:absolute;bottom:8px;right:8px;background:#0F0F0FCC;color:white;border-radius:4px;padding:1px 4px;font-size:12px;line-height:16px;font-weight:500}.ds-video-title{display:block;margin-top:12px;font-size:16px;line-height:24px;font-weight:400}.ds-video-meta{display:block;margin-top:4px;color:#AAAAAA;font-size:12px;line-height:16px}.ds-video:hover .ds-thumb{background:#303030}.ds-video:active .ds-thumb{background:#3F3F3F}.ds-video:focus-visible{outline:2px solid #3EA6FF;outline-offset:3px;}"
+    },
+    {
+      "name": "Radial anchor",
+      "kind": "nav",
+      "refersTo": "radial-anchor",
+      "description": "Own red thumb anchor, mirrored with handedness in Android. The preview shows its closed state.",
+      "html": "<button class=\"ds-anchor\" aria-label=\"Открыть меню\"><svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" aria-hidden=\"true\"><path d=\"M4 6h16M4 12h16M4 18h16\"/></svg></button>",
+      "css": ".ds-anchor{display:grid;place-items:center;width:56px;height:56px;padding:0;border:0;border-radius:50%;background:#FF0033;color:white}.ds-anchor:hover{background-image:linear-gradient(#ffffff14,#ffffff14)}.ds-anchor:active{background-image:linear-gradient(#ffffff24,#ffffff24)}.ds-anchor:focus-visible{outline:2px solid #3EA6FF;outline-offset:3px;}"
+    },
+    {
+      "name": "Radial section",
+      "kind": "nav",
+      "refersTo": "radial-section",
+      "description": "Inner 48dp section target with selected primary/onPrimary reversal.",
+      "html": "<div class=\"ds-sections\"><button class=\"ds-section\" aria-label=\"Главная\"><svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"m3 11 9-8 9 8v10h-6v-7H9v7H3z\"/></svg></button><button class=\"ds-section ds-selected\" aria-label=\"Главная, выбрана\" aria-pressed=\"true\"><svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"m3 11 9-8 9 8v10h-6v-7H9v7H3z\"/></svg></button></div>",
+      "css": ".ds-sections{display:flex;gap:8px}.ds-section{display:grid;place-items:center;width:48px;height:48px;padding:0;border:0;border-radius:50%;background:#272727;color:#F1F1F1}.ds-section.ds-selected{background:#F1F1F1;color:#0F0F0F}.ds-section:hover{background-image:linear-gradient(#ffffff14,#ffffff14)}.ds-section:active{background-image:linear-gradient(#ffffff24,#ffffff24)}.ds-section:focus-visible{outline:2px solid #3EA6FF;outline-offset:3px;}"
+    },
+    {
+      "name": "Radial leaf",
+      "kind": "nav",
+      "refersTo": "radial-leaf",
+      "description": "Baseline outer item. Native targets scale with font size and pagination is geometry-driven.",
+      "html": "<button class=\"ds-leaf\"><svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"m8 5 11 7-11 7z\"/></svg><span>Видео</span></button>",
+      "css": ".ds-leaf{font-family:Roboto,Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;width:64px;height:64px;padding:4px;border:0;border-radius:20px;background:#272727;color:#F1F1F1;font-size:11px;line-height:16px;font-weight:500;letter-spacing:.5px;text-align:center}.ds-leaf svg{width:20px;height:20px}.ds-leaf:hover{background-image:linear-gradient(#ffffff14,#ffffff14)}.ds-leaf:active{background-image:linear-gradient(#ffffff24,#ffffff24)}.ds-leaf:focus-visible{outline:2px solid #3EA6FF;outline-offset:3px;}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The category standard, a YouTube-like look executed at full craft.",
+    "overview": "The established identity is familiar Android video UI: real thumbnails, Roboto, restrained neutral Material surfaces and plain language. The category convention is a standing product commitment, with YouTube, Telegram and Spotify as the craft reference. ErgoTube's own fan mark and calibrated radial thumb menu provide its identity.\n\nKeep frequent controls within one-handed reach, protect Android's gesture zones and retain a comfortable near-black ground at night. New screens extend this native system rather than introducing a separate visual theme. This document records the stage-5 implementation; it does not certify every state or replace the finish review.",
+    "keyCharacteristics": [
+      "Familiar video feed with real 16:9 thumbnails.",
+      "Neutral surfaces, high-contrast primary actions and limited brand red.",
+      "System-scaled Roboto through Compose Material 3 typography.",
+      "Mirrored, calibrated radial navigation with a section-owned outer arc.",
+      "Native Android controls, insets and media integration."
+    ],
+    "rules": [
+      {
+        "name": "The Brand Red Rule",
+        "body": "Keep brand red on progress, live badges, the fan mark and the menu anchor; primary app actions follow the neutral Material primary role.",
+        "section": "colors"
+      },
+      {
+        "name": "The System Type Rule",
+        "body": "Set Android text in sp and retain the user's font scaling; solve fit with available space, compact localized labels and pagination rather than shrinking text below the established role.",
+        "section": "typography"
+      },
+      {
+        "name": "The Safe Reach Rule",
+        "body": "Reuse the menu's safe coordinate space and calibrated mirrored geometry; never move interactive targets into system gesture zones to make an arc fit.",
+        "section": "layout"
+      },
+      {
+        "name": "The Neutral Layer Rule",
+        "body": "Use existing tonal surfaces and native Material elevation before introducing custom depth effects.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do extend the pinned YouTube-like neutral Material world and its existing role names.",
+      "Do use native dp for geometry and sp for text, with at least 48dp interactive targets.",
+      "Do keep the radial tree, handedness, calibration and full safe drawing/gesture insets together.",
+      "Do use real thumbnails and plain localized Russian and English copy.",
+      "Do review normal and enlarged fonts, both themes and open/closed player controls on a phone."
+    ],
+    "donts": [
+      "Don't replace radial section/filter navigation with top chip rows, tab strips or a bottom bar.",
+      "Don't spread brand red to ordinary primary app actions or add an unrelated decorative identity.",
+      "Don't copy YouTube's trademarked logo; preserve ErgoTube's own fan mark.",
+      "Don't canonize collisions, broken words, undersized interaction targets or stale review captures as intended design.",
+      "Don't infer app color tokens from Android's artwork-colored notification card or treat CSS previews as native runtime verification."
+    ]
+  }
+}

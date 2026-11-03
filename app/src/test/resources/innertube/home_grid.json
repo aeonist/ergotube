@@ -1,0 +1,22 @@
+{
+  "contents": {"twoColumnBrowseResultsRenderer": {"tabs": [{"tabRenderer": {"selected": true, "content": {
+    "richGridRenderer": {
+      "header": {"feedFilterChipBarRenderer": {"contents": [
+        {"chipCloudChipRenderer": {"text": {"simpleText": "All"}, "isSelected": true}},
+        {"chipCloudChipRenderer": {"text": {"simpleText": "Music"}, "navigationEndpoint": {"continuationCommand": {"token": "music"}}}}
+      ]}},
+      "contents": [
+        {"richSectionRenderer": {"content": {"richShelfRenderer": {"title": {"simpleText": "Regional news"}, "contents": [
+          {"richItemRenderer": {"content": {"videoRenderer": {"videoId": "news", "title": {"simpleText": "News"}}}}},
+          {"continuationItemRenderer": {"continuationEndpoint": {"continuationCommand": {"token": "news-more"}}}}
+        ]}}}},
+        {"richItemRenderer": {"content": {"lockupViewModel": {"contentId": "recommended", "contentType": "LOCKUP_CONTENT_TYPE_VIDEO", "metadata": {"lockupMetadataViewModel": {"title": {"content": "A recommendation"}}}}}}},
+        {"richSectionRenderer": {"content": {"reelShelfRenderer": {"items": [
+          {"reelItemRenderer": {"videoId": "short", "headline": {"simpleText": "A short"}}}
+        ]}}}},
+        {"adSlotRenderer": {"videoRenderer": {"videoId": "ad", "title": {"simpleText": "Advertisement"}}}},
+        {"continuationItemRenderer": {"continuationEndpoint": {"continuationCommand": {"token": "home-more"}}}}
+      ]
+    }
+  }}}]}}
+}

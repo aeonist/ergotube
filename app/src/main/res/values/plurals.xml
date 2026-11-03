@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- %1$s is an already formatted, possibly compact number ("312K"). -->
+    <plurals name="views_count">
+        <item quantity="one">%1$s view</item>
+        <item quantity="other">%1$s views</item>
+    </plurals>
+    <plurals name="watching_count">
+        <item quantity="one">%1$s watching</item>
+        <item quantity="other">%1$s watching</item>
+    </plurals>
+</resources>

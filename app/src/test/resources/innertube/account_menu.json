@@ -1,0 +1,38 @@
+{
+  "responseContext": {
+    "visitorData": "CgtGaXh0dXJlVmlzaXRvcg%3D%3D",
+    "mainAppWebResponseContext": {
+      "loggedOut": false,
+      "datasyncId": "107654321||"
+    }
+  },
+  "actions": [
+    {
+      "clickTrackingParams": "CAAQhGciEwi",
+      "openPopupAction": {
+        "popup": {
+          "multiPageMenuRenderer": {
+            "header": {
+              "activeAccountHeaderRenderer": {
+                "accountName": { "simpleText": "Тестовый Аккаунт" },
+                "email": { "runs": [ { "text": "fixture@" }, { "text": "example.test" } ] },
+                "channelHandle": { "simpleText": "@fixture" },
+                "accountPhoto": {
+                  "thumbnails": [
+                    { "url": "//yt3.example.test/photo=s48", "width": 48, "height": 48 },
+                    { "url": "https://yt3.example.test/photo=s88", "width": 88, "height": 88 }
+                  ]
+                },
+                "manageAccountTitle": { "simpleText": "Manage your Google Account" }
+              }
+            },
+            "sections": [
+              { "multiPageMenuSectionRenderer": { "items": [ { "compactLinkRenderer": { "title": { "simpleText": "Sign out" } } } ] } }
+            ]
+          }
+        },
+        "popupType": "DROPDOWN"
+      }
+    }
+  ]
+}

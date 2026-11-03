@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ErgoTube mark: a quarter-disc fan opening from the thumb's corner, with a play triangle. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FF0033"
+        android:pathData="M74,74 L30,74 A44,44 0 0,1 74,30 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M51,48 L51,66 L66,57 Z" />
+</vector>
