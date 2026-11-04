@@ -6,6 +6,18 @@
     <string name="nav_search">Поиск</string>
     <string name="nav_library">Библиотека</string>
     <string name="nav_account">Аккаунт</string>
+    <string name="nav_mine">Моё</string>
+    <string name="nav_mine_description">Моё: Позже, Скачанное, История, Плейлисты, Настройки</string>
+    <string name="mine_later">Позже</string>
+    <string name="home_subtitle">Рекомендации для тебя</string>
+    <string name="settings_subtitle">Аккаунт, рука, тема, качество, дополнения</string>
+    <string name="settings_account_signed_out">Вход не выполнен</string>
+    <string name="settings_hand">Рабочая рука</string>
+    <string name="list_play">Смотреть</string>
+    <string name="subscriptions_open_hint">Нажми канал ещё раз, чтобы открыть его</string>
+    <string name="subscriptions_all">Все</string>
+    <string name="subscriptions_list">Список</string>
+    <string name="search_voice">Голосовой поиск</string>
     <string name="nav_settings">Настройки</string>
 
     <string name="stub_coming_in_stage">Появится на этапе %1$d</string>
@@ -13,7 +25,7 @@
     <string name="settings_stub">Рука, размер меню, качество видео, трафик и все дополнительные функции.</string>
 
     <string name="search_hint">Поиск на YouTube</string>
-    <string name="search_idle">Напиши, что хочешь посмотреть</string>
+    <string name="search_idle">Напиши, что хочешь посмотреть. Недавние запросы появятся над полем, ближе к пальцу.</string>
     <string name="search_empty">По запросу «%1$s» ничего не нашлось</string>
     <string name="search_live">ЭФИР</string>
 
@@ -195,7 +207,7 @@
     <string name="settings_dearrow_hint">DeArrow заменяет кликбейтные названия и обложки.</string>
     <string name="settings_dislikes">Количество дизлайков</string>
     <string name="settings_dislikes_hint">Показывать оценку Return YouTube Dislike.</string>
-    <string name="settings_shorts_hint">Показывать раздел Shorts в радиальном меню.</string>
+    <string name="settings_shorts_hint">Показывать кнопку Shorts на нижней панели.</string>
     <string name="settings_feed_shorts">Shorts в обычных лентах</string>
     <string name="settings_feed_shorts_hint">Показывать короткие ролики на главной и в подписках.</string>
     <string name="settings_appearance">Внешний вид</string>

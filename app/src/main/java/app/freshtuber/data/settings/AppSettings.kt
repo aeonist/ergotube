@@ -92,15 +92,21 @@ class AppSettings @Inject constructor(
     }
 
     val videoPinned: Flow<Boolean> = context.settingsStore.data.map { it[VIDEO_PINNED] ?: true }
-    suspend fun setVideoPinned(pinned: Boolean) {
-        context.settingsStore.edit { it[VIDEO_PINNED] = pinned }
+    suspend fun setVideoPinned(pinned: Boolean) { context.settingsStore.edit { it[VIDEO_PINNED] = pinned } }
+
+    /** Recent searches, newest first; stays on the device. */
+    val searchHistory: Flow<List<String>> = context.settingsStore.data.map { SearchHistory.decode(it[SEARCH_HISTORY]) }
+    suspend fun rememberSearch(query: String) {
+        context.settingsStore.edit { it[SEARCH_HISTORY] = SearchHistory.encode(SearchHistory.add(SearchHistory.decode(it[SEARCH_HISTORY]), query)) }
     }
+    suspend fun unhideVideo(id: String) { context.settingsStore.edit { it[HIDDEN_VIDEOS] = (it[HIDDEN_VIDEOS].orEmpty() - id) } }
 
     private companion object {
         val THEME = stringPreferencesKey("theme_mode")
         val DOWNLOAD_QUALITY = intPreferencesKey("download_quality")
         val NOTIFICATIONS = booleanPreferencesKey("new_video_notifications")
         val HIDDEN_VIDEOS = androidx.datastore.preferences.core.stringSetPreferencesKey("hidden_videos")
+        val SEARCH_HISTORY = stringPreferencesKey("search_history")
         val VIDEO_PINNED = booleanPreferencesKey("video_pinned")
         val ARC_VERTICAL = floatPreferencesKey("thumb_arc_vertical")
         val LEFT_HAND = booleanPreferencesKey("left_hand")

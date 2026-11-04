@@ -11,16 +11,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material.icons.automirrored.rounded.Login
+import androidx.compose.material.icons.rounded.HowToReg
+import androidx.compose.material.icons.rounded.PersonAdd
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.ThumbUp
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import app.freshtuber.ui.components.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -63,6 +65,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -92,7 +95,7 @@ class ListViewModel @Inject constructor(
     val titleText: String? = playlist?.title
 
     private val source: FeedSource = when {
-        section != null -> FeedSource.Browse(checkNotNull(section.browseId))
+        section != null -> FeedSource.Browse(section.browseId)
         playlist != null -> FeedRepository.playlist(playlist.playlistId, playlist.seedVideoId)
         else -> FeedSource.Browse(checkNotNull(channelId), FeedRepository.CHANNEL_VIDEOS_TAB)
     }
@@ -106,6 +109,15 @@ class ListViewModel @Inject constructor(
     ).also { it.refresh() }
 
     val sectionTitleRes: Int? = section?.titleRes
+    val isWatchLater = section == LibrarySection.WatchLater
+    val isPlaylists = section == LibrarySection.Playlists
+    val isChannel = channelId != null
+    val isPlaylist = playlist != null
+
+    /** Account lists cannot load without an account; show a sign-in prompt instead of an error. */
+    val needsAccount = kotlinx.coroutines.flow.combine(accounts.state, kotlinx.coroutines.flow.flowOf(section)) { state, list ->
+        list != null && state is AccountState.SignedOut
+    }.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.Eagerly, false)
 
     private suspend fun loadFirst(): FeedPage {
         val id = channelId ?: return feeds.load(source)
@@ -148,47 +160,59 @@ class ListViewModel @Inject constructor(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ListScreen(
     navigation: FeedNavigation,
     onBack: () -> Unit,
     onSignIn: () -> Unit,
+    onLiked: (() -> Unit)? = null,
     viewModel: ListViewModel = hiltViewModel(),
 ) {
     val state by viewModel.pager.state.collectAsStateWithLifecycle()
     val header by viewModel.channelHeader.collectAsStateWithLifecycle()
     val actionError by viewModel.actionError.collectAsStateWithLifecycle()
-    // A channel's name is already in its header, so the bar stays empty there.
+    val needsAccount by viewModel.needsAccount.collectAsStateWithLifecycle()
+    val left = LocalLeftHanded.current
     val title = viewModel.titleText
         ?: viewModel.sectionTitleRes?.let { stringResource(it) }
         ?: ""
+    val firstVideo = state.items.firstNotNullOfOrNull { (it as? app.freshtuber.domain.model.FeedItem.Video)?.video?.id }
 
     Column(Modifier.fillMaxSize()) {
-        TopAppBar(
-            title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-            navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.action_back))
-                }
-            },
-        )
-        FeedList(
-            state = state,
-            navigation = navigation,
-            onRetry = viewModel.pager::refresh,
-            onLoadMore = viewModel.pager::loadMore,
-            emptyMessage = stringResource(R.string.feed_empty),
-            showChannel = header == null,
-            onSignInAgain = onSignIn,
-            header = header?.let { channel ->
-                {
-                    item(key = "channel-header") {
-                        ChannelHeaderRow(channel, actionError, viewModel::toggleSubscription, onSignIn)
-                    }
-                }
-            },
-        )
+        Box(Modifier.weight(1f)) {
+            if (needsAccount) Column(Modifier.fillMaxSize()) {
+                ScreenHeader(title)
+                MessageState(stringResource(R.string.action_needs_sign_in), Modifier.weight(1f))
+            } else FeedList(
+                state = state,
+                navigation = navigation,
+                onRetry = viewModel.pager::refresh,
+                onLoadMore = viewModel.pager::loadMore,
+                emptyMessage = stringResource(R.string.feed_empty),
+                showChannel = header == null,
+                onSignInAgain = onSignIn,
+                header = {
+                    val channel = header
+                    if (channel != null) item(key = "channel-header") { ChannelHeaderRow(channel, actionError, onSignIn) }
+                    else if (!viewModel.isChannel) item(key = "header") { ScreenHeader(title) }
+                },
+            )
+        }
+        val channel = header
+        ContextBar(buildList {
+            add(backAction(onBack))
+            if (needsAccount) add(ContextAction(Icons.AutoMirrored.Rounded.Login, stringResource(R.string.welcome_sign_in), primary = true, onClick = onSignIn))
+            else {
+                if ((viewModel.isWatchLater || viewModel.isPlaylist) && firstVideo != null)
+                    add(ContextAction(Icons.Rounded.PlayArrow, stringResource(R.string.list_play), primary = true) { navigation.openVideo(firstVideo) })
+                if (viewModel.isPlaylists && onLiked != null)
+                    add(ContextAction(Icons.Rounded.ThumbUp, stringResource(R.string.library_liked), onClick = onLiked))
+                if (channel != null) add(ContextAction(
+                    if (channel.subscribed == true) Icons.Rounded.HowToReg else Icons.Rounded.PersonAdd,
+                    stringResource(if (channel.subscribed == true) R.string.channel_subscribed else R.string.channel_subscribe),
+                    primary = channel.subscribed != true, onClick = viewModel::toggleSubscription))
+            }
+        }, left)
     }
 }
 
@@ -196,10 +220,10 @@ fun ListScreen(
 private fun ChannelHeaderRow(
     header: ChannelHeader,
     actionError: LoadError?,
-    onToggle: () -> Unit,
     onSignIn: () -> Unit,
 ) {
-    Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+    Column(Modifier.fillMaxWidth().heightIn(min = Reach.HeaderHeight).padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.Bottom) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             AsyncImage(
                 model = header.channel.avatarUrl,
@@ -218,16 +242,6 @@ private fun ChannelHeaderRow(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
-        }
-        Spacer(Modifier.size(12.dp))
-        if (header.subscribed == true) {
-            FilledTonalButton(onClick = onToggle, modifier = Modifier.heightIn(min = 48.dp)) {
-                Text(stringResource(R.string.channel_subscribed))
-            }
-        } else {
-            Button(onClick = onToggle, modifier = Modifier.heightIn(min = 48.dp)) {
-                Text(stringResource(R.string.channel_subscribe))
-            }
         }
         if (actionError == LoadError.SessionExpired) {
             ActionHint(stringResource(R.string.action_needs_sign_in), onSignIn)

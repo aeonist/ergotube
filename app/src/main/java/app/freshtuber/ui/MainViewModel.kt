@@ -12,6 +12,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -23,6 +24,7 @@ class MainViewModel @Inject constructor(
     val player: PlayerController,
     network: app.freshtuber.core.connectivity.NetworkMonitor,
     health: app.freshtuber.data.account.SessionHealth,
+    downloads: app.freshtuber.data.downloads.Downloads,
 ) : ViewModel() {
 
     val online = network.online
@@ -30,9 +32,9 @@ class MainViewModel @Inject constructor(
     val shortsEnabled = settings.shortsEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val accountState = accounts.state
     val leftHanded = settings.leftHanded.stateIn(viewModelScope, SharingStarted.Eagerly, false)
-    val thumbArc = settings.thumbArc.stateIn(viewModelScope, SharingStarted.Eagerly, app.freshtuber.ui.radial.ThumbArc())
-    fun switchProfile(id: String) { viewModelScope.launch { accounts.switchProfile(id) } }
-    fun switchChannel(channel: app.freshtuber.data.account.ChannelIdentity) { viewModelScope.launch { accounts.switchChannel(channel) } }
+    /** Finished downloads, shown next to «Скачанное». */
+    val completedDownloads = downloads.items.map { list -> list.count { it.state == app.freshtuber.data.downloads.DownloadStatus.Complete } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
 
     /** Where the app opens: null while settings and sessions load. */
     val startRoute: StateFlow<Any?> =

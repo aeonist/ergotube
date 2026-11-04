@@ -5,6 +5,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -34,13 +37,14 @@ import app.freshtuber.R
 import app.freshtuber.player.NowPlaying
 import app.freshtuber.ui.theme.BrandColors
 
-/** The video keeps playing while the user browses; this bar brings it back. */
+/** The video keeps playing while the user browses; this bar above the dock brings it back. */
 @Composable
 fun MiniPlayer(
     player: Player,
     nowPlaying: NowPlaying,
     onOpen: () -> Unit,
     onClose: () -> Unit,
+    left: Boolean = false,
 ) {
     val progress = rememberProgress(player)
     Surface(color = MaterialTheme.colorScheme.surfaceContainer, contentColor = MaterialTheme.colorScheme.onSurface) {
@@ -52,40 +56,36 @@ fun MiniPlayer(
         Row(
             Modifier
                 .fillMaxWidth()
-                .height(64.dp)
+                .height(60.dp)
+                .pointerInput(onOpen) { detectVerticalDragGestures { change, drag -> if (drag < -12f) { change.consume(); onOpen() } } }
                 .clickable(onClick = onOpen)
-                .padding(start = 8.dp),
+                .padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            VideoSurface(
-                player,
-                Modifier
-                    .height(48.dp)
-                    .aspectRatio(16f / 9f)
-                    .clip(RoundedCornerShape(6.dp)),
+            // Play sits on the working-hand side, close on the far side.
+            val parts: List<@Composable RowScope.() -> Unit> = listOf(
+                { IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.player_close)) } },
+                { VideoSurface(player, Modifier.height(43.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(6.dp))) },
+                { Spacer(Modifier.width(10.dp)) },
+                {
+                    Column(Modifier.weight(1f)) {
+                        Text(nowPlaying.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        nowPlaying.channelName?.let {
+                            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                },
+                {
+                    IconButton(onClick = { if (player.isPlaying) player.pause() else player.play() }) {
+                        Icon(
+                            if (progress.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                            contentDescription = stringResource(if (progress.isPlaying) R.string.player_pause else R.string.player_play),
+                        )
+                    }
+                },
             )
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(nowPlaying.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                nowPlaying.channelName?.let {
-                    Text(
-                        it,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-            IconButton(onClick = { if (player.isPlaying) player.pause() else player.play() }) {
-                Icon(
-                    if (progress.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    contentDescription = stringResource(if (progress.isPlaying) R.string.player_pause else R.string.player_play),
-                )
-            }
-            IconButton(onClick = onClose) {
-                Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.player_close))
-            }
+            (if (left) parts.reversed() else parts).forEach { it() }
         }
     }
 }

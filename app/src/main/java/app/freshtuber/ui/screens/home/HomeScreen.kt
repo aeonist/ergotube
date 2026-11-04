@@ -1,20 +1,11 @@
 package app.freshtuber.ui.screens.home
 
 import android.content.Context
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -28,16 +19,11 @@ import app.freshtuber.data.feed.FeedRepository
 import app.freshtuber.data.feed.FeedSource
 import app.freshtuber.data.feed.withoutShorts
 import app.freshtuber.data.settings.AppSettings
-import app.freshtuber.domain.model.FeedFilter
 import app.freshtuber.domain.model.FeedPage
-import app.freshtuber.ui.radial.PublishRadialFilters
-import app.freshtuber.ui.radial.RadialItem
+import app.freshtuber.domain.model.FeedFilter
 import androidx.compose.foundation.layout.Column
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AccountCircle
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import app.freshtuber.ui.components.FanMark
+import androidx.compose.foundation.layout.fillMaxSize
+import app.freshtuber.ui.components.*
 import app.freshtuber.ui.feed.AccountScopedFeed
 import app.freshtuber.ui.feed.FeedList
 import app.freshtuber.ui.feed.FeedNavigation
@@ -116,47 +102,31 @@ fun Kiosk.titleRes(): Int = when (this) {
 fun HomeScreen(
     navigation: FeedNavigation,
     onSignIn: () -> Unit,
-    onAccount: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.feed.state.collectAsStateWithLifecycle()
-    PublishRadialFilters(state.filters.map { filter ->
-        RadialItem("filter:${filter.title}", filter.title, selected = filter.selected,
-            shortTitle = if (filter.token == "kiosk:Live") stringResource(R.string.radial_live_short) else filter.title) { viewModel.feed.selectFilter(filter) }
-    })
-    FeedList(
-        state = state,
-        navigation = navigation,
-        videoActions = true,
-        onRetry = viewModel.feed::refresh,
-        onLoadMore = viewModel.feed::loadMore,
-        emptyMessage = stringResource(R.string.feed_empty),
-        onSignInAgain = onSignIn,
-        header = {
-            item(key = "header") {
-                HomeHeader(state.filters, onAccount)
-            }
-        },
-    )
-}
-
-/** Wordmark and quiet active-filter label; choices live on the thumb arc. */
-@Composable
-private fun HomeHeader(filters: List<FeedFilter>, onAccount: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        FanMark(Modifier.size(22.dp))
-        Spacer(Modifier.width(8.dp))
-        Column(Modifier.weight(1f)) {
-            Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            filters.firstOrNull { it.selected }?.let {
-                Text(it.title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-        IconButton(onClick = onAccount) {
-            Icon(Icons.Rounded.AccountCircle, contentDescription = stringResource(R.string.nav_account))
+    val left = LocalLeftHanded.current
+    val selected = state.filters.firstOrNull { it.selected }?.title
+    Column(Modifier.fillMaxSize()) {
+        FeedList(
+            state = state,
+            navigation = navigation,
+            videoActions = true,
+            onRetry = viewModel.feed::refresh,
+            onLoadMore = viewModel.feed::loadMore,
+            emptyMessage = stringResource(R.string.feed_empty),
+            onSignInAgain = onSignIn,
+            modifier = Modifier.weight(1f),
+            header = {
+                item(key = "header") {
+                    ScreenHeader(stringResource(R.string.nav_home), selected ?: stringResource(R.string.home_subtitle))
+                }
+            },
+        )
+        // Filters live at the bottom, starting at the working-hand edge.
+        if (state.filters.size > 1) BottomBar {
+            HandChips(state.filters.map { filter -> ChipItem(filter.title, filter.selected) { viewModel.feed.selectFilter(filter) } }, left,
+                Modifier.padding(vertical = 4.dp))
         }
     }
 }

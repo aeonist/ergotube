@@ -71,8 +71,8 @@ fun FeedList(
     videoActions: Boolean = false,
     onSignInAgain: (() -> Unit)? = null,
     header: (LazyListScope.() -> Unit)? = null,
+    listState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState(),
 ) {
-    val listState = rememberLazyListState()
     val nearEnd by remember {
         derivedStateOf {
             val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
@@ -94,11 +94,12 @@ fun FeedList(
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
+            // Empty and error states sit low, so their button is under the thumb.
             state.error != null && state.items.isEmpty() -> item {
-                LoadErrorState(state.error, onRetry, onSignInAgain, Modifier.padding(vertical = 48.dp))
+                LoadErrorState(state.error, onRetry, onSignInAgain, Modifier.fillParentMaxHeight(0.62f))
             }
             state.items.isEmpty() -> item {
-                MessageState(emptyMessage, Modifier.padding(vertical = 48.dp))
+                MessageState(emptyMessage, Modifier.fillParentMaxHeight(0.62f))
             }
             else -> {
                 items(state.items, key = { it.key }, contentType = { it::class }) { item ->

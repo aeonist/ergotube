@@ -10,6 +10,13 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
+    <!-- Lets search offer voice input when a speech recognizer is installed. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+    </queries>
+
     <!--
         Backup is off on purpose: the app stores Google account cookies, and they must never
         reach a cloud backup or another device through device-to-device transfer.

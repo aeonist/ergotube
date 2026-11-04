@@ -14,6 +14,19 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.border
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.automirrored.rounded.List
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import app.freshtuber.ui.components.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import kotlinx.coroutines.flow.SharingStarted
@@ -48,7 +61,6 @@ import app.freshtuber.ui.feed.AccountScopedFeed
 import app.freshtuber.ui.feed.FeedList
 import app.freshtuber.ui.feed.FeedNavigation
 import app.freshtuber.ui.feed.FeedPager
-import app.freshtuber.ui.screens.SignInPrompt
 import coil3.compose.AsyncImage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.first
@@ -96,6 +108,7 @@ class SubscriptionsViewModel @Inject constructor(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SubscriptionsScreen(
     navigation: FeedNavigation,
@@ -107,80 +120,144 @@ fun SubscriptionsScreen(
     val state by viewModel.feed.state.collectAsStateWithLifecycle()
     val channelsState by viewModel.channels.state.collectAsStateWithLifecycle()
     val channels = channelsState.items.filterIsInstance<FeedItem.Channel>().map { it.channel }
+    val left = LocalLeftHanded.current
 
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
     val localState by viewModel.localState.collectAsStateWithLifecycle()
     val localChannels by viewModel.localChannels.collectAsStateWithLifecycle()
     var localMode by rememberSaveable(signedIn) { mutableStateOf(signedIn != true) }
+    var selectedChannel by rememberSaveable(localMode) { mutableStateOf<String?>(null) }
+    var listOpen by remember { mutableStateOf(false) }
     LaunchedEffect(localMode) { if (localMode) viewModel.refreshLocal() }
-    FeedList(
-        state = if (localMode) localState else state,
-        navigation = navigation,
-        onRetry = { if (localMode) viewModel.refreshLocal() else { viewModel.feed.refresh() } },
-        onLoadMore = { if (!localMode) { viewModel.feed.loadMore() } },
-        emptyMessage = stringResource(if (localMode) R.string.local_subscriptions_empty else R.string.feed_empty),
-        onSignInAgain = onSignIn,
-        header = {
-            item(key = "local-controls") {
-                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    Text(stringResource(R.string.nav_subscriptions), style = MaterialTheme.typography.titleLarge)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        if (signedIn == true) {
-                            FilterChip(selected = !localMode, onClick = { localMode = false }, label = { Text(stringResource(R.string.source_youtube)) })
-                            FilterChip(selected = localMode, onClick = { localMode = true }, label = { Text(stringResource(R.string.local_on_device)) })
-                        } else Text(stringResource(R.string.local_on_device), color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
-                        if (localMode) TextButton(onClick = viewModel::refreshLocal, enabled = !refreshing) { Text(stringResource(if (refreshing) R.string.action_refreshing else R.string.action_refresh)) }
-                    }
-                    if (localMode && localChannels.any { it.syncFailed }) Text(stringResource(R.string.local_sync_failed), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+    val strip = if (localMode) localChannels.map { ChannelSummary(it.id, it.name, it.avatarUrl) } else channels
+    val source = if (localMode) localState else state
+    val shown = selectedChannel?.let { id -> source.copy(items = source.items.filter { (it as? FeedItem.Video)?.video?.channelId == id }) } ?: source
+    val selectedName = strip.firstOrNull { it.id == selectedChannel }?.name
+
+    // The strip slides away while reading down and comes back on the way up.
+    var stripVisible by remember { mutableStateOf(true) }
+    val hide = remember { object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+        override fun onPreScroll(available: androidx.compose.ui.geometry.Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): androidx.compose.ui.geometry.Offset {
+            if (available.y < -6f) stripVisible = false else if (available.y > 6f) stripVisible = true
+            return androidx.compose.ui.geometry.Offset.Zero
+        }
+    } }
+
+    Column(Modifier.fillMaxSize()) {
+        FeedList(
+            state = shown,
+            navigation = navigation,
+            onRetry = { if (localMode) viewModel.refreshLocal() else { viewModel.feed.refresh() } },
+            onLoadMore = { if (!localMode) { viewModel.feed.loadMore() } },
+            emptyMessage = stringResource(if (localMode) R.string.local_subscriptions_empty else R.string.feed_empty),
+            onSignInAgain = onSignIn,
+            videoActions = true,
+            modifier = Modifier.weight(1f).nestedScroll(hide),
+            header = {
+                item(key = "header") {
+                    ScreenHeader(selectedName ?: stringResource(R.string.nav_subscriptions),
+                        when {
+                            selectedName != null -> stringResource(R.string.subscriptions_open_hint)
+                            localMode && localChannels.any { it.syncFailed } -> stringResource(R.string.local_sync_failed)
+                            localMode -> stringResource(R.string.local_on_device)
+                            else -> stringResource(R.string.source_youtube)
+                        })
                 }
+            },
+        )
+        BottomBar {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                val controls: List<@Composable () -> Unit> = buildList {
+                    if (signedIn == true) add {
+                        SingleChoiceSegmentedButtonRow {
+                            listOf(false, true).forEachIndexed { index, local ->
+                                SegmentedButton(selected = localMode == local, onClick = { localMode = local },
+                                    shape = SegmentedButtonDefaults.itemShape(index, 2), modifier = Modifier.heightIn(min = 48.dp)) {
+                                    Text(stringResource(if (local) R.string.local_on_device else R.string.source_youtube), maxLines = 1)
+                                }
+                            }
+                        }
+                    }
+                    if (localMode) add {
+                        TextButton(onClick = viewModel::refreshLocal, enabled = !refreshing, modifier = Modifier.heightIn(min = 48.dp)) {
+                            Text(stringResource(if (refreshing) R.string.action_refreshing else R.string.action_refresh))
+                        }
+                    }
+                    if (localMode && localChannels.isEmpty()) add {
+                        TextButton(onClick = onSearch, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.local_find_channels)) }
+                    }
+                }
+                if (!left) Spacer(Modifier.weight(1f))
+                handOrder(controls, left).forEach { it() }
             }
-            if (localMode && localChannels.isEmpty()) item(key = "find-channels") {
-                TextButton(onClick = onSearch, modifier = Modifier.padding(horizontal = 12.dp)) { Text(stringResource(R.string.local_find_channels)) }
+            if (strip.isNotEmpty()) androidx.compose.animation.AnimatedVisibility(stripVisible) {
+                ChannelStrip(strip, selectedChannel, left,
+                    onPick = { id -> if (id != null && id == selectedChannel) navigation.openChannel(id) else selectedChannel = id },
+                    onList = { listOpen = true })
             }
-            val strip = if (localMode) localChannels.map { ChannelSummary(it.id, it.name, it.avatarUrl) } else channels
-            if (strip.isNotEmpty()) {
-                item(key = "channels") { ChannelStrip(strip, navigation::openChannel) }
+        }
+    }
+    if (listOpen) ModalBottomSheet(onDismissRequest = { listOpen = false }) {
+        androidx.compose.foundation.lazy.LazyColumn(Modifier.fillMaxWidth()) {
+            items(strip, key = { it.id }) { channel ->
+                ListItem(headlineContent = { Text(channel.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    leadingContent = { AsyncImage(channel.avatarUrl, null, Modifier.size(40.dp).clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHighest), contentScale = ContentScale.Crop) },
+                    trailingContent = if (channel.id == selectedChannel) ({ Icon(Icons.Rounded.Check, null) }) else null,
+                    colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
+                    modifier = Modifier.clickable { selectedChannel = channel.id; listOpen = false })
             }
-        },
-    )
+        }
+    }
+}
+
+/** «Все», then the channels, then the full list; starts at the working-hand edge. */
+@Composable
+private fun ChannelStrip(channels: List<ChannelSummary>, selected: String?, left: Boolean, onPick: (String?) -> Unit, onList: () -> Unit) {
+    LazyRow(
+        reverseLayout = !left,
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        item(key = "all") { StripButton(stringResource(R.string.subscriptions_all), null, Icons.Rounded.Apps, selected == null) { onPick(null) } }
+        items(channels, key = { it.id }) { channel ->
+            StripButton(channel.name, channel.avatarUrl, null, channel.id == selected) { onPick(channel.id) }
+        }
+        item(key = "list") { StripButton(stringResource(R.string.subscriptions_list), null, Icons.AutoMirrored.Rounded.List, false, onList) }
+    }
 }
 
 @Composable
-private fun ChannelStrip(channels: List<ChannelSummary>, onOpen: (String) -> Unit) {
-    LazyRow(
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+private fun StripButton(name: String, avatar: String?, icon: androidx.compose.ui.graphics.vector.ImageVector?, selected: Boolean, onClick: () -> Unit) {
+    Column(
+        Modifier
+            .width(64.dp)
+            .clip(MaterialTheme.shapes.medium)
+            .semantics { this.selected = selected }
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        items(channels, key = { it.id }) { channel ->
-            Column(
-                Modifier
-                    .width(72.dp)
-                    .clip(MaterialTheme.shapes.medium)
-                    .clickable { onOpen(channel.id) }
-                    .padding(vertical = 4.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                AsyncImage(
-                    model = channel.avatarUrl,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHighest),
-                )
-                Text(
-                    channel.name,
-                    style = MaterialTheme.typography.labelSmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp),
-                )
-            }
+        val ring = if (selected) Modifier.border(2.dp, MaterialTheme.colorScheme.onSurface, CircleShape).padding(4.dp) else Modifier.padding(4.dp)
+        Box(ring) {
+            if (icon != null) Box(Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHigh), contentAlignment = Alignment.Center) {
+                Icon(icon, null)
+            } else AsyncImage(
+                model = avatar,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.size(44.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest),
+            )
         }
+        Text(
+            name,
+            style = MaterialTheme.typography.labelSmall,
+            color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
+        )
     }
 }

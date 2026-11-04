@@ -16,7 +16,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.freshtuber.R
 import app.freshtuber.data.settings.AppSettings
-import app.freshtuber.ui.radial.ThumbArc
+import app.freshtuber.ui.components.*
+import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.BackHand
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.asSharedFlow
 import androidx.compose.material.icons.rounded.DeleteOutline
@@ -28,19 +30,21 @@ import javax.inject.Inject
 @HiltViewModel
 class MenuSettingsViewModel @Inject constructor(private val settings: AppSettings) : ViewModel() {
     val leftHanded = settings.leftHanded.stateIn(viewModelScope, SharingStarted.Eagerly, false)
-    val arc = settings.thumbArc.stateIn(viewModelScope, SharingStarted.Eagerly, ThumbArc())
+    fun setHand(left: Boolean) { viewModelScope.launch { settings.setLeftHanded(left) } }
+    // Temporary: still read by the old player controls until they are replaced.
+    val arc = settings.thumbArc.stateIn(viewModelScope, SharingStarted.Eagerly, app.freshtuber.ui.radial.ThumbArc())
     val pinned = settings.videoPinned.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     fun setPinned(value: Boolean) { viewModelScope.launch { settings.setVideoPinned(value) } }
-    fun setHand(left: Boolean) { viewModelScope.launch { settings.setLeftHanded(left) } }
-    fun saveArc(value: ThumbArc, onSaved: () -> Unit = {}) { viewModelScope.launch { settings.setThumbArc(value); onSaved() } }
 }
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(private val settings: AppSettings,
     val local: app.freshtuber.data.subscriptions.LocalSubscriptions,
+    accounts: app.freshtuber.data.account.AccountRepository,
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context) : ViewModel() {
     val preferences = settings.preferences.stateIn(viewModelScope, SharingStarted.Eagerly, app.freshtuber.data.settings.AppPreferences())
     val channels = local.channels.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val account = accounts.state
     private val _messages = kotlinx.coroutines.flow.MutableSharedFlow<Int>(extraBufferCapacity = 2)
     val messages = _messages.asSharedFlow()
     private fun update(block: suspend () -> Unit) { viewModelScope.launch {
@@ -66,17 +70,15 @@ class SettingsViewModel @Inject constructor(private val settings: AppSettings,
 }
 
 @Composable
-fun SettingsScreen(onCalibrate: () -> Unit, onAccount: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(onAccount: () -> Unit, onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
     val preferences by viewModel.preferences.collectAsStateWithLifecycle()
     val channels by viewModel.channels.collectAsStateWithLifecycle()
     val menu: MenuSettingsViewModel = hiltViewModel()
     val left by menu.leftHanded.collectAsStateWithLifecycle()
-    val arc by menu.arc.collectAsStateWithLifecycle()
-    var vertical by remember(arc) { mutableFloatStateOf(arc.verticalRadius) }
-    var radius by remember(arc) { mutableFloatStateOf(arc.radius) }
+    val account by viewModel.account.collectAsStateWithLifecycle()
     val resources = androidx.compose.ui.platform.LocalResources.current
     val context = androidx.compose.ui.platform.LocalContext.current
-    val snackbar = remember { SnackbarHostState() }
+    val appMessages = LocalAppMessages.current
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current
     var systemNotifications by remember { mutableStateOf(androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()) }
     DisposableEffect(lifecycle) {
@@ -88,15 +90,38 @@ fun SettingsScreen(onCalibrate: () -> Unit, onAccount: () -> Unit, viewModel: Se
         systemNotifications = true
         viewModel.feature(app.freshtuber.data.settings.AppFeature.Notifications, true)
     }
-    LaunchedEffect(viewModel, resources) { viewModel.messages.collect { snackbar.showSnackbar(resources.getString(it)) } }
+    LaunchedEffect(viewModel, resources) { viewModel.messages.collect { appMessages?.show(resources.getString(it)) } }
     var clearHidden by remember { mutableStateOf(false) }
     var clearImages by remember { mutableStateOf(false) }
     var remove by remember { mutableStateOf<app.freshtuber.data.subscriptions.LocalChannel?>(null) }
     var about by remember { mutableStateOf(false) }
     val qualityOptions = listOf(144, 240, 360, 480, 720, 1080, 1440, 2160, 4320)
-    Box(Modifier.fillMaxSize()) {
-        androidx.compose.foundation.lazy.LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = app.freshtuber.ui.feed.LocalFeedBottomClearance.current)) {
-            item { Text(stringResource(R.string.nav_settings), style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(16.dp)) }
+    Column(Modifier.fillMaxSize()) {
+        androidx.compose.foundation.lazy.LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = app.freshtuber.ui.feed.LocalFeedBottomClearance.current)) {
+            item { ScreenHeader(stringResource(R.string.nav_settings), stringResource(R.string.settings_subtitle)) }
+            // The most used rows first, right under the header.
+            item {
+                val signed = account as? app.freshtuber.data.account.AccountState.SignedIn
+                ListItem(headlineContent = { Text(stringResource(R.string.nav_account)) },
+                    supportingContent = { Text(signed?.active?.let { it.name ?: it.email } ?: stringResource(R.string.settings_account_signed_out)) },
+                    leadingContent = { Icon(androidx.compose.material.icons.Icons.Rounded.AccountCircle, null) },
+                    modifier = Modifier.heightIn(min = 56.dp).clickable(onClick = onAccount))
+            }
+            item {
+                ListItem(headlineContent = { Text(stringResource(R.string.settings_hand)) },
+                    leadingContent = { Icon(androidx.compose.material.icons.Icons.Rounded.BackHand, null) },
+                    trailingContent = {
+                        SingleChoiceSegmentedButtonRow {
+                            listOf(true, false).forEachIndexed { index, hand ->
+                                SegmentedButton(selected = left == hand, onClick = { menu.setHand(hand) }, shape = SegmentedButtonDefaults.itemShape(index, 2),
+                                    modifier = Modifier.heightIn(min = 48.dp)) {
+                                    Text(stringResource(if (hand) R.string.radial_left else R.string.radial_right))
+                                }
+                            }
+                        }
+                    })
+            }
+            item { SettingsChoice(stringResource(R.string.settings_theme), listOf(R.string.theme_system, R.string.theme_light, R.string.theme_dark, R.string.theme_amoled).map { stringResource(it) }, preferences.theme.ordinal) { viewModel.theme(app.freshtuber.data.settings.ThemeMode.entries[it]) } }
             item { SettingsSection(R.string.settings_playback) }
             item { SettingsChoice(stringResource(R.string.settings_playback_quality), qualityOptions.map { stringResource(R.string.quality_resolution, it) }, qualityOptions.indexOf(preferences.quality).coerceAtLeast(0)) { viewModel.quality(qualityOptions[it]) } }
             listOf(
@@ -114,27 +139,7 @@ fun SettingsScreen(onCalibrate: () -> Unit, onAccount: () -> Unit, viewModel: Se
                 Triple(app.freshtuber.data.settings.AppFeature.ShortsInFeeds, R.string.settings_feed_shorts, R.string.settings_feed_shorts_hint),
             ).forEach { (feature, label, hint) -> item { SettingsToggle(stringResource(label), stringResource(hint), preferences.enabled(feature)) { viewModel.feature(feature, it) } } }
             item { SettingsSection(R.string.settings_appearance) }
-            item { SettingsChoice(stringResource(R.string.settings_theme), listOf(R.string.theme_system, R.string.theme_light, R.string.theme_dark, R.string.theme_amoled).map { stringResource(it) }, preferences.theme.ordinal) { viewModel.theme(app.freshtuber.data.settings.ThemeMode.entries[it]) } }
             item { SettingsToggle(stringResource(R.string.settings_dynamic_color), stringResource(R.string.settings_dynamic_color_hint), preferences.enabled(app.freshtuber.data.settings.AppFeature.DynamicColor)) { viewModel.feature(app.freshtuber.data.settings.AppFeature.DynamicColor, it) } }
-            item { SettingsSection(R.string.radial_title) }
-            item {
-                Column(Modifier.padding(horizontal = 16.dp)) {
-                    Text(stringResource(R.string.radial_hand), style = MaterialTheme.typography.bodyMedium)
-                    listOf(false, true).forEach { hand ->
-                        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable { menu.setHand(hand) }, verticalAlignment = Alignment.CenterVertically) {
-                            RadioButton(selected = left == hand, onClick = { menu.setHand(hand) })
-                            Text(stringResource(if (hand) R.string.radial_left else R.string.radial_right))
-                        }
-                    }
-                    OutlinedButton(onClick = onCalibrate, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) { Text(stringResource(R.string.radial_calibrate)) }
-                    Text(stringResource(R.string.radial_reach), modifier = Modifier.padding(top = 16.dp), style = MaterialTheme.typography.titleSmall)
-                    Text(stringResource(R.string.radial_reach_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Slider(value = radius, onValueChange = { radius = it }, valueRange = 80f..300f, onValueChangeFinished = { menu.saveArc(arc.copy(radius = radius)) })
-                    Text(stringResource(R.string.radial_vertical_reach), style = MaterialTheme.typography.titleSmall)
-                    Slider(value = vertical, onValueChange = { vertical = it }, valueRange = 80f..420f, onValueChangeFinished = { menu.saveArc(arc.copy(verticalRadius = vertical)) })
-                    TextButton(onClick = { menu.saveArc(ThumbArc()) }) { Text(stringResource(R.string.radial_reset)) }
-                }
-            }
             item { SettingsSection(R.string.notification_new_videos) }
             item { SettingsToggle(stringResource(R.string.settings_notifications), stringResource(if (systemNotifications) R.string.settings_notifications_hint else R.string.notification_permission_hint), preferences.enabled(app.freshtuber.data.settings.AppFeature.Notifications) && systemNotifications) {
                 if (it) enableNotifications() else viewModel.feature(app.freshtuber.data.settings.AppFeature.Notifications, false)
@@ -156,11 +161,9 @@ fun SettingsScreen(onCalibrate: () -> Unit, onAccount: () -> Unit, viewModel: Se
             item { SettingsSection(R.string.settings_storage) }
             item { ListItem(headlineContent = { Text(stringResource(R.string.settings_clear_images)) }, supportingContent = { Text(stringResource(R.string.settings_clear_images_hint)) }, modifier = Modifier.clickable { clearImages = true }) }
             item { ListItem(headlineContent = { Text(stringResource(R.string.settings_reset_hidden)) }, modifier = Modifier.clickable { clearHidden = true }) }
-            item { SettingsSection(R.string.nav_account) }
-            item { ListItem(headlineContent = { Text(stringResource(R.string.settings_manage_accounts)) }, modifier = Modifier.clickable(onClick = onAccount)) }
             item { ListItem(headlineContent = { Text(stringResource(R.string.settings_about)) }, supportingContent = { Text(stringResource(R.string.settings_version, app.freshtuber.BuildConfig.VERSION_NAME)) }, modifier = Modifier.clickable { about = true }) }
         }
-        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).padding(bottom = app.freshtuber.ui.feed.LocalFeedBottomClearance.current))
+        ContextBar(listOf(backAction(onBack)), left)
     }
     if (clearHidden || clearImages) AlertDialog(onDismissRequest = { clearHidden = false; clearImages = false },
         title = { Text(stringResource(if (clearHidden) R.string.settings_reset_hidden else R.string.settings_clear_images)) },

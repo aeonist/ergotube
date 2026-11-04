@@ -1,70 +1,43 @@
 package app.freshtuber.ui
 
-import androidx.compose.foundation.layout.*
-
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.getValue
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.ui.unit.dp
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.PersonAdd
-import androidx.compose.material.icons.rounded.TouchApp
-import app.freshtuber.R
-import app.freshtuber.data.account.AccountState
-import app.freshtuber.ui.radial.LocalRadialFilters
-import app.freshtuber.ui.radial.RadialFilters
-import app.freshtuber.ui.radial.RadialItem
-import app.freshtuber.ui.radial.RadialMenu
-import app.freshtuber.ui.screens.library.LibrarySection
-import app.freshtuber.ui.navigation.CalibrationRoute
-import androidx.compose.foundation.layout.Column
-import app.freshtuber.ui.player.MiniPlayer
-import app.freshtuber.ui.player.LocalInPictureInPicture
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScaffoldDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
-import androidx.navigation.toRoute
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
+import app.freshtuber.R
+import app.freshtuber.ui.components.AppMessages
+import app.freshtuber.ui.components.BottomBarSpace
+import app.freshtuber.ui.components.LocalAppMessages
+import app.freshtuber.ui.components.LocalBottomBarSpace
 import app.freshtuber.ui.feed.FeedNavigation
-import app.freshtuber.ui.navigation.AccountRoute
-import app.freshtuber.ui.navigation.ChannelRoute
-import app.freshtuber.ui.navigation.LibraryListRoute
-import app.freshtuber.ui.navigation.PlaylistRoute
-import app.freshtuber.ui.navigation.HomeRoute
-import app.freshtuber.ui.navigation.LibraryRoute
-import app.freshtuber.ui.navigation.LoginRoute
-import app.freshtuber.ui.navigation.PlayerRoute
-import app.freshtuber.ui.navigation.SearchRoute
-import app.freshtuber.ui.navigation.SettingsRoute
-import app.freshtuber.ui.navigation.ShortsRoute
-import app.freshtuber.ui.navigation.SubscriptionsRoute
-import app.freshtuber.ui.navigation.TopLevelDestination
-import app.freshtuber.ui.navigation.WelcomeRoute
+import app.freshtuber.ui.navigation.*
+import app.freshtuber.ui.player.LocalInPictureInPicture
+import app.freshtuber.ui.player.MiniPlayer
 import app.freshtuber.ui.screens.account.AccountScreen
+import app.freshtuber.ui.screens.downloads.DownloadsScreen
 import app.freshtuber.ui.screens.home.HomeScreen
+import app.freshtuber.ui.screens.library.LibrarySection
 import app.freshtuber.ui.screens.library.ListScreen
-import app.freshtuber.ui.screens.library.LibraryScreen
 import app.freshtuber.ui.screens.login.LoginScreen
 import app.freshtuber.ui.screens.player.PlayerScreen
 import app.freshtuber.ui.screens.search.SearchScreen
@@ -82,16 +55,12 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
 
     val start = startRoute
     if (start == null) {
-        Box(
-            Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background),
-        )
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
         return
     }
 
     val navController = rememberNavController()
-    androidx.compose.runtime.LaunchedEffect(openVideo) {
+    LaunchedEffect(openVideo) {
         if (openVideo != null) {
             val current = navController.currentBackStackEntry
             val sameVideo = current?.destination?.hasRoute<PlayerRoute>() == true && current.toRoute<PlayerRoute>().videoId == openVideo
@@ -100,20 +69,24 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
         }
     }
     val leftHanded by viewModel.leftHanded.collectAsStateWithLifecycle()
-    val thumbArc by viewModel.thumbArc.collectAsStateWithLifecycle()
-    val accountState by viewModel.accountState.collectAsStateWithLifecycle()
     val shortsEnabled by viewModel.shortsEnabled.collectAsStateWithLifecycle()
     val online by viewModel.online.collectAsStateWithLifecycle()
     val expired by viewModel.expiredSession.collectAsStateWithLifecycle()
-    val identity = (accountState as? AccountState.SignedIn)?.active
-    val filters = remember(identity?.id, identity?.activePageId) { RadialFilters() }
+    val downloads by viewModel.completedDownloads.collectAsStateWithLifecycle()
     val playerState by viewModel.player.state.collectAsStateWithLifecycle()
     val backStackEntry by navController.currentBackStackEntryAsState()
-    val currentDestination = backStackEntry?.destination
-    val fullScreen = inPictureInPicture || currentDestination?.let {
-        it.hasRoute<PlayerRoute>() || it.hasRoute<WelcomeRoute>() || it.hasRoute<LoginRoute>() || it.hasRoute<CalibrationRoute>()
-    } ?: true
-    var playerMenuRequested by remember { mutableStateOf(false) }
+    val destination = backStackEntry?.destination
+    val onPlayer = destination?.hasRoute<PlayerRoute>() == true
+    val inFlow = destination == null || destination.hasRoute<WelcomeRoute>() || destination.hasRoute<LoginRoute>()
+    val keyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+    val dockVisible = !inPictureInPicture && !onPlayer && !inFlow && !keyboardVisible
+    val miniVisible = dockVisible && destination?.hasRoute<ShortsRoute>() != true && playerState.nowPlaying?.isShort == false
+
+    var mineOpen by rememberSaveable { mutableStateOf(false) }
+    var currentTab by rememberSaveable { mutableStateOf(DockTab.Home) }
+    LaunchedEffect(destination) { destination?.dockTab()?.let { currentTab = it } }
+    LaunchedEffect(dockVisible) { if (!dockVisible) mineOpen = false }
+
     val signIn: () -> Unit = { navController.navigate(LoginRoute) }
     val navigation = remember(navController) {
         object : FeedNavigation {
@@ -123,162 +96,146 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
             override fun openChannel(channelId: String) = navController.navigate(ChannelRoute(channelId))
         }
     }
+    val openSection: (Any) -> Unit = { route -> navController.navigateToTopLevel(route) }
 
     val activity = androidx.activity.compose.LocalActivity.current
-    val lightBars = MaterialTheme.colorScheme.surface.let { it.red + it.green + it.blue > 1.5f } && currentDestination?.hasRoute<PlayerRoute>() != true
-    androidx.compose.runtime.SideEffect {
+    val lightBars = MaterialTheme.colorScheme.surface.let { it.red + it.green + it.blue > 1.5f } && !onPlayer
+    SideEffect {
         activity?.window?.let { window -> androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).apply {
             isAppearanceLightStatusBars = lightBars
             isAppearanceLightNavigationBars = lightBars
         } }
     }
-    val keyboardVisible = WindowInsets.ime.getBottom(androidx.compose.ui.platform.LocalDensity.current) > 0
-    val miniVisible = !fullScreen && !keyboardVisible && currentDestination?.hasRoute<ShortsRoute>() != true && playerState.nowPlaying?.isShort == false
-    CompositionLocalProvider(LocalInPictureInPicture provides inPictureInPicture, LocalRadialFilters provides filters,
-        app.freshtuber.ui.feed.LocalFeedBottomClearance provides if (miniVisible) 160.dp else 88.dp) {
-    Box(Modifier.fillMaxSize()) {
-    Scaffold(
-        topBar = {
-            if ((!online || expired) && !fullScreen) androidx.compose.foundation.layout.Column(Modifier.statusBarsPadding().fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
-                if (!online) androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    androidx.compose.material3.Text(stringResource(R.string.offline_banner), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                    androidx.compose.material3.TextButton(onClick = { navController.navigate(app.freshtuber.ui.navigation.DownloadsRoute) { launchSingleTop = true } }) { androidx.compose.material3.Text(stringResource(R.string.library_downloads)) }
-                }
-                if (expired) androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    androidx.compose.material3.Text(stringResource(R.string.error_session_expired), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                    androidx.compose.material3.TextButton(onClick = signIn) { androidx.compose.material3.Text(stringResource(R.string.welcome_sign_in)) }
-                }
-            }
-        },
-        contentWindowInsets = if (currentDestination?.hasRoute<PlayerRoute>() == true || inPictureInPicture) WindowInsets(0, 0, 0, 0) else ScaffoldDefaults.contentWindowInsets,
-    ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = start,
-            modifier = Modifier.padding(innerPadding).consumeWindowInsets(innerPadding),
-        ) {
-            composable<WelcomeRoute> {
-                WelcomeScreen(
-                    onSignIn = { navController.navigate(LoginRoute) },
-                    onSkip = {
-                        viewModel.continueWithoutAccount()
-                        navController.navigate(HomeRoute) { popUpTo<WelcomeRoute> { inclusive = true } }
-                    },
-                )
-            }
-            composable<LoginRoute> {
-                LoginScreen(
-                    onClose = { navController.popBackStack() },
-                    onDone = {
-                        val cameFromWelcome =
-                            navController.previousBackStackEntry?.destination?.hasRoute<WelcomeRoute>() == true
-                        if (cameFromWelcome) {
-                            navController.navigate(HomeRoute) { popUpTo<WelcomeRoute> { inclusive = true } }
-                        } else {
-                            navController.popBackStack()
-                        }
-                    },
-                )
-            }
-            composable<HomeRoute> { HomeScreen(navigation, onSignIn = signIn, onAccount = { navController.navigate(AccountRoute) }) }
-            composable<ShortsRoute> { ShortsScreen(navigation, onSignIn = signIn) }
-            composable<SubscriptionsRoute> { SubscriptionsScreen(navigation, onSignIn = signIn, onSearch = { navController.navigateToTopLevel(TopLevelDestination.Search) }) }
-            composable<SearchRoute> { SearchScreen(navigation, onSignIn = signIn) }
-            composable<LibraryRoute> {
-                LibraryScreen(
-                    onOpenSection = { if (it == LibrarySection.Downloads) navController.navigate(app.freshtuber.ui.navigation.DownloadsRoute) else navController.navigate(LibraryListRoute(it.name)) },
-                    onSignIn = signIn,
-                )
-            }
-            composable<app.freshtuber.ui.navigation.DownloadsRoute> { app.freshtuber.ui.screens.downloads.DownloadsScreen(onBack = { navController.popBackStack() }, onVideo = { navController.navigate(PlayerRoute(it)) }, onSearch = { navController.navigate(SearchRoute) }) }
-            composable<LibraryListRoute> { ListScreen(navigation, onBack = { navController.popBackStack() }, onSignIn = signIn) }
-            composable<PlaylistRoute> { ListScreen(navigation, onBack = { navController.popBackStack() }, onSignIn = signIn) }
-            composable<ChannelRoute> { ListScreen(navigation, onBack = { navController.popBackStack() }, onSignIn = signIn) }
-            composable<AccountRoute> { AccountScreen(onSignIn = signIn) }
-            composable<SettingsRoute> { SettingsScreen(onCalibrate = { navController.navigate(CalibrationRoute) }, onAccount = { navController.navigate(AccountRoute) }) }
-            composable<CalibrationRoute> { app.freshtuber.ui.radial.CalibrationScreen(onBack = { navController.popBackStack() }) }
-            composable<PlayerRoute> {
-                PlayerScreen(
-                    navigation,
-                    onBack = { navController.popBackStack() },
-                    onSignIn = signIn,
-                    onAdvanced = { next ->
-                        navController.navigate(PlayerRoute(next)) { popUpTo<PlayerRoute> { inclusive = true } }
-                    },
-                )
-            }
-        }
-    }
-    val nowPlaying = playerState.nowPlaying
-    if (miniVisible && nowPlaying != null) {
-        Box(Modifier.align(androidx.compose.ui.Alignment.BottomCenter)
-            .background(androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainer)
-            .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom))) {
-            MiniPlayer(player = viewModel.player.player, nowPlaying = nowPlaying,
-                onOpen = { navController.navigate(PlayerRoute(nowPlaying.videoId)) }, onClose = viewModel.player::stop)
-        }
-    }
-    if ((!fullScreen || playerMenuRequested) && currentDestination?.hasRoute<CalibrationRoute>() != true) {
-        val sections = TopLevelDestination.entries.filter { shortsEnabled || it != TopLevelDestination.Shorts }.map { section ->
-            val title = stringResource(section.labelRes)
-            val openSection = RadialItem("open:${section.name}", title, section.icon) { navController.navigateToTopLevel(section) }
-            val children = when (section) {
-                TopLevelDestination.Home -> emptyList()
-                TopLevelDestination.Library -> LibrarySection.entries.map { part ->
-                    RadialItem("library:${part.name}", stringResource(part.titleRes), part.icon,
-                        shortTitle = stringResource(if (part == LibrarySection.Liked) R.string.radial_liked_short else part.titleRes)) {
-                        if (part == LibrarySection.Downloads) navController.navigate(app.freshtuber.ui.navigation.DownloadsRoute) else navController.navigate(LibraryListRoute(part.name))
+    val snackbarHost = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val messages = remember(snackbarHost, scope) { AppMessages(snackbarHost, scope) }
+    val barSpace = remember { BottomBarSpace() }
+
+    CompositionLocalProvider(LocalInPictureInPicture provides inPictureInPicture, LocalAppMessages provides messages,
+        LocalBottomBarSpace provides barSpace, app.freshtuber.ui.components.LocalLeftHanded provides leftHanded, app.freshtuber.ui.feed.LocalFeedBottomClearance provides 16.dp) {
+    androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+    Column(Modifier.fillMaxSize()
+        .then(if (onPlayer || inPictureInPicture) Modifier else Modifier.windowInsetsPadding(WindowInsets.ime.only(WindowInsetsSides.Bottom)))) {
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            Column(Modifier.fillMaxSize()) {
+                NavHost(
+                    navController = navController,
+                    startDestination = start,
+                    modifier = Modifier.weight(1f).fillMaxWidth().then(when {
+                        onPlayer || inPictureInPicture -> Modifier
+                        dockVisible -> Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+                        else -> Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+                            .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom).exclude(WindowInsets.ime))
+                    }),
+                ) {
+                    composable<WelcomeRoute> {
+                        WelcomeScreen(
+                            onSignIn = { navController.navigate(LoginRoute) },
+                            onSkip = {
+                                viewModel.continueWithoutAccount()
+                                navController.navigate(HomeRoute) { popUpTo<WelcomeRoute> { inclusive = true } }
+                            },
+                        )
+                    }
+                    composable<LoginRoute> {
+                        LoginScreen(
+                            onClose = { navController.popBackStack() },
+                            onDone = {
+                                val cameFromWelcome = navController.previousBackStackEntry?.destination?.hasRoute<WelcomeRoute>() == true
+                                if (cameFromWelcome) navController.navigate(HomeRoute) { popUpTo<WelcomeRoute> { inclusive = true } }
+                                else navController.popBackStack()
+                            },
+                        )
+                    }
+                    composable<HomeRoute> { HomeScreen(navigation, onSignIn = signIn) }
+                    composable<ShortsRoute> { ShortsScreen(navigation, onSignIn = signIn) }
+                    composable<SubscriptionsRoute> { SubscriptionsScreen(navigation, onSignIn = signIn, onSearch = { openSection(SearchRoute) }) }
+                    composable<SearchRoute> { SearchScreen(navigation, onSignIn = signIn) }
+                    composable<DownloadsRoute> { DownloadsScreen(onBack = { navController.popBackStack() }, onVideo = { navController.navigate(PlayerRoute(it)) }, onSearch = { openSection(SearchRoute) }) }
+                    composable<LibraryListRoute> { ListScreen(navigation, onBack = { navController.popBackStack() }, onSignIn = signIn,
+                        onLiked = { navController.navigate(LibraryListRoute(LibrarySection.Liked.name)) }) }
+                    composable<PlaylistRoute> { ListScreen(navigation, onBack = { navController.popBackStack() }, onSignIn = signIn) }
+                    composable<ChannelRoute> { ListScreen(navigation, onBack = { navController.popBackStack() }, onSignIn = signIn) }
+                    composable<AccountRoute> { AccountScreen(onSignIn = signIn, onBack = { navController.popBackStack() }) }
+                    composable<SettingsRoute> { SettingsScreen(onAccount = { navController.navigate(AccountRoute) }, onBack = { navController.popBackStack() }) }
+                    composable<PlayerRoute> {
+                        PlayerScreen(
+                            navigation,
+                            onBack = { navController.popBackStack() },
+                            onSignIn = signIn,
+                            onAdvanced = { next -> navController.navigate(PlayerRoute(next)) { popUpTo<PlayerRoute> { inclusive = true } } },
+                        )
                     }
                 }
-                TopLevelDestination.Account -> {
-                    val signedIn = accountState as? AccountState.SignedIn
-                    buildList {
-                        add(openSection)
-                        if (signedIn != null) {
-                            add(RadialItem("profiles", stringResource(R.string.radial_profiles), Icons.Rounded.PersonAdd,
-                                children = signedIn.all.map { profile ->
-                                    RadialItem("profile:${profile.id}", profile.name ?: profile.email ?: title,
-                                        Icons.Rounded.PersonAdd, selected = profile.id == signedIn.active.id) { viewModel.switchProfile(profile.id) }
-                                }) {})
-                            if (signedIn.active.channels.isNotEmpty()) add(RadialItem("channels", stringResource(R.string.radial_channels), section.icon,
-                                children = signedIn.active.channels.mapIndexed { index, channel ->
-                                    RadialItem("channel:$index", channel.name, section.icon,
-                                        selected = channel.pageId == signedIn.active.activePageId) { viewModel.switchChannel(channel) }
-                                }) {})
-                        }
-                        add(RadialItem("add-account", stringResource(R.string.account_add), Icons.Rounded.PersonAdd, action = signIn))
-                    }
+                if (dockVisible && (!online || expired)) StatusBanner(online, expired,
+                    onDownloads = { openSection(DownloadsRoute) }, onSignIn = signIn)
+                val nowPlaying = playerState.nowPlaying
+                if (miniVisible && nowPlaying != null) {
+                    MiniPlayer(player = viewModel.player.player, nowPlaying = nowPlaying, left = leftHanded,
+                        onOpen = { navController.navigate(PlayerRoute(nowPlaying.videoId)) }, onClose = viewModel.player::stop)
                 }
-                TopLevelDestination.Settings -> emptyList()
-                else -> emptyList()
             }
-            RadialItem(section.name, title, section.icon,
-                shortTitle = when (section) { TopLevelDestination.Library -> stringResource(R.string.radial_library_short); TopLevelDestination.Settings -> stringResource(R.string.radial_settings_short); else -> title },
-                selected = currentDestination?.hasRoute(section.route::class) == true,
-                children = children) {
-                    if (section == TopLevelDestination.Home) filters.items.firstOrNull()?.action?.invoke()
-                    navController.navigateToTopLevel(section)
-                }
+            if (mineOpen && dockVisible) MineList(downloads, onPick = { item ->
+                mineOpen = false
+                openSection(when (item) {
+                    MineItem.WatchLater -> LibraryListRoute(LibrarySection.WatchLater.name)
+                    MineItem.Downloads -> DownloadsRoute
+                    MineItem.History -> LibraryListRoute(LibrarySection.History.name)
+                    MineItem.Playlists -> LibraryListRoute(LibrarySection.Playlists.name)
+                    MineItem.Settings -> SettingsRoute
+                })
+            }, onDismiss = { mineOpen = false })
+            SnackbarHost(snackbarHost, Modifier.align(Alignment.BottomCenter).padding(bottom = barSpace.height + 8.dp)
+                .then(if (onPlayer) Modifier.navigationBarsPadding() else Modifier))
         }
-        androidx.compose.runtime.key(currentDestination?.route, playerMenuRequested) {
-            RadialMenu(sections, leftHanded, thumbArc, Modifier.imePadding().padding(bottom = if (miniVisible) 72.dp else 0.dp),
-                initiallyExpanded = playerMenuRequested, showAnchor = !fullScreen,
-                anchorMargin = 36f,
-                pageSlots = 5,
-                contentInsets = WindowInsets.safeDrawing.union(WindowInsets.safeGestures.only(WindowInsetsSides.Vertical)),
-                onExpandedChange = { if (!it) playerMenuRequested = false })
-        }
+        if (dockVisible) AppDock(selected = currentTab, mineOpen = mineOpen, left = leftHanded, shorts = shortsEnabled, onSelect = { tab ->
+            if (tab == DockTab.Mine) mineOpen = !mineOpen
+            else {
+                mineOpen = false
+                openSection(when (tab) {
+                    DockTab.Home -> HomeRoute
+                    DockTab.Subscriptions -> SubscriptionsRoute
+                    DockTab.Shorts -> ShortsRoute
+                    else -> SearchRoute
+                })
+            }
+        })
     }
     }
     }
 }
 
-private fun NavHostController.navigateToTopLevel(destination: TopLevelDestination) {
-    navigate(destination.route) {
+/** Offline and expired-session notices, low on the screen with their action under the thumb. */
+@Composable
+private fun StatusBanner(online: Boolean, expired: Boolean, onDownloads: () -> Unit, onSignIn: () -> Unit) {
+    Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
+        if (!online) Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.offline_banner), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = onDownloads, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.library_downloads)) }
+        }
+        if (expired) Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(stringResource(R.string.error_session_expired), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = onSignIn, modifier = Modifier.heightIn(min = 48.dp)) { Text(stringResource(R.string.welcome_sign_in)) }
+        }
+    }
+}
+
+/** Which dock button a screen belongs to; null keeps the previous one (channel, playlist, player). */
+private fun NavDestination.dockTab(): DockTab? = when {
+    hasRoute<HomeRoute>() -> DockTab.Home
+    hasRoute<SubscriptionsRoute>() -> DockTab.Subscriptions
+    hasRoute<ShortsRoute>() -> DockTab.Shorts
+    hasRoute<SearchRoute>() -> DockTab.Search
+    hasRoute<LibraryListRoute>() || hasRoute<DownloadsRoute>() || hasRoute<SettingsRoute>() || hasRoute<AccountRoute>() -> DockTab.Mine
+    else -> null
+}
+
+private fun NavHostController.navigateToTopLevel(route: Any) {
+    navigate(route) {
         popUpTo<HomeRoute> { saveState = false }
         launchSingleTop = true
         // An explicit section choice must not restore an old watch/channel child above it.
-        // Home remains in the stack, preserving its filter callbacks and loaded feed.
+        // Home remains in the stack, preserving its loaded feed.
         restoreState = false
     }
 }

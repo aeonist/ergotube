@@ -21,14 +21,11 @@ import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -52,35 +49,70 @@ import app.freshtuber.data.account.AccountProfile
 import app.freshtuber.data.account.AccountState
 import app.freshtuber.data.account.ChannelIdentity
 import coil3.compose.AsyncImage
+import app.freshtuber.ui.components.*
+import androidx.compose.material.icons.automirrored.rounded.Logout
 
 @Composable
 fun AccountScreen(
     onSignIn: () -> Unit,
+    onBack: () -> Unit,
     viewModel: AccountViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
-    when (val current = state) {
-        AccountState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurfaceVariant)
+    var confirmSignOut by rememberSaveable { mutableStateOf(false) }
+    val left = LocalLeftHanded.current
+    Column(Modifier.fillMaxSize()) {
+        Box(Modifier.weight(1f)) {
+            when (val current = state) {
+                AccountState.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                AccountState.SignedOut -> SignedOutContent()
+                is AccountState.SignedIn -> SignedInContent(
+                    state = current,
+                    onSwitchProfile = viewModel::switchProfile,
+                    onSwitchChannel = viewModel::switchChannel,
+                )
+            }
         }
-        AccountState.SignedOut -> SignedOutContent(onSignIn)
-        is AccountState.SignedIn -> SignedInContent(
-            state = current,
-            onAddAccount = onSignIn,
-            onSwitchProfile = viewModel::switchProfile,
-            onSwitchChannel = viewModel::switchChannel,
-            onSignOut = viewModel::signOut,
+        val signedIn = state as? AccountState.SignedIn
+        ContextBar(buildList {
+            add(backAction(onBack))
+            add(ContextAction(Icons.Rounded.PersonAdd, stringResource(if (signedIn == null) R.string.welcome_sign_in else R.string.account_add),
+                primary = signedIn == null, onClick = onSignIn))
+            if (signedIn != null) add(ContextAction(Icons.AutoMirrored.Rounded.Logout, stringResource(R.string.account_sign_out)) { confirmSignOut = true })
+        }, left)
+    }
+    val active = (state as? AccountState.SignedIn)?.active
+    if (confirmSignOut && active != null) {
+        AlertDialog(
+            onDismissRequest = { confirmSignOut = false },
+            title = { Text(stringResource(R.string.account_sign_out_title, active.displayName())) },
+            text = { Text(stringResource(R.string.account_sign_out_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmSignOut = false
+                    viewModel.signOut(active.id)
+                }) {
+                    Text(stringResource(R.string.account_sign_out), color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmSignOut = false }) {
+                    Text(stringResource(R.string.action_cancel))
+                }
+            },
         )
     }
 }
 
 @Composable
-private fun SignedOutContent(onSignIn: () -> Unit) {
+private fun SignedOutContent() {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.Bottom),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Icon(
@@ -96,15 +128,6 @@ private fun SignedOutContent(onSignIn: () -> Unit) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
-        Spacer(Modifier.size(8.dp))
-        Button(
-            onClick = onSignIn,
-            modifier = Modifier
-                .fillMaxWidth()
-                .heightIn(min = 56.dp),
-        ) {
-            Text(stringResource(R.string.welcome_sign_in), style = MaterialTheme.typography.titleMedium)
-        }
         Text(
             stringResource(R.string.welcome_risk),
             style = MaterialTheme.typography.bodySmall,
@@ -117,19 +140,16 @@ private fun SignedOutContent(onSignIn: () -> Unit) {
 @Composable
 private fun SignedInContent(
     state: AccountState.SignedIn,
-    onAddAccount: () -> Unit,
     onSwitchProfile: (String) -> Unit,
     onSwitchChannel: (ChannelIdentity) -> Unit,
-    onSignOut: (String) -> Unit,
 ) {
     val active = state.active
-    var confirmSignOut by rememberSaveable { mutableStateOf(false) }
 
     LazyColumn(Modifier.fillMaxSize()) {
         item {
             Row(
-                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth().heightIn(min = Reach.HeaderHeight).padding(start = 20.dp, end = 16.dp, bottom = 16.dp),
+                verticalAlignment = Alignment.Bottom,
             ) {
                 Avatar(active.avatarUrl, 64.dp)
                 Spacer(Modifier.width(16.dp))
@@ -180,57 +200,13 @@ private fun SignedInContent(
             }
         }
         item {
-            ListItem(
-                headlineContent = { Text(stringResource(R.string.account_add)) },
-                leadingContent = {
-                    Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.PersonAdd, contentDescription = null)
-                    }
-                },
-                colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
-                modifier = Modifier.clickable(onClick = onAddAccount),
-            )
-        }
-
-        item {
-            OutlinedButton(
-                onClick = { confirmSignOut = true },
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 24.dp)
-                    .heightIn(min = 48.dp),
-            ) {
-                Text(stringResource(R.string.account_sign_out))
-            }
             Text(
                 stringResource(R.string.account_storage_note),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 24.dp),
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 24.dp),
             )
         }
-    }
-
-    if (confirmSignOut) {
-        AlertDialog(
-            onDismissRequest = { confirmSignOut = false },
-            title = { Text(stringResource(R.string.account_sign_out_title, active.displayName())) },
-            text = { Text(stringResource(R.string.account_sign_out_body)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmSignOut = false
-                    onSignOut(active.id)
-                }) {
-                    Text(stringResource(R.string.account_sign_out), color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmSignOut = false }) {
-                    Text(stringResource(R.string.action_cancel))
-                }
-            },
-        )
     }
 }
 

@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -44,20 +43,19 @@ class DownloadsViewModel @Inject constructor(val repository: Downloads, private 
 fun DownloadsScreen(onBack: () -> Unit, onVideo: (String) -> Unit, onSearch: () -> Unit, viewModel: DownloadsViewModel = hiltViewModel()) {
     val items by viewModel.items.collectAsStateWithLifecycle()
     var deleting by remember { mutableStateOf<Download?>(null) }
+    val left = app.freshtuber.ui.components.LocalLeftHanded.current
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.fillMaxWidth().padding(end = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back)) }
-            Text(stringResource(R.string.library_downloads), style = MaterialTheme.typography.headlineSmall)
-        }
-        if (items.isEmpty()) Column(Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Icon(Icons.Rounded.Download, null, Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.height(16.dp))
-            Text(stringResource(R.string.download_empty), style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(8.dp))
-            Text(stringResource(R.string.download_empty_hint), style = MaterialTheme.typography.bodyMedium)
-            TextButton(onClick = onSearch) { Text(stringResource(R.string.nav_search)) }
-        } else LazyColumn(contentPadding = PaddingValues(bottom = LocalFeedBottomClearance.current)) {
-            item { Text(stringResource(R.string.download_storage_hint), Modifier.padding(horizontal = 16.dp, vertical = 12.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        if (items.isEmpty()) Column(Modifier.weight(1f).fillMaxWidth()) {
+            app.freshtuber.ui.components.ScreenHeader(stringResource(R.string.library_downloads))
+            Column(Modifier.weight(1f).fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
+                Icon(Icons.Rounded.Download, null, Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(16.dp))
+                Text(stringResource(R.string.download_empty), style = MaterialTheme.typography.titleMedium)
+                Spacer(Modifier.height(8.dp))
+                Text(stringResource(R.string.download_empty_hint), style = MaterialTheme.typography.bodyMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            }
+        } else LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = LocalFeedBottomClearance.current)) {
+            item { app.freshtuber.ui.components.ScreenHeader(stringResource(R.string.library_downloads), stringResource(R.string.download_storage_hint)) }
             items(items, key = { it.videoId }) { item ->
                 Column(Modifier.fillMaxWidth().clickable(enabled = item.state == DownloadStatus.Complete) { onVideo(item.videoId) }.padding(horizontal = 16.dp, vertical = 12.dp)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -87,6 +85,10 @@ fun DownloadsScreen(onBack: () -> Unit, onVideo: (String) -> Unit, onSearch: () 
                 HorizontalDivider(Modifier.padding(horizontal = 16.dp))
             }
         }
+        app.freshtuber.ui.components.ContextBar(buildList {
+            add(app.freshtuber.ui.components.backAction(onBack))
+            if (items.isEmpty()) add(app.freshtuber.ui.components.ContextAction(Icons.Rounded.Search, stringResource(R.string.nav_search), primary = true, onClick = onSearch))
+        }, left)
     }
     deleting?.let { item -> AlertDialog(onDismissRequest = { deleting = null }, title = { Text(stringResource(R.string.download_delete)) },
         text = { Text(stringResource(R.string.download_delete_confirm, item.title)) },

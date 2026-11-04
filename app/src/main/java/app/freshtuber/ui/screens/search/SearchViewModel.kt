@@ -1,7 +1,6 @@
 package app.freshtuber.ui.screens.search
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import app.freshtuber.data.extras.CommunityExtras
 import app.freshtuber.data.feed.FeedRepository
 import app.freshtuber.data.feed.FeedSource
@@ -19,6 +18,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
 
 /** Search as the account when signed in (personalised), through NewPipeExtractor otherwise. */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -38,9 +39,12 @@ class SearchViewModel @Inject constructor(
     val hasQuery: StateFlow<Boolean> = pager.map { it != null }
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
+    val history: StateFlow<List<String>> = settings.searchHistory.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
     fun search(query: String) {
         val trimmed = query.trim()
         if (trimmed.isEmpty()) return
+        viewModelScope.launch { settings.rememberSearch(trimmed) }
         val source = FeedSource.Search(trimmed)
         pager.value = FeedPager(
             scope = viewModelScope,
@@ -51,6 +55,7 @@ class SearchViewModel @Inject constructor(
         ).also { it.refresh() }
     }
 
+    fun selectFilter(filter: app.freshtuber.domain.model.FeedFilter) = pager.value?.selectFilter(filter)
     fun retry() = pager.value?.refresh()
     fun loadMore() = pager.value?.loadMore()
 }
