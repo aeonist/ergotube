@@ -64,8 +64,8 @@ private val Shade = TextStyle(shadow = Shadow(Color.Black.copy(alpha = 0.6f), bl
  * Fullscreen: the phone is turned and the controls gather in an arc in the bottom corner under
  * the holding hand. Tap: middle pauses, ends skip 10 s and add up. Hold: 2×. Drag along the
  * outer arc: jump; drag elsewhere: scrub, moving away from the corner scrubs finely. Small chips
- * for speed, captions, exit and next. After a few idle seconds only a thin arc stays; a tap
- * brings everything back. Outside the arc the video keeps YouTube's gestures.
+ * for speed, captions, exit and next. After a few idle seconds the fan disappears and a plain
+ * timeline runs along the bottom edge; a tap brings the fan back. Outside the arc the video keeps YouTube's gestures.
  */
 @Composable
 fun FullscreenPlayer(
@@ -112,6 +112,15 @@ fun FullscreenPlayer(
     LaunchedEffect(showRotateHint) { if (showRotateHint) { hint = true; delay(2_600); hint = false } }
     val shown by animateFloatAsState(if (awake) 1f else 0f, label = "fan")
 
+    Box(Modifier.fillMaxSize()) {
+    // While the video just plays, a plain straight timeline along the very bottom edge.
+    if (shown < 1f) {
+        val fraction = if (progress.durationMs > 0) (ui.scrubMs ?: progress.positionMs).toFloat() / progress.durationMs else 0f
+        Canvas(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(3.dp).alpha(1f - shown)) {
+            drawRect(Color.White.copy(alpha = 0.3f))
+            if (!live) drawRect(BrandColors.Red, size = Size(size.width * fraction.coerceIn(0f, 1f), size.height))
+        }
+    }
     BoxWithConstraints(Modifier.fillMaxSize()
         .windowInsetsPadding(WindowInsets.displayCutout.union(WindowInsets.mandatorySystemGestures.only(WindowInsetsSides.Bottom)))) {
         val geo = remember(maxWidth, maxHeight, left) { FanGeometry(maxWidth.value, maxHeight.value, left) }
@@ -246,8 +255,8 @@ fun FullscreenPlayer(
                 drawCircle(Brush.radialGradient(0f to Color.Black.copy(alpha = 0.6f), (r / (r + 80.dp.toPx())) to Color.Black.copy(alpha = 0.45f),
                     1f to Color.Transparent, center = corner, radius = r + 80.dp.toPx()), r + 80.dp.toPx(), corner)
             }
-            // The arc: chapters with gaps, progress in red, a dot while awake.
-            Canvas(Modifier.fillMaxSize().alpha(if (awake) 1f else 0.5f)) {
+            // The arc: chapters with gaps, progress in red, a dot. Only while the controls are shown.
+            if (shown > 0f) Canvas(Modifier.fillMaxSize().alpha(shown)) {
                 val corner = Offset(if (left) 0f else size.width, size.height)
                 val r = geo.track.dp.toPx()
                 val box = Rect(corner - Offset(r, r), Size(2 * r, 2 * r))
@@ -337,6 +346,7 @@ fun FullscreenPlayer(
                 state.loadingId != null || progress.buffering -> CircularProgressIndicator(Modifier.align(Alignment.Center), color = Color.White)
             }
         }
+    }
     }
 }
 

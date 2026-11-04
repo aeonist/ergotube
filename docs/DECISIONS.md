@@ -243,6 +243,8 @@ Validation: `assembleDebug`, 114 JVM tests (dock order per hand, «Моё» orde
 - **Pin/unpin is back** in the first row (pin icon between Subscribe and More, persisted as `video_pinned`, default pinned). Unpinned, the video scrolls away with the list via an offset and a placeholder row, so the surface is never recreated.
 - **Shorts timeline.** A thin red line along the bottom of each Short; touching it thickens it and shows the time, releasing seeks. Its touches never reach the pager.
 
+- **Fullscreen idle timeline.** The curved arc no longer stays semi-transparent while the video plays: it appears only with the fan after a tap. While idle, a plain 3dp straight timeline runs along the very bottom edge, full width, outside the cutout/gesture padding.
+
 Reading choice: the user's «плеер внизу занимает четверть экрана» was taken as the watch page's bottom control zone (the old mini-player was a 60dp strip, which the user described separately as tiny).
 
 Validation: assembleDebug, 117 JVM tests (new `MiniCornersTest`), 12 API37 instrumentation tests including `ReachRuleTest`, lint zero errors. Emulator (Russian, left hand): compact headers, Home chips hiding, Subscriptions without the switch, Моё screens without Back, watch page pad hiding, pin/unpin with the video scrolling away, floating mini drag to the opposite corner and reopen, Shorts timeline seek. Emulator shut down after the run. APK: `apk/ErgoTube-1.1.1-variantA-debug.apk`.
