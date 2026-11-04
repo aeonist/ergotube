@@ -83,6 +83,9 @@ data class NowPlaying(
     val subtitleIndex: Int,
     val channel: app.freshtuber.domain.model.ChannelSummary? = null,
     val isOffline: Boolean = false,
+    val durationSeconds: Long = 0,
+    val chapters: List<Chapter> = emptyList(),
+    val storyboard: Storyboard? = null,
 )
 
 sealed interface SleepTimer {
@@ -262,6 +265,9 @@ class PlayerController @Inject constructor(
                     qualityIndex = if (video.isLive) -1 else qualityIndex,
                     subtitles = video.subtitles,
                     subtitleIndex = -1,
+                    durationSeconds = video.durationSeconds,
+                    chapters = video.chapters,
+                    storyboard = if (local == null) video.storyboard else null,
                 )
                 val resumeAt = if (video.isLive || isShort) null else resumePosition(videoId)
                 _state.update { it.copy(nowPlaying = nowPlaying, loadingId = null) }

@@ -79,6 +79,3 @@ fun PlayerSettingsSheet(
         onExpandedChange = { if (!it && !sleepOpen) onDismiss() },
         heading = stringResource(R.string.player_settings), instruction = stringResource(R.string.radial_choose_action))
 }
-
-private fun speedLabel(speed: Float): String =
-    if (speed == 1f) "1×" else "${speed.toString().trimEnd('0').trimEnd('.')}×"
