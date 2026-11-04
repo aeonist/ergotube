@@ -73,7 +73,7 @@ data class PlaylistPickerState(
 )
 
 /** One-off problems shown as a snackbar. */
-enum class VideoMessage { NeedsSignIn, ActionFailed, TooManyActions, CommentPosted, DownloadQueued, DownloadExists }
+enum class VideoMessage { NeedsSignIn, ActionFailed, TooManyActions, CommentPosted, DownloadQueued, DownloadExists, WatchLaterAdded }
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @HiltViewModel

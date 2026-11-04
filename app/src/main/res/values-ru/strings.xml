@@ -178,6 +178,11 @@
     <string name="radial_share_short">Отправка</string>
     <string name="radial_comments_short">Обсудить</string>
     <string name="radial_like_short">Лайк</string>
+    <string name="fan_hint">Махни в сторону действия</string>
+    <string name="feed_hidden">Больше не покажем этот ролик</string>
+    <string name="action_undo">Отменить</string>
+    <string name="watch_later_added">Добавлено в «Смотреть позже»</string>
+    <string name="feed_later_sign_in">Войди в аккаунт, чтобы откладывать видео на потом.</string>
     <string name="feed_not_interested">Не интересует</string>
     <string name="feed_download">Скачать</string>
     <string name="feed_save_sign_in">Войди в аккаунт, чтобы сохранять видео в плейлисты.</string>

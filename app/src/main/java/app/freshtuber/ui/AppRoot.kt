@@ -12,6 +12,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -110,10 +111,13 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     val scope = rememberCoroutineScope()
     val messages = remember(snackbarHost, scope) { AppMessages(snackbarHost, scope) }
     val barSpace = remember { BottomBarSpace() }
+    val fanHost = remember { app.freshtuber.ui.feed.FanHost() }
+    var belowContent by remember { mutableStateOf(0.dp) }
 
     CompositionLocalProvider(LocalInPictureInPicture provides inPictureInPicture, LocalAppMessages provides messages,
-        LocalBottomBarSpace provides barSpace, app.freshtuber.ui.components.LocalLeftHanded provides leftHanded, app.freshtuber.ui.feed.LocalFeedBottomClearance provides 16.dp) {
+        LocalBottomBarSpace provides barSpace, app.freshtuber.ui.components.LocalLeftHanded provides leftHanded, app.freshtuber.ui.feed.LocalFanHost provides fanHost, app.freshtuber.ui.feed.LocalFeedBottomClearance provides 16.dp) {
     androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()
         .then(if (onPlayer || inPictureInPicture) Modifier else Modifier.windowInsetsPadding(WindowInsets.ime.only(WindowInsetsSides.Bottom)))) {
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -167,12 +171,15 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
                         )
                     }
                 }
-                if (dockVisible && (!online || expired)) StatusBanner(online, expired,
-                    onDownloads = { openSection(DownloadsRoute) }, onSignIn = signIn)
-                val nowPlaying = playerState.nowPlaying
-                if (miniVisible && nowPlaying != null) {
-                    MiniPlayer(player = viewModel.player.player, nowPlaying = nowPlaying, left = leftHanded,
-                        onOpen = { navController.navigate(PlayerRoute(nowPlaying.videoId)) }, onClose = viewModel.player::stop)
+                val density = LocalDensity.current
+                Column(Modifier.fillMaxWidth().onSizeChanged { belowContent = with(density) { it.height.toDp() } }) {
+                    if (dockVisible && (!online || expired)) StatusBanner(online, expired,
+                        onDownloads = { openSection(DownloadsRoute) }, onSignIn = signIn)
+                    val nowPlaying = playerState.nowPlaying
+                    if (miniVisible && nowPlaying != null) {
+                        MiniPlayer(player = viewModel.player.player, nowPlaying = nowPlaying, left = leftHanded,
+                            onOpen = { navController.navigate(PlayerRoute(nowPlaying.videoId)) }, onClose = viewModel.player::stop)
+                    }
                 }
             }
             if (mineOpen && dockVisible) MineList(downloads, onPick = { item ->
@@ -185,7 +192,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
                     MineItem.Settings -> SettingsRoute
                 })
             }, onDismiss = { mineOpen = false })
-            SnackbarHost(snackbarHost, Modifier.align(Alignment.BottomCenter).padding(bottom = barSpace.height + 8.dp)
+            SnackbarHost(snackbarHost, Modifier.align(Alignment.BottomCenter).padding(bottom = barSpace.height + belowContent + 8.dp)
                 .then(if (onPlayer) Modifier.navigationBarsPadding() else Modifier))
         }
         if (dockVisible) AppDock(selected = currentTab, mineOpen = mineOpen, left = leftHanded, shorts = shortsEnabled, onSelect = { tab ->
@@ -200,6 +207,8 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
                 })
             }
         })
+    }
+    app.freshtuber.ui.feed.FanOverlay(fanHost)
     }
     }
     }

@@ -25,9 +25,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.positionOnScreen
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -59,18 +61,48 @@ fun VideoCard(
     onChannelClick: ((String) -> Unit)? = null,
     showChannel: Boolean = true,
     enableMenu: Boolean = false,
+    /** Recommendations can be hidden with Not interested; saved lists and search cannot. */
+    recommendation: Boolean = enableMenu,
 ) {
     val effectiveBranding = if (app.freshtuber.ui.theme.LocalAppPreferences.current.enabled(app.freshtuber.data.settings.AppFeature.DeArrow)) branding else null
     var hidden by remember(video.id) { mutableStateOf(false) }
-    var menuAnchor by remember(video.id) { mutableStateOf<Offset?>(null) }
-    var buttonCenter by remember { mutableStateOf(Offset.Zero) }
+    var menuOpen by remember(video.id) { mutableStateOf(false) }
     val feedActions: app.freshtuber.ui.feed.FeedVideoActions? = if (enableMenu) androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel() else null
-    val hiddenIds = feedActions?.hiddenVideos?.collectAsStateWithLifecycle()?.value.orEmpty()
+    val hiddenIds = if (recommendation) feedActions?.hiddenVideos?.collectAsStateWithLifecycle()?.value.orEmpty() else emptySet()
+    val act = app.freshtuber.ui.feed.rememberCardActions(video, feedActions) { hidden = it }
     if (hidden || video.id in hiddenIds) return
-    menuAnchor?.let { app.freshtuber.ui.feed.FeedVideoMenu(video, it, { hidden = true; feedActions?.hideVideo(video.id) }, { menuAnchor = null }) }
+    if (menuOpen) app.freshtuber.ui.feed.FeedVideoMenu(video, recommendation, act, onChannelClick) { menuOpen = false }
+    val fan = app.freshtuber.ui.feed.LocalFanHost.current
+    var coordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
+    val available = remember(recommendation) {
+        app.freshtuber.ui.feed.FanAction.entries.filter { recommendation || it != app.freshtuber.ui.feed.FanAction.NotInterested }.toSet()
+    }
     Column(
         modifier
             .fillMaxWidth()
+            .onGloballyPositioned { coordinates = it }
+            .then(if (enableMenu && fan != null) Modifier.pointerInput(video.id, available) {
+                // Hold, then flick toward an action; hold and release still for the menu.
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val long = awaitLongPressOrCancellation(down.id) ?: return@awaitEachGesture
+                    val coords = coordinates ?: return@awaitEachGesture
+                    fan.start(coords.localToRoot(long.position), available)
+                    long.consume()
+                    var released = false
+                    while (true) {
+                        val change = awaitPointerEvent().changes.firstOrNull { it.id == long.id } ?: break
+                        change.consume()
+                        if (!change.pressed) { released = true; break }
+                        fan.move(coords.localToRoot(change.position))
+                    }
+                    when (val result = fan.finish(cancelled = !released)) {
+                        is app.freshtuber.ui.feed.FanResult.Picked -> act(result.action)
+                        app.freshtuber.ui.feed.FanResult.Still -> menuOpen = true
+                        app.freshtuber.ui.feed.FanResult.None -> Unit
+                    }
+                }
+            } else Modifier)
             .clickable(onClick = onClick)
             .padding(top = 4.dp, bottom = 20.dp),
     ) {
@@ -120,7 +152,7 @@ fun VideoCard(
                 )
                 MetaLine(video, showChannel, Modifier.padding(top = 4.dp))
             }
-            if (enableMenu) IconButton(onClick = { menuAnchor = buttonCenter }, modifier = Modifier.size(48.dp).onGloballyPositioned { buttonCenter = it.positionOnScreen() + Offset(it.size.width / 2f, it.size.height / 2f) }) {
+            if (enableMenu) IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(48.dp)) {
                 Icon(Icons.Rounded.MoreVert, stringResource(R.string.video_more))
             }
         }

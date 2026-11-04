@@ -180,6 +180,11 @@
     <string name="radial_share_short">Share</string>
     <string name="radial_comments_short">Discuss</string>
     <string name="radial_like_short">Like</string>
+    <string name="fan_hint">Flick toward an action</string>
+    <string name="feed_hidden">We won\'t show this video again</string>
+    <string name="action_undo">Undo</string>
+    <string name="watch_later_added">Added to Watch later</string>
+    <string name="feed_later_sign_in">Sign in to save videos for later.</string>
     <string name="feed_not_interested">Not interested</string>
     <string name="feed_download">Download</string>
     <string name="feed_save_sign_in">Sign in to save videos to playlists.</string>

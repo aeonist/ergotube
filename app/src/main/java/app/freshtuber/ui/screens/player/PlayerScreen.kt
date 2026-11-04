@@ -300,4 +300,5 @@ internal fun VideoMessage.textRes(): Int = when (this) {
     VideoMessage.CommentPosted -> R.string.comment_posted
     VideoMessage.DownloadQueued -> R.string.download_queued_message
     VideoMessage.DownloadExists -> R.string.download_exists
+    VideoMessage.WatchLaterAdded -> R.string.watch_later_added
 }

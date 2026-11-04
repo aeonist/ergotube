@@ -69,6 +69,8 @@ fun FeedList(
     modifier: Modifier = Modifier,
     showChannel: Boolean = true,
     videoActions: Boolean = false,
+    /** Whether Not interested may hide these videos (only recommendations). */
+    recommendations: Boolean = false,
     onSignInAgain: (() -> Unit)? = null,
     header: (LazyListScope.() -> Unit)? = null,
     listState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState(),
@@ -111,6 +113,7 @@ fun FeedList(
                             onChannelClick = navigation::openChannel,
                             showChannel = showChannel,
                             enableMenu = videoActions,
+                            recommendation = videoActions && recommendations,
                         )
                         is FeedItem.Playlist -> PlaylistRow(item.playlist) {
                             navigation.openPlaylist(item.playlist.id, item.playlist.title, item.playlist.seedVideoId)
