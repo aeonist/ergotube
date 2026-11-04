@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>ErgoTube — три материала, две темы</title>
+<link rel="stylesheet" href="assets/fonts.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-direction="film">
+<svg class="symbols" aria-hidden="true" xmlns="http://www.w3.org/2000/svg"><defs>
+<!-- Material Icons, Google, Apache 2.0. The app's existing semantic vocabulary. -->
+<symbol id="home" viewBox="0 0 24 24"><path d="M12 3 2 12h3v9h6v-6h2v6h6v-9h3L12 3Z"/></symbol>
+<symbol id="subscriptions" viewBox="0 0 24 24"><path d="M4 6h16v2H4V6Zm2-4h12v2H6V2ZM2 10h20v12H2V10Zm2 2v8h16v-8H4Zm6 1 6 3-6 3v-6Z"/></symbol>
+<symbol id="shorts" viewBox="0 0 24 24"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm0 14H4V6h16v12Zm-10-1 6-5-6-5v10Z"/></symbol>
+<symbol id="search" viewBox="0 0 24 24"><path d="M9.5 3a6.5 6.5 0 1 0 4.08 11.56L19.99 21 21.4 19.6 15 13.17A6.5 6.5 0 0 0 9.5 3Zm0 2a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9Z"/></symbol>
+<symbol id="library" viewBox="0 0 24 24"><path d="M4 6H2v16h16v-2H4V6ZM20 2H8a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2Zm0 14H8V4h12v12Zm-8-1 6-5-6-5v10Z"/></symbol>
+<symbol id="more" viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/></symbol>
+<symbol id="schedule" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 18a8 8 0 1 1 0-16 8 8 0 0 1 0 16Zm1-13h-2v6l5 3 1-1.7-4-2.3V7Z"/></symbol>
+<symbol id="download" viewBox="0 0 24 24"><path d="M11 3h2v9h4l-5 5-5-5h4V3ZM5 18h14v3H5v-3Z"/></symbol>
+<symbol id="block" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm0 2a8 8 0 0 1 6.3 12.9L7.1 5.7A8 8 0 0 1 12 4Zm0 16a8 8 0 0 1-6.3-12.9l11.2 11.2A8 8 0 0 1 12 20Z"/></symbol>
+<symbol id="share" viewBox="0 0 24 24"><path d="M18 2a3 3 0 1 1-2.8 4L8.8 9.8a3 3 0 0 1 0 4.4l6.4 3.8a3 3 0 1 1-1 1.7l-6.4-3.8a3 3 0 1 1 0-7.8l6.4-3.8A3 3 0 0 1 18 2Z"/></symbol>
+<symbol id="play" viewBox="0 0 24 24"><path d="m8 5 11 7-11 7V5Z"/></symbol>
+</defs></svg>
+<main>
+  <header class="intro">
+    <h1>ErgoTube, в тёплом свете</h1>
+    <p>Три разных материала на одной раскладке. В каждой паре — светлая и тёмная темы.</p>
+    <nav class="directions" aria-label="Визуальное направление">
+      <button data-pick="film" aria-pressed="true">Тёплая экспозиция</button>
+      <button data-pick="opal" aria-pressed="false">Опаловая вода</button>
+      <button data-pick="porcelain" aria-pressed="false">Светлый фарфор</button>
+    </nav>
+  </header>
+  <section class="concept" aria-live="polite">
+    <h2 id="concept-title">Тёплая экспозиция</h2>
+    <p id="concept-summary">Свет проходит через воздух, а не через кнопки. Плёночное зерно, сливочные света и оливковые тени; мягкая дымка связывает интерфейс с кадром.</p>
+  </section>
+  <div class="study-controls" aria-label="Управление макетом">
+    <button id="next-frame">Следующий кадр</button>
+    <button id="show-fan" aria-pressed="false">Показать меню удержания</button>
+    <label><input id="left-hand" type="checkbox">Левая рука</label>
+    <label><input id="quiet-motion" type="checkbox">Без движения</label>
+    <label><input id="show-reach" type="checkbox">Граница досягаемости 55%</label>
+  </div>
+  <div class="phones" id="phones"></div>
+  <p class="caption">Листы прокручиваются синхронно. Фон заимствует свет из видимого изображения; во время смены кадра размывается сильнее. Фотографии и названия — демонстрационный контент. Раскладка взята из версии 1.1.1.</p>
+  <section class="material-notes" id="material-notes" aria-live="polite"></section>
+  <details class="references"><summary>Референсы, материалы и ограничения макета</summary>
+    <div>
+      <p>Направление света: <a href="https://www.youtube.com/watch?v=s5nkj-L2vAw">официальный трейлер Sonnet 5.5</a> — тёплый металл на тёмном фоне, сложные природные полутона. Дополнительно: <a href="https://www.mother-made.studio/work/anthropic-claude-keep-thinking">съёмка Claude / Mother-Made</a>, <a href="https://mubi.com/en/devices">MUBI</a> — масштаб изображения и тихая типографика. Это авторская интерпретация референсов, не копия их интерфейсов.</p>
+      <p>Материал навигации: <a href="https://developer.apple.com/videos/play/wwdc2025/219/">Apple, Meet Liquid Glass</a>. Свет от видеокадра: <a href="https://github.com/WesselKroos/youtube-ambilight">Ambient light for YouTube</a>. Док и значки сохраняют Android-характер ErgoTube.</p>
+      <p>Зерно: <a href="https://commons.wikimedia.org/wiki/File:Tri-x_400_grain2.png">реальный скан Kodak Tri-X 400, Wiley.andrew.r, CC0</a>. Использован кроп скана, без генератора шума. Текстура неподвижна и лежит только в фоновом слое; поверх неё рисуются превью, текст и кнопки.</p>
+      <p>Фото: <a href="https://unsplash.com/photos/ocean-during-golden-hour-ZeqXEuIfOQk">Taylor Cowling</a>, <a href="https://unsplash.com/photos/the-brutalist-building-is-bathed-in-sunlight-N_QoHie_NV4">Hananiah Hardin</a>, <a href="https://unsplash.com/photos/green-trees-beside-lake-during-foggy-weather-yxDLoo7Vshw">Olga Subach</a>, Unsplash. Шрифты локальные, OFL: Golos Text, Lora, Onest, Roboto Flex. Значки — существующие значения Material Icons, Apache 2.0.</p>
+      <p>Это визуальная демонстрация ленты. Меню показывает материал и выделение; аккаунтные действия не выполняются. Плеер и полный экран описаны в записке. Энергозатраты Android и комфорт на солнце здесь не измерены. Все фотографии, шрифты и зерно работают без интернета.</p>
+      <p><a href="proposal.md">Полное описание трёх направлений</a> · <a href="ASSETS.md">Происхождение и лицензии</a></p>
+    </div>
+  </details>
+</main>
+<script src="study.js"></script>
+</body>
+</html>

@@ -248,3 +248,11 @@ Validation: `assembleDebug`, 114 JVM tests (dock order per hand, «Моё» orde
 Reading choice: the user's «плеер внизу занимает четверть экрана» was taken as the watch page's bottom control zone (the old mini-player was a 60dp strip, which the user described separately as tiny).
 
 Validation: assembleDebug, 117 JVM tests (new `MiniCornersTest`), 12 API37 instrumentation tests including `ReachRuleTest`, lint zero errors. Emulator (Russian, left hand): compact headers, Home chips hiding, Subscriptions without the switch, Моё screens without Back, watch page pad hiding, pin/unpin with the video scrolling away, floating mini drag to the opposite corner and reopen, Shorts timeline seek. Emulator shut down after the run. APK: `apk/ErgoTube-1.1.1-variantA-debug.apk`.
+
+## Visual style study — proposals only (4 Nov 2026)
+
+The user requested 2–3 distinct visual directions with a warm, natural, floating feeling, video-derived ambient light, light/dark themes, and real static film grain confined to the background. They explicitly prohibited changing the layout or implementing the proposals in the Android application. Their clarified references are the Opus 5.5 / Sonnet 5.5 trailers, especially naturalness, warmth and unusual colors.
+
+Prepared three material systems on the existing 1.1.1 geometry: Warm Exposure (film, atmosphere and editorial header typography), Opal Water (controlled milk-glass navigation) and Warm Porcelain (opaque matte surfaces). Warm Exposure is the recommendation, not an accepted product decision. The proposal includes feed, portrait/fullscreen player treatment, motion, readability and battery tradeoffs. The standalone HTML uses local photographs, open fonts, existing Material icon meanings, and an actual CC0 Tri-X scan; no generated grain or image grading is applied over media. Source and license records accompany the artifact.
+
+Artifacts: `docs/design/heavenly-2026-11-04/proposal.md`, `index.html`, three paired theme screenshots, `ASSETS.md`, and `VALIDATION.md`. `make-standalone.py` can embed all assets into one offline HTML. Verification concerns the visual artifact only; no Android build, emulator run, APK or application code change was required for this design-only request. Existing app validation remains the 1.1.1 record above. No publication or push authorized.
