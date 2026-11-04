@@ -31,10 +31,6 @@ import javax.inject.Inject
 class MenuSettingsViewModel @Inject constructor(private val settings: AppSettings) : ViewModel() {
     val leftHanded = settings.leftHanded.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     fun setHand(left: Boolean) { viewModelScope.launch { settings.setLeftHanded(left) } }
-    // Temporary: still read by the old player controls until they are replaced.
-    val arc = settings.thumbArc.stateIn(viewModelScope, SharingStarted.Eagerly, app.freshtuber.ui.radial.ThumbArc())
-    val pinned = settings.videoPinned.stateIn(viewModelScope, SharingStarted.Eagerly, true)
-    fun setPinned(value: Boolean) { viewModelScope.launch { settings.setVideoPinned(value) } }
 }
 
 @HiltViewModel

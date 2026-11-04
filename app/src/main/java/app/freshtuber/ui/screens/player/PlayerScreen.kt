@@ -310,7 +310,14 @@ private fun FullscreenEffect(fullscreen: Boolean, lock: OrientationLock, onLock:
             insets.show(WindowInsetsCompat.Type.systemBars())
         }
         onDispose {
-            if (android.os.Build.VERSION.SDK_INT >= 28) window.attributes = window.attributes.apply { layoutInDisplayCutoutMode = oldCutout }
+            if (android.os.Build.VERSION.SDK_INT >= 28) window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode = when (oldCutout) {
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS -> WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES -> WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_NEVER -> WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_NEVER
+                    else -> WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
+                }
+            }
             insets.isAppearanceLightStatusBars = oldStatusIcons
             insets.show(WindowInsetsCompat.Type.systemBars())
         }

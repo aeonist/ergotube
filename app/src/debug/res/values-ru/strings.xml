@@ -1,5 +1,2 @@
 <resources>
-    <string name="preview_states_title">Пример состояний кнопок</string>
-    <string name="preview_states_note">Условные числа и состояние подписки. Аккаунт не подключён, кнопки ничего не отправляют.</string>
-    <string name="preview_portrait">Видео</string>
 </resources>

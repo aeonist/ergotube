@@ -2,7 +2,8 @@ package app.freshtuber.ui.screens.shorts
 
 import androidx.compose.runtime.*
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -17,7 +18,6 @@ import app.freshtuber.data.video.VideoRepository
 import app.freshtuber.data.extras.CommunityExtras
 import app.freshtuber.data.settings.AppSettings
 import app.freshtuber.ui.screens.player.*
-import app.freshtuber.ui.screens.settings.MenuSettingsViewModel
 import app.freshtuber.ui.player.*
 import app.freshtuber.ui.feed.FeedNavigation
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -249,55 +249,97 @@ private fun ShortActions(id: String, viewModel: VideoViewModel, navigation: Feed
     val comments by viewModel.comments.collectAsStateWithLifecycle()
     val picker by viewModel.picker.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
-    val menu: MenuSettingsViewModel = hiltViewModel()
-    val left by menu.leftHanded.collectAsStateWithLifecycle()
-    val arc by menu.arc.collectAsStateWithLifecycle()
+    val left = app.freshtuber.ui.components.LocalLeftHanded.current
+    val messages = app.freshtuber.ui.components.LocalAppMessages.current
+    val resources = androidx.compose.ui.platform.LocalResources.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     var more by remember { mutableStateOf(false) }
     var descriptionOpen by remember { mutableStateOf(false) }
-    val snackbar = remember { SnackbarHostState() }
-    val messageText = message?.let { stringResource(it.textRes()) }
-    val signIn = stringResource(R.string.welcome_sign_in)
     LaunchedEffect(message) {
-        if (message == null) return@LaunchedEffect
-        val result = snackbar.showSnackbar(messageText.orEmpty(), if (message == VideoMessage.NeedsSignIn) signIn else null)
+        val current = message ?: return@LaunchedEffect
+        messages?.show(resources.getString(current.textRes()),
+            if (current == VideoMessage.NeedsSignIn) resources.getString(R.string.welcome_sign_in) else null) { if (it) onSignIn() }
         viewModel.consumeMessage()
-        if (result == SnackbarResult.ActionPerformed) onSignIn()
     }
-    val safe = WindowInsets.safeGestures.asPaddingValues()
-    val leftEdge = safe.calculateLeftPadding(androidx.compose.ui.unit.LayoutDirection.Ltr)
-    val rightEdge = safe.calculateRightPadding(androidx.compose.ui.unit.LayoutDirection.Ltr)
-    Box(Modifier.fillMaxSize()) {
-        state.details?.let { details ->
+    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
+    val details = state.details
+    val liked = state.likeStatus == app.freshtuber.domain.model.LikeStatus.Like
+    val disliked = state.likeStatus == app.freshtuber.domain.model.LikeStatus.Dislike
+    val likeCount = (if (liked) details?.likeCountTextLiked ?: details?.likeCountText else details?.likeCountText)?.takeIf { it.any(Char::isDigit) }
+    val side = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)
+    Box(Modifier.fillMaxSize().windowInsetsPadding(side)) {
+        // Caption card: channel with Subscribe, then the title; tap opens the description.
+        details?.let { d ->
             Column(Modifier.align(Alignment.BottomStart).fillMaxWidth()
-                .padding(start = leftEdge + if (left) VideoRailExclusion else 12.dp,
-                    end = rightEdge + if (left) 12.dp else VideoRailExclusion, bottom = 12.dp)
-                .background(Color(0x99000000), androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
+                .padding(start = if (left) 80.dp else 12.dp, end = if (left) 12.dp else 80.dp, bottom = 14.dp)
+                .background(Color(0x6B000000), androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
                 .clickable { descriptionOpen = true }
-                .padding(horizontal = 12.dp, vertical = 8.dp)) {
-                details.channel?.let { channel ->
-                    Text(channel.name, color = Color.White, style = MaterialTheme.typography.labelLarge,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                .padding(horizontal = 12.dp, vertical = 9.dp)) {
+                d.channel?.let { channel ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(channel.name, color = Color.White, style = MaterialTheme.typography.labelLarge, maxLines = 1,
+                            overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                        Spacer(Modifier.width(8.dp))
+                        val subscribed = state.subscribed == true
+                        Surface(onClick = viewModel::toggleSubscription, shape = CircleShape, modifier = Modifier.heightIn(min = 48.dp),
+                            color = Color.Transparent) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(stringResource(if (subscribed) R.string.channel_subscribed else R.string.channel_subscribe),
+                                    color = if (subscribed) Color.White else Color(0xFF0F0F0F), style = MaterialTheme.typography.labelMedium,
+                                    modifier = Modifier.background(if (subscribed) Color(0x38FFFFFF) else Color.White, CircleShape)
+                                        .padding(horizontal = 14.dp, vertical = 9.dp))
+                            }
+                        }
+                    }
                 }
-                Text(details.title, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(d.title, color = Color(0xFFDDDDDD), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
-        VideoActionRail(state, viewModel, { more = true },
-            Modifier.align(if (left) Alignment.BottomStart else Alignment.BottomEnd)
-                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)).padding(start = if (left) 4.dp else 0.dp, end = if (left) 0.dp else 4.dp, bottom = 76.dp), overVideo = true, leftHanded = left)
-        SnackbarHost(snackbar, Modifier.align(Alignment.TopCenter))
+        // Action column on the working-hand side; the most used sits lowest.
+        Column(Modifier.align(if (left) Alignment.BottomStart else Alignment.BottomEnd).padding(horizontal = 10.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            ShortButton(Icons.Rounded.ChatBubbleOutline, stringResource(R.string.video_comments), null, false, details != null, viewModel::openComments)
+            ShortButton(if (disliked) Icons.Rounded.ThumbDown else Icons.Rounded.ThumbDownOffAlt, stringResource(R.string.video_dislike),
+                state.dislikes?.let { app.freshtuber.ui.components.compactNumber(it, locale) }, disliked, details != null, viewModel::toggleDislike)
+            ShortButton(if (liked) Icons.Rounded.ThumbUp else Icons.Rounded.ThumbUpOffAlt, stringResource(R.string.video_like), likeCount, liked, details != null, viewModel::toggleLike)
+            ShortButton(Icons.Rounded.MoreHoriz, stringResource(R.string.video_more), null, false, true) { more = true }
+        }
     }
     if (descriptionOpen) ModalBottomSheet(onDismissRequest = { descriptionOpen = false }) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.shorts_description), style = MaterialTheme.typography.titleLarge)
-            state.details?.let { details ->
-                Text(details.title, style = MaterialTheme.typography.titleMedium)
-                details.channel?.let { channel -> TextButton(onClick = { descriptionOpen = false; navigation.openChannel(channel.id) }) { Text(channel.name) } }
-                details.description?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+            state.details?.let { d ->
+                Text(d.title, style = MaterialTheme.typography.titleMedium)
+                d.channel?.let { channel -> TextButton(onClick = { descriptionOpen = false; navigation.openChannel(channel.id) }) { Text(channel.name) } }
+                d.description?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
             }
         }
     }
-    if (more) VideoMoreMenu(id, viewModel, left, arc) { more = false }
+    if (more) ModalBottomSheet(onDismissRequest = { more = false }) {
+        val share = stringResource(R.string.video_share)
+        val downloadNotifications = app.freshtuber.ui.components.rememberDownloadNotifications()
+        val tiles = buildList {
+            add(app.freshtuber.ui.components.TileItem(Icons.AutoMirrored.Rounded.PlaylistAdd, stringResource(R.string.video_save)) { more = false; viewModel.openPlaylistPicker() })
+            add(app.freshtuber.ui.components.TileItem(Icons.Rounded.Download, stringResource(R.string.feed_download)) { more = false; downloadNotifications(); viewModel.download() })
+            add(app.freshtuber.ui.components.TileItem(Icons.Rounded.Share, share) { more = false; app.freshtuber.ui.feed.shareVideo(context, id, share) })
+            details?.channel?.let { channel -> add(app.freshtuber.ui.components.TileItem(Icons.Rounded.AccountCircle, stringResource(R.string.channel_group)) {
+                more = false; navigation.openChannel(channel.id) }) }
+        }
+        app.freshtuber.ui.components.TileGrid(tiles, 4, left, Modifier.padding(bottom = 16.dp))
+    }
     if (comments.opened) CommentsSheet(comments, viewModel, navigation::openChannel)
     if (picker.opened) PlaylistPickerSheet(picker, viewModel)
+}
+
+@Composable
+private fun ShortButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, count: String?, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
+    Surface(onClick = onClick, enabled = enabled, shape = CircleShape, color = if (selected) Color.White else Color(0x6B000000),
+        contentColor = if (selected) Color(0xFF0F0F0F) else Color.White,
+        modifier = Modifier.size(56.dp).semantics { contentDescription = listOfNotNull(label, count).joinToString(", ") }) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+            Icon(icon, null, Modifier.size(if (count != null) 20.dp else 24.dp))
+            count?.let { Text(it, style = MaterialTheme.typography.labelSmall, maxLines = 1, fontSize = androidx.compose.ui.unit.TextUnit(10f, androidx.compose.ui.unit.TextUnitType.Sp)) }
+        }
+    }
 }

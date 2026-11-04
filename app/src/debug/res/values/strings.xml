@@ -1,5 +1,2 @@
 <resources>
-    <string name="preview_states_title">Action states preview</string>
-    <string name="preview_states_note">Synthetic counts and subscription state. No account is connected; buttons do nothing.</string>
-    <string name="preview_portrait">Video</string>
 </resources>

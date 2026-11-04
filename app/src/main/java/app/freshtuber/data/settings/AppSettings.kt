@@ -6,9 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
-import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
-import app.freshtuber.ui.radial.ThumbArc
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -80,19 +78,9 @@ class AppSettings @Inject constructor(
     }
 
     val leftHanded: Flow<Boolean> = context.settingsStore.data.map { it[LEFT_HAND] ?: false }
-    val thumbArc: Flow<ThumbArc> = context.settingsStore.data.map {
-        ThumbArc(it[ARC_RADIUS] ?: 220f, it[ARC_SWEEP] ?: 90f, it[ARC_VERTICAL] ?: ((it[ARC_RADIUS] ?: 220f) * 1.36f)).normalized()
-    }
     suspend fun setLeftHanded(enabled: Boolean) {
         context.settingsStore.edit { it[LEFT_HAND] = enabled }
     }
-    suspend fun setThumbArc(arc: ThumbArc) {
-        val normalized = arc.normalized()
-        context.settingsStore.edit { it[ARC_RADIUS] = normalized.radius; it[ARC_SWEEP] = normalized.sweep; it[ARC_VERTICAL] = normalized.verticalRadius }
-    }
-
-    val videoPinned: Flow<Boolean> = context.settingsStore.data.map { it[VIDEO_PINNED] ?: true }
-    suspend fun setVideoPinned(pinned: Boolean) { context.settingsStore.edit { it[VIDEO_PINNED] = pinned } }
 
     /** Recent searches, newest first; stays on the device. */
     val searchHistory: Flow<List<String>> = context.settingsStore.data.map { SearchHistory.decode(it[SEARCH_HISTORY]) }
@@ -107,11 +95,7 @@ class AppSettings @Inject constructor(
         val NOTIFICATIONS = booleanPreferencesKey("new_video_notifications")
         val HIDDEN_VIDEOS = androidx.datastore.preferences.core.stringSetPreferencesKey("hidden_videos")
         val SEARCH_HISTORY = stringPreferencesKey("search_history")
-        val VIDEO_PINNED = booleanPreferencesKey("video_pinned")
-        val ARC_VERTICAL = floatPreferencesKey("thumb_arc_vertical")
         val LEFT_HAND = booleanPreferencesKey("left_hand")
-        val ARC_RADIUS = floatPreferencesKey("thumb_arc_radius")
-        val ARC_SWEEP = floatPreferencesKey("thumb_arc_sweep")
         val SPONSOR_BLOCK = booleanPreferencesKey("sponsor_block")
         val GESTURES = booleanPreferencesKey("gesture_controls")
         val AUTOPLAY = booleanPreferencesKey("autoplay_next")
