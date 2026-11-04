@@ -163,7 +163,6 @@ class ListViewModel @Inject constructor(
 @Composable
 fun ListScreen(
     navigation: FeedNavigation,
-    onBack: () -> Unit,
     onSignIn: () -> Unit,
     onLiked: (() -> Unit)? = null,
     viewModel: ListViewModel = hiltViewModel(),
@@ -200,7 +199,6 @@ fun ListScreen(
         }
         val channel = header
         ContextBar(buildList {
-            add(backAction(onBack))
             if (needsAccount) add(ContextAction(Icons.AutoMirrored.Rounded.Login, stringResource(R.string.welcome_sign_in), primary = true, onClick = onSignIn))
             else {
                 if ((viewModel.isWatchLater || viewModel.isPlaylist) && firstVideo != null)
@@ -222,8 +220,7 @@ private fun ChannelHeaderRow(
     actionError: LoadError?,
     onSignIn: () -> Unit,
 ) {
-    Column(Modifier.fillMaxWidth().heightIn(min = Reach.HeaderHeight).padding(horizontal = 20.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.Bottom) {
+    Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             AsyncImage(
                 model = header.channel.avatarUrl,

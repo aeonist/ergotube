@@ -66,7 +66,7 @@ class SettingsViewModel @Inject constructor(private val settings: AppSettings,
 }
 
 @Composable
-fun SettingsScreen(onAccount: () -> Unit, onBack: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
     val preferences by viewModel.preferences.collectAsStateWithLifecycle()
     val channels by viewModel.channels.collectAsStateWithLifecycle()
     val menu: MenuSettingsViewModel = hiltViewModel()
@@ -159,7 +159,6 @@ fun SettingsScreen(onAccount: () -> Unit, onBack: () -> Unit, viewModel: Setting
             item { ListItem(headlineContent = { Text(stringResource(R.string.settings_reset_hidden)) }, modifier = Modifier.clickable { clearHidden = true }) }
             item { ListItem(headlineContent = { Text(stringResource(R.string.settings_about)) }, supportingContent = { Text(stringResource(R.string.settings_version, app.freshtuber.BuildConfig.VERSION_NAME)) }, modifier = Modifier.clickable { about = true }) }
         }
-        ContextBar(listOf(backAction(onBack)), left)
     }
     if (clearHidden || clearImages) AlertDialog(onDismissRequest = { clearHidden = false; clearImages = false },
         title = { Text(stringResource(if (clearHidden) R.string.settings_reset_hidden else R.string.settings_clear_images)) },

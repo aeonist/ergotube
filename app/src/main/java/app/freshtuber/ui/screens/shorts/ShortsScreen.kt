@@ -21,6 +21,8 @@ import app.freshtuber.ui.screens.player.*
 import app.freshtuber.ui.player.*
 import app.freshtuber.ui.feed.FeedNavigation
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -232,6 +234,7 @@ private fun ShortPage(
                 modifier = Modifier.fillMaxSize(),
             )
         }
+        if (player != null && progress != null && progress.durationMs > 0) ShortsTimeline(player, progress, Modifier.align(Alignment.BottomCenter))
         if (loading || progress?.buffering == true) CircularProgressIndicator(Modifier.align(Alignment.Center), color = Color.White)
         else if (player != null && progress != null && !progress.isPlaying && !player.playWhenReady && progress.durationMs > 0) {
             Icon(Icons.Rounded.PlayArrow, null, tint = Color.White,
@@ -271,7 +274,7 @@ private fun ShortActions(id: String, viewModel: VideoViewModel, navigation: Feed
         // Caption card: channel with Subscribe, then the title; tap opens the description.
         details?.let { d ->
             Column(Modifier.align(Alignment.BottomStart).fillMaxWidth()
-                .padding(start = if (left) 80.dp else 12.dp, end = if (left) 12.dp else 80.dp, bottom = 14.dp)
+                .padding(start = if (left) 80.dp else 12.dp, end = if (left) 12.dp else 80.dp, bottom = 30.dp)
                 .background(Color(0x6B000000), androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
                 .clickable { descriptionOpen = true }
                 .padding(horizontal = 12.dp, vertical = 9.dp)) {
@@ -296,7 +299,7 @@ private fun ShortActions(id: String, viewModel: VideoViewModel, navigation: Feed
             }
         }
         // Action column on the working-hand side; the most used sits lowest.
-        Column(Modifier.align(if (left) Alignment.BottomStart else Alignment.BottomEnd).padding(horizontal = 10.dp, vertical = 14.dp),
+        Column(Modifier.align(if (left) Alignment.BottomStart else Alignment.BottomEnd).padding(start = 10.dp, end = 10.dp, top = 14.dp, bottom = 30.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)) {
             ShortButton(Icons.Rounded.ChatBubbleOutline, stringResource(R.string.video_comments), null, false, details != null, viewModel::openComments)
             ShortButton(if (disliked) Icons.Rounded.ThumbDown else Icons.Rounded.ThumbDownOffAlt, stringResource(R.string.video_dislike),
@@ -341,5 +344,43 @@ private fun ShortButton(icon: androidx.compose.ui.graphics.vector.ImageVector, l
             Icon(icon, null, Modifier.size(if (count != null) 20.dp else 24.dp))
             count?.let { Text(it, style = MaterialTheme.typography.labelSmall, maxLines = 1, fontSize = androidx.compose.ui.unit.TextUnit(10f, androidx.compose.ui.unit.TextUnitType.Sp)) }
         }
+    }
+}
+
+/**
+ * The Short's timeline along the bottom edge: thin while watching, thick with the time while the
+ * finger drags or taps it. Its own touches never reach the pager.
+ */
+@Composable
+private fun ShortsTimeline(player: Player, progress: Progress, modifier: Modifier = Modifier) {
+    var scrub by remember { mutableStateOf<Float?>(null) }
+    val duration = progress.durationMs
+    val fraction = scrub ?: (progress.positionMs.toFloat() / duration).coerceIn(0f, 1f)
+    val label = stringResource(R.string.shorts_timeline)
+    Box(modifier.fillMaxWidth().height(26.dp)
+        .semantics { contentDescription = label }
+        .pointerInput(player, duration) {
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                down.consume()
+                scrub = (down.position.x / size.width).coerceIn(0f, 1f)
+                while (true) {
+                    val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                    change.consume()
+                    if (!change.pressed) break
+                    scrub = (change.position.x / size.width).coerceIn(0f, 1f)
+                }
+                scrub?.let { player.seekTo((it * duration).toLong()) }
+                scrub = null
+            }
+        }) {
+        val thick = scrub != null
+        Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(if (thick) 6.dp else 3.dp).background(Color(0x55FFFFFF))) {
+            Box(Modifier.fillMaxHeight().fillMaxWidth(fraction).background(app.freshtuber.ui.theme.BrandColors.Red))
+        }
+        if (thick) Text("${app.freshtuber.ui.util.formatDuration((fraction * duration / 1000).toLong())} / ${app.freshtuber.ui.util.formatDuration(duration / 1000)}",
+            color = Color.White, style = MaterialTheme.typography.labelLarge,
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 12.dp)
+                .background(Color(0x99000000), androidx.compose.foundation.shape.RoundedCornerShape(10.dp)).padding(horizontal = 10.dp, vertical = 3.dp))
     }
 }

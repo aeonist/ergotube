@@ -1,20 +1,14 @@
 package app.freshtuber.ui.player
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.VectorConverter
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
@@ -22,71 +16,131 @@ import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.material3.Surface
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import app.freshtuber.R
 import app.freshtuber.player.NowPlaying
 import app.freshtuber.ui.theme.BrandColors
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
-/** The video keeps playing while the user browses; this bar above the dock brings it back. */
+/** Where the floating window rests: one of four corners of the free area. */
+object MiniCorners {
+    /** Corner index: bit 0 = right side, bit 1 = bottom. */
+    fun default(left: Boolean): Int = if (left) 2 else 3
+
+    fun position(corner: Int, area: Offset, window: Offset, margin: Float, bottomMargin: Float): Offset {
+        val x = if (corner and 1 == 1) area.x - window.x - margin else margin
+        val y = if (corner and 2 == 2) area.y - window.y - bottomMargin else margin
+        return Offset(x.coerceAtLeast(0f), y.coerceAtLeast(0f))
+    }
+
+    /** The corner nearest to where the window would land after a throw. */
+    fun nearest(center: Offset, area: Offset): Int =
+        (if (center.x > area.x / 2) 1 else 0) or (if (center.y > area.y / 2) 2 else 0)
+}
+
+/**
+ * The minimized video floats over the app like in YouTube: drag it anywhere, it settles in the
+ * nearest corner. Tap opens the watch page; play/pause and close sit on the picture.
+ */
 @Composable
-fun MiniPlayer(
+fun FloatingMiniPlayer(
     player: Player,
     nowPlaying: NowPlaying,
     onOpen: () -> Unit,
     onClose: () -> Unit,
-    left: Boolean = false,
+    left: Boolean,
+    bottomClearance: Dp,
+    corner: Int,
+    onCorner: (Int) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val progress = rememberProgress(player)
-    Surface(color = MaterialTheme.colorScheme.surfaceContainer, contentColor = MaterialTheme.colorScheme.onSurface) {
-    Column(Modifier.fillMaxWidth()) {
-        val fraction = if (progress.durationMs > 0) progress.positionMs.toFloat() / progress.durationMs else 0f
-        Box(Modifier.fillMaxWidth().height(2.dp).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
-            Box(Modifier.fillMaxHeight().fillMaxWidth(fraction.coerceIn(0f, 1f)).background(BrandColors.Red))
-        }
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .height(60.dp)
-                .pointerInput(onOpen) { detectVerticalDragGestures { change, drag -> if (drag < -12f) { change.consume(); onOpen() } } }
-                .clickable(onClick = onOpen)
-                .padding(horizontal = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
+    val openLabel = stringResource(R.string.player_open_video, nowPlaying.title)
+    BoxWithConstraints(modifier.fillMaxSize()) {
+        val density = LocalDensity.current
+        val width = (maxWidth * 0.46f).coerceIn(150.dp, 260.dp)
+        val height = width * 9f / 16f
+        val area = with(density) { Offset(maxWidth.toPx(), maxHeight.toPx()) }
+        val window = with(density) { Offset(width.toPx(), height.toPx()) }
+        val margin = with(density) { 12.dp.toPx() }
+        val bottomMargin = with(density) { (bottomClearance + 12.dp).toPx() }
+        val target = MiniCorners.position(corner, area, window, margin, bottomMargin)
+        val offset = remember { Animatable(target, Offset.VectorConverter) }
+        var dragging by remember { mutableStateOf(false) }
+        LaunchedEffect(target) { if (!dragging) offset.animateTo(target, spring(stiffness = Spring.StiffnessMediumLow)) }
+        val scope = rememberCoroutineScope()
+
+        Surface(
+            Modifier.offset { IntOffset(offset.value.x.roundToInt(), offset.value.y.roundToInt()) }
+                .size(width, height).testTag("mini")
+                .semantics { contentDescription = openLabel; role = Role.Button; onClick { onOpen(); true } },
+            shape = RoundedCornerShape(12.dp), color = Color.Black, shadowElevation = 8.dp,
         ) {
-            // Play sits on the working-hand side, close on the far side.
-            val parts: List<@Composable RowScope.() -> Unit> = listOf(
-                { IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.player_close)) } },
-                { VideoSurface(player, Modifier.height(43.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(6.dp))) },
-                { Spacer(Modifier.width(10.dp)) },
-                {
-                    Column(Modifier.weight(1f)) {
-                        Text(nowPlaying.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        nowPlaying.channelName?.let {
-                            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        }
+            Box(Modifier.fillMaxSize()
+                .pointerInput(Unit) { detectTapGestures(onTap = { onOpen() }) }
+                .pointerInput(area, window, margin, bottomMargin) {
+                    val tracker = VelocityTracker()
+                    detectDragGestures(
+                        onDragStart = { dragging = true; tracker.resetTracking() },
+                        onDragEnd = {
+                            val v = tracker.calculateVelocity()
+                            val thrown = offset.value + Offset(v.x, v.y) * 0.15f + window / 2f
+                            val next = MiniCorners.nearest(thrown, area)
+                            onCorner(next)
+                            dragging = false
+                            scope.launch { offset.animateTo(MiniCorners.position(next, area, window, margin, bottomMargin), spring(stiffness = Spring.StiffnessMediumLow)) }
+                        },
+                        onDragCancel = { dragging = false; scope.launch { offset.animateTo(target) } },
+                    ) { change, drag ->
+                        change.consume()
+                        tracker.addPosition(change.uptimeMillis, change.position)
+                        val next = offset.value + drag
+                        scope.launch { offset.snapTo(Offset(next.x.coerceIn(0f, area.x - window.x), next.y.coerceIn(0f, area.y - window.y))) }
                     }
-                },
-                {
-                    IconButton(onClick = { if (player.isPlaying) player.pause() else player.play() }) {
-                        Icon(
-                            if (progress.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                            contentDescription = stringResource(if (progress.isPlaying) R.string.player_pause else R.string.player_play),
-                        )
-                    }
-                },
-            )
-            (if (left) parts.reversed() else parts).forEach { it() }
+                }) {
+                VideoSurface(player, Modifier.fillMaxSize(), texture = true)
+                val playing = progress.isPlaying || (progress.buffering && player.playWhenReady)
+                MiniButton(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                    stringResource(if (playing) R.string.player_pause else R.string.player_play),
+                    Modifier.align(if (left) Alignment.BottomStart else Alignment.BottomEnd)) {
+                    if (player.isPlaying) player.pause() else player.play()
+                }
+                MiniButton(Icons.Rounded.Close, stringResource(R.string.player_close),
+                    Modifier.align(if (left) Alignment.TopEnd else Alignment.TopStart), onClick = onClose)
+                val fraction = if (progress.durationMs > 0) progress.positionMs.toFloat() / progress.durationMs else 0f
+                Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(3.dp).background(Color(0x40FFFFFF))) {
+                    Box(Modifier.fillMaxHeight().fillMaxWidth(fraction.coerceIn(0f, 1f)).background(BrandColors.Red))
+                }
+            }
         }
     }
 }
+
+@Composable
+private fun MiniButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, modifier: Modifier, onClick: () -> Unit) {
+    IconButton(onClick = onClick, modifier = modifier.size(44.dp)) {
+        Icon(icon, label, Modifier.size(30.dp).clip(CircleShape).background(Color(0x99000000)).padding(5.dp), tint = Color.White)
+    }
 }

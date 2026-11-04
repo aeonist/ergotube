@@ -55,7 +55,6 @@ import androidx.compose.material.icons.automirrored.rounded.Logout
 @Composable
 fun AccountScreen(
     onSignIn: () -> Unit,
-    onBack: () -> Unit,
     viewModel: AccountViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -77,7 +76,6 @@ fun AccountScreen(
         }
         val signedIn = state as? AccountState.SignedIn
         ContextBar(buildList {
-            add(backAction(onBack))
             add(ContextAction(Icons.Rounded.PersonAdd, stringResource(if (signedIn == null) R.string.welcome_sign_in else R.string.account_add),
                 primary = signedIn == null, onClick = onSignIn))
             if (signedIn != null) add(ContextAction(Icons.AutoMirrored.Rounded.Logout, stringResource(R.string.account_sign_out)) { confirmSignOut = true })
@@ -148,7 +146,7 @@ private fun SignedInContent(
     LazyColumn(Modifier.fillMaxSize()) {
         item {
             Row(
-                modifier = Modifier.fillMaxWidth().heightIn(min = Reach.HeaderHeight).padding(start = 20.dp, end = 16.dp, bottom = 16.dp),
+                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 12.dp),
                 verticalAlignment = Alignment.Bottom,
             ) {
                 Avatar(active.avatarUrl, 64.dp)

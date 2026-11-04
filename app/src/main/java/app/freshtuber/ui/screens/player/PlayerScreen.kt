@@ -51,6 +51,8 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.material.icons.outlined.PushPin
 
 @Composable
 fun PlayerScreen(
@@ -66,6 +68,10 @@ fun PlayerScreen(
     val message by viewModel.message.collectAsStateWithLifecycle()
     val playerState by viewModel.playerState.collectAsStateWithLifecycle()
     val gestures by viewModel.gesturesEnabled.collectAsStateWithLifecycle()
+    val pinned by viewModel.videoPinned.collectAsStateWithLifecycle()
+    val listState = rememberLazyListState()
+    // The pad slides away while the list is read downward and comes back on the way up.
+    val padHide = rememberScrollHide()
     val left = LocalLeftHanded.current
     val messages = LocalAppMessages.current
     val resources = LocalResources.current
@@ -169,45 +175,61 @@ fun PlayerScreen(
             val details = state.details
             val videoHeight = minOf(maxWidth / videoAspect, maxHeight * 0.4f)
             val density = LocalDensity.current
+            val videoHeightPx = with(density) { videoHeight.roundToPx() }
             var zoneHeight by remember { mutableStateOf(0.dp) }
+            // Unpinned, the video is the list's first row: it scrolls away and returns at the top.
+            // The surface itself never moves in the composition, only its offset, so it never goes black.
+            val scrolls = !pinned && details != null
+            // Adding or removing the video row keeps the old first row in place; start from the top instead.
+            LaunchedEffect(scrolls) { listState.scrollToItem(0) }
+            val videoOffset by remember(scrolls, videoHeightPx) { derivedStateOf {
+                if (!scrolls) 0 else if (listState.firstVisibleItemIndex == 0) -listState.firstVisibleItemScrollOffset else -videoHeightPx
+            } }
             Column(Modifier.fillMaxSize()) {
-                // Watch and read at the top; nothing here needs reaching.
-                Box(Modifier.fillMaxWidth().height(videoHeight).background(Color.Black)) {
-                    VideoSurface(viewModel.player, Modifier.fillMaxSize())
-                    PortraitVideoLayer(viewModel.player, playerState, onMinimize = onBack, onRetry = viewModel::retryPlayback)
-                }
+                if (!scrolls) Spacer(Modifier.fillMaxWidth().height(videoHeight))
                 Box(Modifier.weight(1f)) {
                     when {
                         state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         details == null -> LoadErrorState(state.error ?: LoadError.Unknown, viewModel::load, onSignIn)
-                        else -> VideoBody(details, state, navigation, offline = now?.isOffline == true)
+                        else -> VideoBody(details, state, navigation, listState, offline = now?.isOffline == true,
+                            videoSpace = if (scrolls) videoHeight else null, modifier = Modifier.nestedScroll(padHide.connection))
                     }
                 }
                 // Everything pressed sits here, under the thumb.
                 Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerLow)
                     .onSizeChanged { zoneHeight = with(density) { it.height.toDp() } }
-                    .navigationBarsPadding().padding(top = 4.dp, bottom = 8.dp)) {
-                    PlayerActions(state, viewModel, left, onMore = { moreOpen = true })
-                    PlayerPad(
-                        player = viewModel.player,
-                        ui = padUi,
-                        speed = playerState.speed,
-                        captionsOn = captionsOn,
-                        captionsAvailable = !now?.subtitles.isNullOrEmpty(),
-                        chapters = now?.chapters.orEmpty(),
-                        live = now?.isLive == true,
-                        left = left,
-                        hasNext = playerState.queue.isNotEmpty(),
-                        onNext = onNext,
-                        onMinimize = onBack,
-                        onFullscreen = enterFullscreen,
-                        onSpeed = onSpeed,
-                        onCaptions = onCaptions,
-                        onBoost = onBoost,
-                    )
+                    .navigationBarsPadding().padding(bottom = 4.dp)) {
+                    val padShown = padHide.visible || padUi.active || padUi.scrubMs != null
+                    if (!padShown) MiniProgress(viewModel.player)
+                    PlayerActions(state, viewModel, left, pinned = pinned, onPin = { viewModel.setVideoPinned(!pinned) }, onMore = { moreOpen = true })
+                    androidx.compose.animation.AnimatedVisibility(padShown,
+                        enter = androidx.compose.animation.expandVertically(), exit = androidx.compose.animation.shrinkVertically()) {
+                        PlayerPad(
+                            player = viewModel.player,
+                            ui = padUi,
+                            speed = playerState.speed,
+                            captionsOn = captionsOn,
+                            captionsAvailable = !now?.subtitles.isNullOrEmpty(),
+                            chapters = now?.chapters.orEmpty(),
+                            live = now?.isLive == true,
+                            left = left,
+                            hasNext = playerState.queue.isNotEmpty(),
+                            onNext = onNext,
+                            onMinimize = onBack,
+                            onFullscreen = enterFullscreen,
+                            onSpeed = onSpeed,
+                            onCaptions = onCaptions,
+                            onBoost = onBoost,
+                        )
+                    }
                 }
+            }
+            // Watch at the top; nothing here needs reaching.
+            Box(Modifier.fillMaxWidth().height(videoHeight).offset { androidx.compose.ui.unit.IntOffset(0, videoOffset) }.background(Color.Black)) {
+                VideoSurface(viewModel.player, Modifier.fillMaxSize())
+                PortraitVideoLayer(viewModel.player, playerState, onMinimize = onBack, onRetry = viewModel::retryPlayback)
             }
             val scrub = padUi.scrubMs
             if (scrub != null) {
@@ -225,9 +247,9 @@ fun PlayerScreen(
     if (picker.opened) PlaylistPickerSheet(picker, viewModel)
 }
 
-/** Like, dislike, comments, subscribe, more; the first one sits under the thumb. */
+/** Like, dislike, comments, subscribe, pin, more; the first one sits under the thumb. */
 @Composable
-private fun PlayerActions(state: VideoUiState, viewModel: VideoViewModel, left: Boolean, onMore: () -> Unit) {
+private fun PlayerActions(state: VideoUiState, viewModel: VideoViewModel, left: Boolean, pinned: Boolean, onPin: () -> Unit, onMore: () -> Unit) {
     val locale = LocalConfiguration.current.locales[0]
     val details = state.details
     val liked = state.likeStatus == LikeStatus.Like
@@ -246,11 +268,13 @@ private fun PlayerActions(state: VideoUiState, viewModel: VideoViewModel, left: 
         Action(if (subscribed) Icons.Rounded.HowToReg else Icons.Rounded.PersonAdd,
             stringResource(if (subscribed) R.string.player_subscribed_short else R.string.player_subscribe_short),
             stringResource(if (subscribed) R.string.channel_unsubscribe else R.string.channel_subscribe), subscribed, details?.channel != null, viewModel::toggleSubscription),
+        Action(if (pinned) Icons.Rounded.PushPin else Icons.Outlined.PushPin, stringResource(R.string.player_pin_short),
+            stringResource(if (pinned) R.string.player_unpin else R.string.player_pin), pinned, true, onPin),
         Action(Icons.Rounded.MoreHoriz, stringResource(R.string.player_more), stringResource(R.string.video_more), false, true, onMore),
     )
-    Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 2.dp)) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp)) {
         handOrder(actions, left).forEach { action ->
-            Surface(onClick = action.onClick, enabled = action.enabled, modifier = Modifier.weight(1f).height(54.dp)
+            Surface(onClick = action.onClick, enabled = action.enabled, modifier = Modifier.weight(1f).height(50.dp)
                 .semantics { contentDescription = action.description; selected = action.selected },
                 shape = RoundedCornerShape(14.dp), color = Color.Transparent,
                 contentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = if (action.enabled) 1f else 0.38f)) {
@@ -324,10 +348,13 @@ private fun FullscreenEffect(fullscreen: Boolean, lock: OrientationLock, onLock:
     }
 }
 
-/** Title, channel, description and up next; scrolls on its own between the video and the controls. */
+/** Title, channel, description and up next; scrolls between the video and the controls. */
 @Composable
-private fun VideoBody(details: VideoDetails, state: VideoUiState, navigation: FeedNavigation, offline: Boolean = false) {
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
+private fun VideoBody(details: VideoDetails, state: VideoUiState, navigation: FeedNavigation, listState: androidx.compose.foundation.lazy.LazyListState,
+    offline: Boolean = false, videoSpace: androidx.compose.ui.unit.Dp? = null, modifier: Modifier = Modifier) {
+    LazyColumn(modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 16.dp)) {
+        // Room for the unpinned video, which is drawn above the list at this row's offset.
+        videoSpace?.let { item(key = "video") { Spacer(Modifier.fillMaxWidth().height(it)) } }
         item(key = "info") { TitleBlock(details, offline) }
         details.channel?.let { channel ->
             item(key = "channel") {
@@ -400,4 +427,14 @@ internal fun VideoMessage.textRes(): Int = when (this) {
     VideoMessage.DownloadQueued -> R.string.download_queued_message
     VideoMessage.DownloadExists -> R.string.download_exists
     VideoMessage.WatchLaterAdded -> R.string.watch_later_added
+}
+
+/** A thin progress line shown in place of the hidden pad. */
+@Composable
+private fun MiniProgress(player: androidx.media3.common.Player) {
+    val progress = rememberProgress(player)
+    val fraction = if (progress.durationMs > 0) (progress.positionMs.toFloat() / progress.durationMs).coerceIn(0f, 1f) else 0f
+    Box(Modifier.fillMaxWidth().height(2.dp).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
+        Box(Modifier.fillMaxHeight().fillMaxWidth(fraction).background(app.freshtuber.ui.theme.BrandColors.Red))
+    }
 }

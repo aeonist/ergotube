@@ -79,7 +79,7 @@ fun PadUi.skip(player: Player, seconds: Int, secondsLabel: (String) -> String) {
  * The video's own controls, moved down under the thumb. Every gesture also has a visible button.
  * Tap: middle pauses, sides skip 10 s and add up. Hold: 2× while held. Drag sideways: scrub,
  * lift the finger higher to scrub finely. Drag along the bar: jump. Swipe up: full screen.
- * Swipe down: minimize.
+ * Swipe down: minimize. The pad is compact: zones, time with small buttons, track.
  */
 @Composable
 fun PlayerPad(
@@ -123,7 +123,7 @@ fun PlayerPad(
     val backLabel = stringResource(R.string.player_back_10)
     val forwardLabel = stringResource(R.string.player_forward_10)
 
-    Box(modifier.fillMaxWidth().padding(horizontal = 16.dp).clip(RoundedCornerShape(22.dp))
+    Box(modifier.fillMaxWidth().padding(horizontal = 12.dp).clip(RoundedCornerShape(20.dp))
         .background(if (ui.active) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.surfaceContainerHigh)
         .onGloballyPositioned { padCoords = it }
         .pointerInput(player, live, durationMs) {
@@ -230,27 +230,18 @@ fun PlayerPad(
             }
         }) {
         Column(Modifier.fillMaxWidth()) {
-            // Top: minimize far from the hand, captions and speed under it.
-            Row(Modifier.fillMaxWidth().height(44.dp).padding(start = 6.dp, end = 6.dp, top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-                val parts: List<@Composable RowScope.() -> Unit> = listOf(
-                    { PadButton(Icons.Rounded.KeyboardArrowDown, stringResource(R.string.player_minimize), Modifier.button("min"), onClick = onMinimize) },
-                    { Spacer(Modifier.weight(1f)) },
-                    { if (captionsAvailable) PadButton(if (captionsOn) Icons.Rounded.ClosedCaption else Icons.Rounded.ClosedCaptionDisabled,
-                        stringResource(R.string.player_subtitles), Modifier.button("cc"), selected = captionsOn, onClick = onCaptions) },
-                    { if (!live) SpeedChip(if (ui.boost) "2×" else speedLabel(speed), selected = ui.boost || speed != 1f, Modifier.button("speed"), onClick = onSpeed) },
-                )
-                (if (left) parts.reversed() else parts).forEach { it() }
-            }
-            Row(Modifier.fillMaxWidth().height(64.dp).onGloballyPositioned { mainBounds = it.boundsInRoot() }) {
+            // Compact: tap zones, then time with the small buttons, then the track. Minimize is
+            // the system Back or a swipe down, so it has no button of its own.
+            Row(Modifier.fillMaxWidth().height(56.dp).onGloballyPositioned { mainBounds = it.boundsInRoot() }) {
                 PadZoneIcon(Icons.Rounded.Replay10, backLabel, Modifier.weight(1f), enabled = !live) { ui.skip(player, -10) { secondsFormat.format(it) } }
                 PadZoneIcon(if (progress.ended) Icons.Rounded.Replay else if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                     playLabel, Modifier.weight(1.2f), big = true, onClick = toggle)
                 PadZoneIcon(Icons.Rounded.Forward10, forwardLabel, Modifier.weight(1f), enabled = !live) { ui.skip(player, 10) { secondsFormat.format(it) } }
             }
-            Row(Modifier.fillMaxWidth().height(44.dp).padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().height(44.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 val parts: List<@Composable RowScope.() -> Unit> = listOf(
                     {
-                        Row(Modifier.weight(1f).padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.weight(1f).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             if (live) Text(stringResource(R.string.search_live), color = Color.White, style = MaterialTheme.typography.labelMedium,
                                 modifier = Modifier.background(BrandColors.Red, RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
                             else Text("${formatDuration(shownMs / 1000)} / ${formatDuration(durationMs / 1000)}", style = MaterialTheme.typography.labelLarge,
@@ -259,15 +250,18 @@ fun PlayerPad(
                                 maxLines = 1, overflow = TextOverflow.Ellipsis) }
                         }
                     },
+                    { if (captionsAvailable) PadButton(if (captionsOn) Icons.Rounded.ClosedCaption else Icons.Rounded.ClosedCaptionDisabled,
+                        stringResource(R.string.player_subtitles), Modifier.button("cc"), selected = captionsOn, onClick = onCaptions) },
+                    { if (!live) SpeedChip(if (ui.boost) "2×" else speedLabel(speed), selected = ui.boost || speed != 1f, Modifier.button("speed"), onClick = onSpeed) },
                     { PadButton(Icons.Rounded.SkipNext, stringResource(R.string.player_next), Modifier.button("next"), enabled = hasNext, onClick = onNext) },
                     { PadButton(Icons.Rounded.Fullscreen, stringResource(R.string.player_fullscreen), Modifier.button("fs"), onClick = onFullscreen) },
                 )
                 (if (left) parts.reversed() else parts).forEach { it() }
             }
             Track(if (durationMs > 0) shownMs.toFloat() / durationMs else 0f, chapters, durationMs, scrubbing = ui.scrubMs != null,
-                live = live, modifier = Modifier.fillMaxWidth().height(26.dp).padding(horizontal = 18.dp)
+                live = live, modifier = Modifier.fillMaxWidth().height(24.dp).padding(horizontal = 18.dp)
                     .onGloballyPositioned { trackBounds = it.boundsInRoot() })
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(2.dp))
         }
         ui.bubble?.let { Bubble(it, Modifier.align(Alignment.TopCenter).padding(top = 6.dp)) }
     }
@@ -281,7 +275,7 @@ fun Bubble(text: String, modifier: Modifier = Modifier) {
 
 @Composable
 private fun PadButton(icon: ImageVector, label: String, modifier: Modifier = Modifier, selected: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
-    IconButton(onClick, modifier.size(48.dp), enabled = enabled, colors = if (selected) IconButtonDefaults.iconButtonColors(
+    IconButton(onClick, modifier.size(44.dp), enabled = enabled, colors = if (selected) IconButtonDefaults.iconButtonColors(
         containerColor = MaterialTheme.colorScheme.onSurface, contentColor = MaterialTheme.colorScheme.surface) else IconButtonDefaults.iconButtonColors()) {
         Icon(icon, label)
     }
@@ -290,7 +284,7 @@ private fun PadButton(icon: ImageVector, label: String, modifier: Modifier = Mod
 @Composable
 private fun SpeedChip(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val description = stringResource(R.string.player_speed_value, label)
-    Surface(onClick = onClick, modifier = modifier.heightIn(min = 40.dp).widthIn(min = 56.dp).semantics { contentDescription = description },
+    Surface(onClick = onClick, modifier = modifier.heightIn(min = 36.dp).widthIn(min = 48.dp).semantics { contentDescription = description },
         shape = RoundedCornerShape(20.dp),
         color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
         contentColor = if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurface) {

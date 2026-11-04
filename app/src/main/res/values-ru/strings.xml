@@ -25,7 +25,6 @@
     <string name="search_live">ЭФИР</string>
 
     <string name="action_retry">Попробовать ещё раз</string>
-    <string name="action_back">Назад</string>
     <string name="action_clear">Очистить</string>
 
 
@@ -97,7 +96,6 @@
     <string name="player_play">Воспроизвести</string>
     <string name="player_pause">Пауза</string>
     <string name="player_hold_2x">2× пока держишь</string>
-    <string name="player_minimize">Свернуть</string>
     <string name="player_speed_value">Скорость %1$s</string>
     <string name="player_scrub_fine">Точная перемотка</string>
     <string name="player_scrub_hint_pad">Выше пальцем: точнее</string>
@@ -105,6 +103,10 @@
     <string name="player_captions_on">Субтитры включены</string>
     <string name="player_captions_off">Субтитры выключены</string>
     <string name="player_up_next">Дальше</string>
+    <string name="player_pin_short">Закрепить</string>
+    <string name="player_pin">Закрепить видео</string>
+    <string name="player_unpin">Открепить видео</string>
+    <string name="player_open_video">Открыть: %1$s</string>
     <string name="player_more">Ещё</string>
     <string name="player_subscribe_short">Подписка</string>
     <string name="player_subscribed_short">Подписан</string>
@@ -132,6 +134,7 @@
     <string name="channel_group">Канал</string>
     <string name="player_on">Вкл.</string>
     <string name="player_sleep_minutes">%1$d мин</string>
+    <string name="shorts_timeline">Перемотка</string>
     <string name="shorts_description">Описание</string>
     <string name="player_sleep_end_short">До конца</string>
     <string name="fan_hint">Махни в сторону действия</string>
@@ -149,7 +152,6 @@
     <string name="local_on_device">На устройстве</string>
     <string name="local_find_channels">Найти каналы</string>
     <string name="action_refresh">Обновить</string>
-    <string name="source_youtube">YouTube</string>
     <string name="action_refreshing">Обновление…</string>
     <string name="local_sync_failed">Некоторые каналы не удалось обновить. Сохранённая лента остаётся доступна.</string>
     <string name="settings_playback">Воспроизведение</string>

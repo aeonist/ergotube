@@ -7,7 +7,6 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -32,12 +31,6 @@ import app.freshtuber.R
  * the bottom part, pressed to the working hand.
  */
 object Reach {
-    /**
-     * Big header above every list, pushing the first item down toward the thumb. Half of the
-     * mockup's 240px so that one and a half videos fit; pending the user's confirmation.
-     */
-    val HeaderHeight: Dp = 120.dp
-
     /** Fixed controls start below this fraction of the screen height. */
     const val LINE = 0.55f
 
@@ -54,18 +47,15 @@ class BottomBarSpace {
 
 val LocalBottomBarSpace = staticCompositionLocalOf { BottomBarSpace() }
 
-/** Big title block whose text sits at the bottom, near the first item. */
+/** A compact title above a list: little air above and below, the first item follows right away. */
 @Composable
-fun ScreenHeader(title: String, subtitle: String? = null, modifier: Modifier = Modifier, height: Dp = Reach.HeaderHeight) {
-    Column(
-        modifier.fillMaxWidth().heightIn(min = height).padding(start = 20.dp, end = 20.dp, bottom = 14.dp),
-        verticalArrangement = Arrangement.Bottom,
-    ) {
-        Text(title, style = MaterialTheme.typography.headlineLarge.copy(fontSize = 32.sp, lineHeight = 38.sp),
+fun ScreenHeader(title: String, subtitle: String? = null, modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 8.dp)) {
+        Text(title, style = MaterialTheme.typography.headlineSmall.copy(fontSize = 26.sp, lineHeight = 32.sp),
             maxLines = 2, overflow = TextOverflow.Ellipsis)
         subtitle?.takeIf(String::isNotBlank)?.let {
             Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
+                maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
         }
     }
 }
@@ -94,9 +84,10 @@ data class ContextAction(
     val onClick: () -> Unit,
 )
 
-/** Sub-screen controls in one row; the first action sits under the thumb. */
+/** Sub-screen controls in one row; the first action sits under the thumb. Nothing is drawn without actions. */
 @Composable
 fun ContextBar(actions: List<ContextAction>, left: Boolean, modifier: Modifier = Modifier, above: (@Composable ColumnScope.() -> Unit)? = null) {
+    if (actions.isEmpty() && above == null) return
     BottomBar(modifier) {
         Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             above?.invoke(this)
@@ -106,10 +97,6 @@ fun ContextBar(actions: List<ContextAction>, left: Boolean, modifier: Modifier =
         }
     }
 }
-
-/** Back first, under the thumb, then the screen's own actions. */
-@Composable
-fun backAction(onBack: () -> Unit) = ContextAction(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.action_back), onClick = onBack)
 
 @Composable
 fun ContextButton(action: ContextAction, modifier: Modifier = Modifier) {
@@ -209,3 +196,20 @@ fun ChoiceRows(options: List<String>, selected: Int, onPick: (Int) -> Unit) {
         }
     }
 }
+
+/**
+ * Hides a bar while the list is read downward and brings it back on the way up. Attach
+ * [connection] with nestedScroll to the list; read [visible].
+ */
+class ScrollHide {
+    var visible by mutableStateOf(true)
+    val connection = object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+        override fun onPreScroll(available: androidx.compose.ui.geometry.Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): androidx.compose.ui.geometry.Offset {
+            if (available.y < -6f) visible = false else if (available.y > 6f) visible = true
+            return androidx.compose.ui.geometry.Offset.Zero
+        }
+    }
+}
+
+@Composable
+fun rememberScrollHide(): ScrollHide = remember { ScrollHide() }

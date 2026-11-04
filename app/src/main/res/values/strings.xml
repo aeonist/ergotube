@@ -27,7 +27,6 @@
     <string name="search_live">LIVE</string>
 
     <string name="action_retry">Try again</string>
-    <string name="action_back">Back</string>
     <string name="action_clear">Clear</string>
 
 
@@ -99,7 +98,6 @@
     <string name="player_play">Play</string>
     <string name="player_pause">Pause</string>
     <string name="player_hold_2x">2× while you hold</string>
-    <string name="player_minimize">Minimize</string>
     <string name="player_speed_value">Speed %1$s</string>
     <string name="player_scrub_fine">Fine scrubbing</string>
     <string name="player_scrub_hint_pad">Lift your finger higher for finer control</string>
@@ -107,6 +105,10 @@
     <string name="player_captions_on">Captions on</string>
     <string name="player_captions_off">Captions off</string>
     <string name="player_up_next">Up next</string>
+    <string name="player_pin_short">Pin</string>
+    <string name="player_pin">Pin video</string>
+    <string name="player_unpin">Unpin video</string>
+    <string name="player_open_video">Open %1$s</string>
     <string name="player_more">More</string>
     <string name="player_subscribe_short">Subscribe</string>
     <string name="player_subscribed_short">Subscribed</string>
@@ -134,6 +136,7 @@
     <string name="channel_group">Channel</string>
     <string name="player_on">On</string>
     <string name="player_sleep_minutes">%1$d min</string>
+    <string name="shorts_timeline">Timeline</string>
     <string name="shorts_description">Description</string>
     <string name="player_sleep_end_short">End of video</string>
     <string name="fan_hint">Flick toward an action</string>
@@ -151,7 +154,6 @@
     <string name="local_on_device">On device</string>
     <string name="local_find_channels">Find channels</string>
     <string name="action_refresh">Refresh</string>
-    <string name="source_youtube">YouTube</string>
     <string name="action_refreshing">Refreshing…</string>
     <string name="local_sync_failed">Some channels could not be refreshed. Saved videos are still available.</string>
     <string name="settings_playback">Playback</string>

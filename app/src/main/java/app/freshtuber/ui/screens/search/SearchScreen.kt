@@ -91,7 +91,7 @@ fun SearchScreen(
                     emptyMessage = stringResource(R.string.search_empty, submitted),
                     onSignInAgain = onSignIn,
                     videoActions = true,
-                    header = { item(key = "header") { ScreenHeader("«$submitted»", height = Reach.HeaderHeight * 0.62f) } },
+                    header = { item(key = "header") { ScreenHeader("«$submitted»") } },
                 )
             }
         }

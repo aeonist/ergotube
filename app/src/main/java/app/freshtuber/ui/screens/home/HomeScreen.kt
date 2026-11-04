@@ -2,6 +2,10 @@ package app.freshtuber.ui.screens.home
 
 import android.content.Context
 import androidx.compose.foundation.layout.padding
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -107,6 +111,8 @@ fun HomeScreen(
     val state by viewModel.feed.state.collectAsStateWithLifecycle()
     val left = LocalLeftHanded.current
     val selected = state.filters.firstOrNull { it.selected }?.title
+    // Categories slide away while reading down, like the channel strip in Subscriptions.
+    val hide = rememberScrollHide()
     Column(Modifier.fillMaxSize()) {
         FeedList(
             state = state,
@@ -117,7 +123,7 @@ fun HomeScreen(
             onLoadMore = viewModel.feed::loadMore,
             emptyMessage = stringResource(R.string.feed_empty),
             onSignInAgain = onSignIn,
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).nestedScroll(hide.connection),
             header = {
                 item(key = "header") {
                     ScreenHeader(stringResource(R.string.nav_home), selected ?: stringResource(R.string.home_subtitle))
@@ -125,9 +131,11 @@ fun HomeScreen(
             },
         )
         // Filters live at the bottom, starting at the working-hand edge.
-        if (state.filters.size > 1) BottomBar {
-            HandChips(state.filters.map { filter -> ChipItem(filter.title, filter.selected) { viewModel.feed.selectFilter(filter) } }, left,
-                Modifier.padding(vertical = 4.dp))
+        if (state.filters.size > 1) AnimatedVisibility(hide.visible, enter = expandVertically(), exit = shrinkVertically()) {
+            BottomBar {
+                HandChips(state.filters.map { filter -> ChipItem(filter.title, filter.selected) { viewModel.feed.selectFilter(filter) } }, left,
+                    Modifier.padding(vertical = 4.dp))
+            }
         }
     }
 }

@@ -64,6 +64,10 @@ class AppSettings @Inject constructor(
     /** Brightness (left) and volume (right) by swiping up and down on the video. */
     val gestureControls: Flow<Boolean> = context.settingsStore.data.map { it[GESTURES] ?: true }
 
+    /** Portrait watch page: the video stays on top (true) or scrolls away with the list. */
+    val videoPinned: Flow<Boolean> = context.settingsStore.data.map { it[VIDEO_PINNED] ?: true }
+    suspend fun setVideoPinned(pinned: Boolean) { context.settingsStore.edit { it[VIDEO_PINNED] = pinned } }
+
     /** Play the next suggested video when one ends. */
     val autoplayNext: Flow<Boolean> = context.settingsStore.data.map { it[AUTOPLAY] ?: true }
 
@@ -105,5 +109,6 @@ class AppSettings @Inject constructor(
         val DEARROW = booleanPreferencesKey("dearrow")
         val DISLIKES = booleanPreferencesKey("return_dislikes")
         val SHORTS_IN_FEEDS = booleanPreferencesKey("shorts_in_feeds")
+        val VIDEO_PINNED = booleanPreferencesKey("video_pinned")
     }
 }

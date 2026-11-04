@@ -40,7 +40,7 @@ class DownloadsViewModel @Inject constructor(val repository: Downloads, private 
 }
 
 @Composable
-fun DownloadsScreen(onBack: () -> Unit, onVideo: (String) -> Unit, onSearch: () -> Unit, viewModel: DownloadsViewModel = hiltViewModel()) {
+fun DownloadsScreen(onVideo: (String) -> Unit, onSearch: () -> Unit, viewModel: DownloadsViewModel = hiltViewModel()) {
     val items by viewModel.items.collectAsStateWithLifecycle()
     var deleting by remember { mutableStateOf<Download?>(null) }
     val left = app.freshtuber.ui.components.LocalLeftHanded.current
@@ -86,7 +86,6 @@ fun DownloadsScreen(onBack: () -> Unit, onVideo: (String) -> Unit, onSearch: () 
             }
         }
         app.freshtuber.ui.components.ContextBar(buildList {
-            add(app.freshtuber.ui.components.backAction(onBack))
             if (items.isEmpty()) add(app.freshtuber.ui.components.ContextAction(Icons.Rounded.Search, stringResource(R.string.nav_search), primary = true, onClick = onSearch))
         }, left)
     }

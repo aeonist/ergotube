@@ -33,7 +33,7 @@ import app.freshtuber.ui.components.LocalBottomBarSpace
 import app.freshtuber.ui.feed.FeedNavigation
 import app.freshtuber.ui.navigation.*
 import app.freshtuber.ui.player.LocalInPictureInPicture
-import app.freshtuber.ui.player.MiniPlayer
+import app.freshtuber.ui.player.FloatingMiniPlayer
 import app.freshtuber.ui.screens.account.AccountScreen
 import app.freshtuber.ui.screens.downloads.DownloadsScreen
 import app.freshtuber.ui.screens.home.HomeScreen
@@ -84,6 +84,8 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     val miniVisible = dockVisible && destination?.hasRoute<ShortsRoute>() != true && playerState.nowPlaying?.isShort == false
 
     var mineOpen by rememberSaveable { mutableStateOf(false) }
+    // The floating video remembers its corner while it is hidden on the watch page.
+    var miniCorner by rememberSaveable(leftHanded) { mutableIntStateOf(app.freshtuber.ui.player.MiniCorners.default(leftHanded)) }
     var currentTab by rememberSaveable { mutableStateOf(DockTab.Home) }
     LaunchedEffect(destination) { destination?.dockTab()?.let { currentTab = it } }
     LaunchedEffect(dockVisible) { if (!dockVisible) mineOpen = false }
@@ -155,13 +157,13 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
                     composable<ShortsRoute> { ShortsScreen(navigation, onSignIn = signIn) }
                     composable<SubscriptionsRoute> { SubscriptionsScreen(navigation, onSignIn = signIn, onSearch = { openSection(SearchRoute) }) }
                     composable<SearchRoute> { SearchScreen(navigation, onSignIn = signIn) }
-                    composable<DownloadsRoute> { DownloadsScreen(onBack = { navController.popBackStack() }, onVideo = { navController.navigate(PlayerRoute(it)) }, onSearch = { openSection(SearchRoute) }) }
-                    composable<LibraryListRoute> { ListScreen(navigation, onBack = { navController.popBackStack() }, onSignIn = signIn,
+                    composable<DownloadsRoute> { DownloadsScreen(onVideo = { navController.navigate(PlayerRoute(it)) }, onSearch = { openSection(SearchRoute) }) }
+                    composable<LibraryListRoute> { ListScreen(navigation, onSignIn = signIn,
                         onLiked = { navController.navigate(LibraryListRoute(LibrarySection.Liked.name)) }) }
-                    composable<PlaylistRoute> { ListScreen(navigation, onBack = { navController.popBackStack() }, onSignIn = signIn) }
-                    composable<ChannelRoute> { ListScreen(navigation, onBack = { navController.popBackStack() }, onSignIn = signIn) }
-                    composable<AccountRoute> { AccountScreen(onSignIn = signIn, onBack = { navController.popBackStack() }) }
-                    composable<SettingsRoute> { SettingsScreen(onAccount = { navController.navigate(AccountRoute) }, onBack = { navController.popBackStack() }) }
+                    composable<PlaylistRoute> { ListScreen(navigation, onSignIn = signIn) }
+                    composable<ChannelRoute> { ListScreen(navigation, onSignIn = signIn) }
+                    composable<AccountRoute> { AccountScreen(onSignIn = signIn) }
+                    composable<SettingsRoute> { SettingsScreen(onAccount = { navController.navigate(AccountRoute) }) }
                     composable<PlayerRoute> {
                         PlayerScreen(
                             navigation,
@@ -175,12 +177,14 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
                 Column(Modifier.fillMaxWidth().onSizeChanged { belowContent = with(density) { it.height.toDp() } }) {
                     if (dockVisible && (!online || expired)) StatusBanner(online, expired,
                         onDownloads = { openSection(DownloadsRoute) }, onSignIn = signIn)
-                    val nowPlaying = playerState.nowPlaying
-                    if (miniVisible && nowPlaying != null) {
-                        MiniPlayer(player = viewModel.player.player, nowPlaying = nowPlaying, left = leftHanded,
-                            onOpen = { navController.navigate(PlayerRoute(nowPlaying.videoId)) }, onClose = viewModel.player::stop)
-                    }
                 }
+            }
+            val nowPlaying = playerState.nowPlaying
+            if (miniVisible && nowPlaying != null) {
+                FloatingMiniPlayer(player = viewModel.player.player, nowPlaying = nowPlaying, left = leftHanded,
+                    bottomClearance = barSpace.height + belowContent, corner = miniCorner, onCorner = { miniCorner = it },
+                    onOpen = { navController.navigate(PlayerRoute(nowPlaying.videoId)) }, onClose = viewModel.player::stop,
+                    modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)))
             }
             if (mineOpen && dockVisible) MineList(downloads, onPick = { item ->
                 mineOpen = false

@@ -25,11 +25,15 @@ val LocalInPictureInPicture = compositionLocalOf { false }
 /** The video picture with subtitles; controls are drawn in Compose on top of it. */
 @OptIn(UnstableApi::class)
 @Composable
-fun VideoSurface(player: Player, modifier: Modifier = Modifier, zoomToFill: Boolean = false) {
+fun VideoSurface(player: Player, modifier: Modifier = Modifier, zoomToFill: Boolean = false, texture: Boolean = false) {
     AndroidView(
         modifier = modifier,
         factory = { context ->
-            PlayerView(context).apply {
+            // A texture view can be clipped and dragged around; the default surface view is cheaper.
+            if (texture) (android.view.LayoutInflater.from(context).inflate(app.freshtuber.R.layout.texture_player_view, android.widget.FrameLayout(context), false) as PlayerView).apply {
+                layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                this.player = player
+            } else PlayerView(context).apply {
                 layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
                 useController = false
                 setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)

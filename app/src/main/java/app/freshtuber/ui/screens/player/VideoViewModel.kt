@@ -109,6 +109,9 @@ class VideoViewModel @Inject constructor(
     val playerEvents: SharedFlow<PlayerEvent> = controller.events
     val gesturesEnabled: StateFlow<Boolean> = settings.gestureControls
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    val videoPinned: StateFlow<Boolean> = settings.videoPinned
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    fun setVideoPinned(pinned: Boolean) { viewModelScope.launch { settings.setVideoPinned(pinned) } }
 
     fun startPlayback() {
         controller.play(videoId)

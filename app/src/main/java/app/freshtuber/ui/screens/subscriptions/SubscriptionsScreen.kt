@@ -125,7 +125,8 @@ fun SubscriptionsScreen(
     val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
     val localState by viewModel.localState.collectAsStateWithLifecycle()
     val localChannels by viewModel.localChannels.collectAsStateWithLifecycle()
-    var localMode by rememberSaveable(signedIn) { mutableStateOf(signedIn != true) }
+    // With an account the feed is YouTube's; without one it is the channels followed on this device.
+    val localMode = signedIn != true
     var selectedChannel by rememberSaveable(localMode) { mutableStateOf<String?>(null) }
     var listOpen by remember { mutableStateOf(false) }
     LaunchedEffect(localMode) { if (localMode) viewModel.refreshLocal() }
@@ -135,13 +136,7 @@ fun SubscriptionsScreen(
     val selectedName = strip.firstOrNull { it.id == selectedChannel }?.name
 
     // The strip slides away while reading down and comes back on the way up.
-    var stripVisible by remember { mutableStateOf(true) }
-    val hide = remember { object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
-        override fun onPreScroll(available: androidx.compose.ui.geometry.Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): androidx.compose.ui.geometry.Offset {
-            if (available.y < -6f) stripVisible = false else if (available.y > 6f) stripVisible = true
-            return androidx.compose.ui.geometry.Offset.Zero
-        }
-    } }
+    val hide = rememberScrollHide()
 
     Column(Modifier.fillMaxSize()) {
         FeedList(
@@ -152,34 +147,24 @@ fun SubscriptionsScreen(
             emptyMessage = stringResource(if (localMode) R.string.local_subscriptions_empty else R.string.feed_empty),
             onSignInAgain = onSignIn,
             videoActions = true,
-            modifier = Modifier.weight(1f).nestedScroll(hide),
+            modifier = Modifier.weight(1f).nestedScroll(hide.connection),
             header = {
                 item(key = "header") {
                     ScreenHeader(selectedName ?: stringResource(R.string.nav_subscriptions),
                         when {
                             selectedName != null -> stringResource(R.string.subscriptions_open_hint)
                             localMode && localChannels.any { it.syncFailed } -> stringResource(R.string.local_sync_failed)
-                            localMode -> stringResource(R.string.local_on_device)
-                            else -> stringResource(R.string.source_youtube)
+                            else -> null
                         })
                 }
             },
         )
-        BottomBar {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
+        val controlsShown = localMode
+        if (controlsShown || strip.isNotEmpty()) BottomBar {
+            if (controlsShown) Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 val controls: List<@Composable () -> Unit> = buildList {
-                    if (signedIn == true) add {
-                        SingleChoiceSegmentedButtonRow {
-                            listOf(false, true).forEachIndexed { index, local ->
-                                SegmentedButton(selected = localMode == local, onClick = { localMode = local },
-                                    shape = SegmentedButtonDefaults.itemShape(index, 2), modifier = Modifier.heightIn(min = 48.dp)) {
-                                    Text(stringResource(if (local) R.string.local_on_device else R.string.source_youtube), maxLines = 1)
-                                }
-                            }
-                        }
-                    }
-                    if (localMode) add {
+                    add {
                         TextButton(onClick = viewModel::refreshLocal, enabled = !refreshing, modifier = Modifier.heightIn(min = 48.dp)) {
                             Text(stringResource(if (refreshing) R.string.action_refreshing else R.string.action_refresh))
                         }
@@ -191,7 +176,7 @@ fun SubscriptionsScreen(
                 if (!left) Spacer(Modifier.weight(1f))
                 handOrder(controls, left).forEach { it() }
             }
-            if (strip.isNotEmpty()) androidx.compose.animation.AnimatedVisibility(stripVisible) {
+            if (strip.isNotEmpty()) androidx.compose.animation.AnimatedVisibility(hide.visible) {
                 ChannelStrip(strip, selectedChannel, left,
                     onPick = { id -> if (id != null && id == selectedChannel) navigation.openChannel(id) else selectedChannel = id },
                     onList = { listOpen = true })
