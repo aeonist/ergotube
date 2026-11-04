@@ -69,15 +69,14 @@ fun PlayerScreen(
     val left = LocalLeftHanded.current
     val messages = LocalAppMessages.current
     val resources = LocalResources.current
-    val menuSettings: app.freshtuber.ui.screens.settings.MenuSettingsViewModel = hiltViewModel()
-    val thumbArc by menuSettings.arc.collectAsStateWithLifecycle()
-    var actionGroup by remember { mutableStateOf<VideoActionGroup?>(null) }
-    var settingsPosition by remember { mutableStateOf<androidx.compose.ui.geometry.Offset?>(null) }
-    var settingsOpen by rememberSaveable { mutableStateOf(false) }
     var moreOpen by rememberSaveable { mutableStateOf(false) }
-    var fullscreenRequested by rememberSaveable { mutableStateOf(false) }
+    var lock by rememberSaveable { mutableStateOf(OrientationLock.None) }
+    var rotateHint by remember { mutableStateOf(false) }
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val fullscreen = fullscreenRequested || landscape
+    // Turning the phone opens fullscreen like YouTube; the button and the pad swipe ask for it.
+    val fullscreen = lock == OrientationLock.Landscape || (landscape && lock != OrientationLock.Portrait)
+    val enterFullscreen = { lock = OrientationLock.Landscape; rotateHint = !landscape }
+    val exitFullscreen = { lock = if (landscape) OrientationLock.Portrait else OrientationLock.None; rotateHint = false }
     val padUi = remember { PadUi() }
     val pages = remember { StoryboardPages() }
     var lastSubtitle by remember(playerState.nowPlaying?.videoId) { mutableIntStateOf(-1) }
@@ -88,8 +87,8 @@ fun PlayerScreen(
         viewModel.setVideoOnScreen(true)
         onDispose { viewModel.setVideoOnScreen(false) }
     }
-    FullscreenEffect(fullscreen = fullscreen, requested = fullscreenRequested)
-    BackHandler(enabled = fullscreenRequested) { fullscreenRequested = false }
+    FullscreenEffect(fullscreen = fullscreen, lock = lock, onLock = { lock = it })
+    BackHandler(enabled = fullscreen) { exitFullscreen() }
 
     LaunchedEffect(Unit) {
         viewModel.playerEvents.collect { event ->
@@ -145,20 +144,23 @@ fun PlayerScreen(
     if (fullscreen) {
         Box(Modifier.fillMaxSize().background(Color.Black)) {
             VideoSurface(viewModel.player, Modifier.fillMaxSize())
-            PlayerOverlay(
+            FullscreenPlayer(
                 player = viewModel.player,
                 state = playerState,
-                fullscreen = true,
+                ui = padUi,
+                pages = pages,
+                left = left,
                 gesturesEnabled = gestures,
-                onBack = { if (fullscreenRequested) fullscreenRequested = false else onBack() },
-                onToggleFullscreen = { fullscreenRequested = !fullscreen },
-                onOpenSettings = { position -> settingsPosition = position; settingsOpen = true },
-                onNext = if (playerState.queue.isNotEmpty()) viewModel::playNext else null,
+                captionsOn = captionsOn,
+                captionsAvailable = !now?.subtitles.isNullOrEmpty(),
+                hasNext = playerState.queue.isNotEmpty(),
+                showRotateHint = rotateHint,
+                onExit = exitFullscreen,
+                onNext = onNext,
+                onSpeed = onSpeed,
+                onCaptions = onCaptions,
+                onBoost = onBoost,
                 onRetry = viewModel::retryPlayback,
-                onOpenActions = { actionGroup = VideoActionGroup.All },
-                actionsExpanded = actionGroup != null,
-                leftHanded = left,
-                thumbArc = thumbArc,
             )
         }
     } else {
@@ -200,7 +202,7 @@ fun PlayerScreen(
                         hasNext = playerState.queue.isNotEmpty(),
                         onNext = onNext,
                         onMinimize = onBack,
-                        onFullscreen = { fullscreenRequested = true },
+                        onFullscreen = enterFullscreen,
                         onSpeed = onSpeed,
                         onCaptions = onCaptions,
                         onBoost = onBoost,
@@ -218,13 +220,9 @@ fun PlayerScreen(
         }
     }
 
-    actionGroup?.let { group ->
-        VideoActionsMenu(state, viewModel, group, navigation::openChannel, left, thumbArc, anchorRoot = null) { actionGroup = null }
-    }
     if (moreOpen) PlayerMoreSheet(playerState, state, controller, viewModel, navigation::openChannel) { moreOpen = false }
     if (comments.opened) CommentsSheet(comments, viewModel, navigation::openChannel)
     if (picker.opened) PlaylistPickerSheet(picker, viewModel)
-    if (settingsOpen) PlayerSettingsSheet(playerState, viewModel.controller, left, thumbArc, centerOnScreen = settingsPosition, onDismiss = { settingsOpen = false })
 }
 
 /** Like, dislike, comments, subscribe, more; the first one sits under the thumb. */
@@ -266,11 +264,35 @@ private fun PlayerActions(state: VideoUiState, viewModel: VideoViewModel, left: 
     }
 }
 
-/** Landscape and hidden system bars while full screen; everything restored on exit. */
+/** Hidden system bars while full screen; the orientation follows [lock] and the phone's turns. */
 @Composable
-private fun FullscreenEffect(fullscreen: Boolean, requested: Boolean) {
+private fun FullscreenEffect(fullscreen: Boolean, lock: OrientationLock, onLock: (OrientationLock) -> Unit) {
     val activity = LocalActivity.current ?: return
-    DisposableEffect(fullscreen, requested) {
+    val currentLock by rememberUpdatedState(lock)
+    val setLock by rememberUpdatedState(onLock)
+    DisposableEffect(activity) {
+        var seenLandscape = false
+        val listener = object : android.view.OrientationEventListener(activity) {
+            override fun onOrientationChanged(degrees: Int) {
+                val (next, seen) = FullscreenOrientation.next(currentLock, seenLandscape, FullscreenOrientation.physical(degrees))
+                seenLandscape = seen
+                if (next != currentLock) setLock(next)
+            }
+        }
+        if (listener.canDetectOrientation()) listener.enable()
+        onDispose {
+            listener.disable()
+            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+    }
+    LaunchedEffect(lock) {
+        activity.requestedOrientation = when (lock) {
+            OrientationLock.Landscape -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            OrientationLock.Portrait -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            OrientationLock.None -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+    }
+    DisposableEffect(fullscreen) {
         val window = activity.window
         val insets = WindowCompat.getInsetsController(window, window.decorView)
         val oldCutout = if (android.os.Build.VERSION.SDK_INT >= 28) window.attributes.layoutInDisplayCutoutMode else 0
@@ -287,20 +309,9 @@ private fun FullscreenEffect(fullscreen: Boolean, requested: Boolean) {
         } else {
             insets.show(WindowInsetsCompat.Type.systemBars())
         }
-        // Rotate only when the button asked for it; a rotated phone already is landscape.
-        if (requested) activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         onDispose {
-            if (android.os.Build.VERSION.SDK_INT >= 28) window.attributes = window.attributes.apply {
-                layoutInDisplayCutoutMode = if (android.os.Build.VERSION.SDK_INT >= 30 && oldCutout == WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS)
-                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
-                else when (oldCutout) {
-                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES -> WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_NEVER -> WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_NEVER
-                    else -> WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
-                }
-            }
+            if (android.os.Build.VERSION.SDK_INT >= 28) window.attributes = window.attributes.apply { layoutInDisplayCutoutMode = oldCutout }
             insets.isAppearanceLightStatusBars = oldStatusIcons
-            if (requested) activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
             insets.show(WindowInsetsCompat.Type.systemBars())
         }
     }
