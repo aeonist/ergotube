@@ -123,7 +123,15 @@ fun VideoCard(
             ThumbnailBadge(video, Modifier.align(Alignment.BottomEnd).padding(8.dp))
             video.watchedPercent?.takeIf { it > 0 }?.let { WatchedBar(it, Modifier.align(Alignment.BottomStart)) }
         }
-        Row(Modifier.padding(start = 12.dp, end = 16.dp, top = 12.dp)) {
+        val left = LocalLeftHanded.current
+        val menuButton: @Composable () -> Unit = {
+            IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(48.dp)) {
+                Icon(Icons.Rounded.MoreVert, stringResource(R.string.video_more))
+            }
+        }
+        Row(Modifier.padding(start = if (enableMenu && left) 0.dp else 12.dp, end = 16.dp, top = 12.dp)) {
+            // The menu button sits on the working-hand side.
+            if (enableMenu && left) menuButton()
             if (showChannel && video.channelAvatarUrl != null) {
                 val channelId = video.channelId
                 val openChannel = if (channelId != null && onChannelClick != null) {
@@ -152,9 +160,7 @@ fun VideoCard(
                 )
                 MetaLine(video, showChannel, Modifier.padding(top = 4.dp))
             }
-            if (enableMenu) IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(48.dp)) {
-                Icon(Icons.Rounded.MoreVert, stringResource(R.string.video_more))
-            }
+            if (enableMenu && !left) menuButton()
         }
     }
 }

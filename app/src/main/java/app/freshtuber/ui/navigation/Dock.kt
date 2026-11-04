@@ -25,6 +25,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.freshtuber.R
@@ -85,7 +88,7 @@ private fun DockButton(tab: DockTab, active: Boolean, onClick: () -> Unit) {
     val label = stringResource(tab.labelRes)
     val description = if (tab == DockTab.Mine) stringResource(R.string.nav_mine_description) else label
     Column(
-        Modifier.width(62.dp).fillMaxHeight()
+        Modifier.width(62.dp).fillMaxHeight().testTag("dock:${tab.name}")
             .semantics { selected = active; contentDescription = description }
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = ripple(bounded = false, radius = 32.dp),
                 role = Role.Tab, onClick = onClick),
@@ -104,13 +107,14 @@ private fun DockButton(tab: DockTab, active: Boolean, onClick: () -> Unit) {
 fun MineList(downloads: Int, onPick: (MineItem) -> Unit, onDismiss: () -> Unit) {
     BackHandler(onBack = onDismiss)
     Box(Modifier.fillMaxSize()) {
+        // Tap outside closes; not a control of its own (Back does the same for TalkBack).
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.5f))
-            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismiss))
+            .pointerInput(onDismiss) { detectTapGestures { onDismiss() } })
         Surface(Modifier.align(Alignment.BottomCenter).fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceContainer,
             shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)) {
             Column(Modifier.padding(top = 12.dp, bottom = 8.dp)) {
                 DockLayout.mineRows().forEach { item ->
-                    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable { onPick(item) }.padding(horizontal = 20.dp),
+                    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("mine:${item.name}").clickable { onPick(item) }.padding(horizontal = 20.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         Icon(item.icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.width(16.dp))
