@@ -141,14 +141,6 @@ fun ActionIcon(icon: ImageVector, label: String, selected: Boolean = false, over
 }
 
 @Composable
-fun NavigationAnchor(onClick: () -> Unit) {
-    FilledIconButton(onClick, modifier = Modifier.size(56.dp).radialLauncher(onClick),
-        colors = IconButtonDefaults.filledIconButtonColors(containerColor = BrandColors.Red, contentColor = Color.White)) {
-        Icon(Icons.Rounded.Menu, stringResource(R.string.radial_open))
-    }
-}
-
-@Composable
 fun VideoMoreMenu(videoId: String, viewModel: VideoViewModel, left: Boolean, arc: ThumbArc, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val share = stringResource(R.string.video_share)
@@ -166,28 +158,8 @@ fun VideoMoreMenu(videoId: String, viewModel: VideoViewModel, left: Boolean, arc
         heading = stringResource(R.string.video_more), instruction = stringResource(R.string.radial_choose_action))
 }
 
-/** Compact entry points; reactions and channel actions never share a long vertical rail. */
+/** Groups for the fullscreen actions menu. */
 enum class VideoActionGroup { Video, Channel, All }
-
-@Composable
-fun VideoActionGroups(state: VideoUiState, onOpen: (VideoActionGroup) -> Unit, modifier: Modifier = Modifier, onPosition: (VideoActionGroup, Offset) -> Unit = { _, _ -> }) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp), horizontalAlignment = Alignment.End) {
-        FilledTonalButton(onClick = { onOpen(VideoActionGroup.Video) }, modifier = Modifier.heightIn(min = 48.dp).onGloballyPositioned { onPosition(VideoActionGroup.Video, it.positionInRoot() + Offset(it.size.width / 2f, it.size.height / 2f)) }.radialLauncher { onOpen(VideoActionGroup.Video) }) {
-            Icon(Icons.Rounded.TouchApp, null, Modifier.size(20.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.video_group))
-        }
-        FilledTonalButton(onClick = { onOpen(VideoActionGroup.Channel) }, enabled = state.details?.channel != null,
-            modifier = Modifier.heightIn(min = 48.dp).onGloballyPositioned { onPosition(VideoActionGroup.Channel, it.positionInRoot() + Offset(it.size.width / 2f, it.size.height / 2f)) }.radialLauncher { if (state.details?.channel != null) onOpen(VideoActionGroup.Channel) }) {
-            val channel = state.details?.channel
-            if (channel?.avatarUrl != null) coil3.compose.AsyncImage(channel.avatarUrl, null,
-                Modifier.size(24.dp).clip(CircleShape), contentScale = androidx.compose.ui.layout.ContentScale.Crop)
-            else Icon(Icons.Rounded.AccountCircle, null, Modifier.size(24.dp))
-            Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.channel_group))
-        }
-    }
-}
 
 @Composable
 fun VideoActionsMenu(

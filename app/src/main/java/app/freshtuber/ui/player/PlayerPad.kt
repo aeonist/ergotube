@@ -117,7 +117,9 @@ fun PlayerPad(
     val toggle = {
         if (progress.ended) { player.seekTo(0); player.play() } else if (player.isPlaying) player.pause() else player.play()
     }
-    val playLabel = stringResource(if (progress.isPlaying) R.string.player_pause else R.string.player_play)
+    // While buffering after a seek the video is still meant to play; show that, not ▶.
+    val playing = progress.isPlaying || (progress.buffering && player.playWhenReady)
+    val playLabel = stringResource(if (playing) R.string.player_pause else R.string.player_play)
     val backLabel = stringResource(R.string.player_back_10)
     val forwardLabel = stringResource(R.string.player_forward_10)
 
@@ -239,9 +241,9 @@ fun PlayerPad(
                 )
                 (if (left) parts.reversed() else parts).forEach { it() }
             }
-            Row(Modifier.fillMaxWidth().heightIn(min = 62.dp).onGloballyPositioned { mainBounds = it.boundsInRoot() }) {
+            Row(Modifier.fillMaxWidth().height(64.dp).onGloballyPositioned { mainBounds = it.boundsInRoot() }) {
                 PadZoneIcon(Icons.Rounded.Replay10, backLabel, Modifier.weight(1f), enabled = !live) { ui.skip(player, -10) { secondsFormat.format(it) } }
-                PadZoneIcon(if (progress.ended) Icons.Rounded.Replay else if (progress.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                PadZoneIcon(if (progress.ended) Icons.Rounded.Replay else if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                     playLabel, Modifier.weight(1.2f), big = true, onClick = toggle)
                 PadZoneIcon(Icons.Rounded.Forward10, forwardLabel, Modifier.weight(1f), enabled = !live) { ui.skip(player, 10) { secondsFormat.format(it) } }
             }
