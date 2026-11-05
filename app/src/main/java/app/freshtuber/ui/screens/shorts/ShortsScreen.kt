@@ -151,10 +151,8 @@ class ShortsViewModel @Inject constructor(
             VideoViewModel(SavedStateHandle(mapOf("videoId" to id)), videos, accounts, extras, settings, controller, localSubscriptions, downloads) as T
     }
 
-    /** Shorts stop when the tab is left; regular videos keep playing in the mini player. */
-    fun leave() {
-        if (controller.state.value.nowPlaying?.isShort == true || controller.state.value.loadingId != null) controller.stop()
-    }
+    /** Shorts stop when the tab is left; a video they interrupted comes back to the floating window. */
+    fun leave() = controller.leaveShorts()
 
     fun loadMore() {
         val current = _state.value

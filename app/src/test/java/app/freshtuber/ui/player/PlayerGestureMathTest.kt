@@ -51,7 +51,7 @@ class PlayerGestureMathTest {
 
     @Test fun fanSitsInTheHandCornerAndRunsClockwise() {
         val right = FanGeometry(800f, 400f, left = false)
-        assertEquals(296f, right.radius, 0.01f)
+        assertEquals(248f, right.radius, 0.01f)
         // Right hand: u = 0 lies along the bottom toward the left, u = 1 straight up.
         assertEquals(800f - 100f, right.position(100f, 0f).x, 0.01f)
         assertEquals(400f - 100f, right.position(100f, 1f).y, 0.01f)

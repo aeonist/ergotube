@@ -260,8 +260,34 @@ class PlayerController @Inject constructor(
         }
     }
 
+    /** A regular video set aside while Shorts use the player; it comes back when they are left. */
+    private data class Parked(val videoId: String, val positionMs: Long?, val playing: Boolean)
+    private var parked: Parked? = null
+
     /** Opens [videoId]; does nothing if it is already the current video. */
-    fun play(videoId: String, isShort: Boolean = false) {
+    fun play(videoId: String, isShort: Boolean = false) = play(videoId, isShort, startAt = null, autoPlay = true)
+
+    /**
+     * Leaving Shorts: the regular video they interrupted comes back where it was (and keeps
+     * playing if it was), so the floating window stays; otherwise the Short just stops.
+     */
+    fun leaveShorts() {
+        if (!requestedShort) return
+        val back = parked
+        parked = null
+        if (back == null) { stop(); return }
+        player.pause()
+        play(back.videoId, isShort = false, startAt = back.positionMs, autoPlay = back.playing)
+    }
+
+    private fun play(videoId: String, isShort: Boolean, startAt: Long?, autoPlay: Boolean) {
+        if (isShort && !requestedShort && parked == null) {
+            val now = _state.value.nowPlaying
+            if (now != null && !now.isShort && now.videoId == requestedId) {
+                parked = Parked(now.videoId, if (now.isLive) null else player.currentPosition, player.playWhenReady)
+            }
+        }
+        if (!isShort) parked = null
         if (requestedId == videoId && (_state.value.nowPlaying?.videoId == videoId || _state.value.loadingId == videoId) && _state.value.error == null) return
         val leaving = requestedId
         if (!goingBack && leaving != null && leaving != videoId && !requestedShort && !isShort) {
@@ -301,12 +327,12 @@ class PlayerController @Inject constructor(
                     chapters = video.chapters,
                     storyboard = if (local == null) video.storyboard else null,
                 )
-                val resumeAt = if (video.isLive || isShort) null else resumePosition(videoId)
+                val resumeAt = if (video.isLive || isShort) null else startAt ?: resumePosition(videoId)
                 _state.update { it.copy(nowPlaying = nowPlaying, loadingId = null) }
                 player.repeatMode = if ((isShort || _state.value.repeat) && _state.value.sleepTimer != SleepTimer.EndOfVideo) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
                 player.setMediaSource(buildSource(video, nowPlaying), resumeAt ?: 0L)
                 player.prepare()
-                player.playWhenReady = true
+                player.playWhenReady = autoPlay
                 segments = emptyList()
                 if (local == null && !video.isLive && settings.sponsorBlockEnabled.first()) {
                     segments = extras.sponsorSegments(videoId)
@@ -314,6 +340,7 @@ class PlayerController @Inject constructor(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                if (BuildConfig.DEBUG) Log.w("PlayerController", "load failed: ${e.javaClass.name}: ${e.message?.take(200)}")
                 _state.update { it.copy(loadingId = null, error = e.toLoadError()) }
             }
         }
@@ -444,6 +471,7 @@ class PlayerController @Inject constructor(
         preloadJob?.cancel()
         requestedId = null
         prefetchId = null
+        parked = null
         sleepJob?.cancel()
         player.stop()
         player.clearMediaItems()

@@ -13,8 +13,8 @@ import kotlin.math.sin
  * the end. All sizes in one unit (the app uses dp).
  */
 class FanGeometry(val width: Float, val height: Float, val left: Boolean) {
-    /** Outer radius of the touch area. */
-    val radius = (height * 0.74f).coerceIn(200f, 300f)
+    /** Outer radius of the touch area; small enough to leave most of the picture to taps. */
+    val radius = (minOf(width, height) * 0.62f).coerceIn(200f, 250f)
     /** Radius of the scrub arc. */
     val track = radius - 30f
     /** Touches this close inside the arc count as on the arc. */
@@ -41,7 +41,15 @@ class FanGeometry(val width: Float, val height: Float, val left: Boolean) {
     fun onTrack(r: Float): Boolean = r >= track - band
 
     /** Middle of the free part of the screen, for the bubble and the preview. */
-    val freeCenterX get() = if (left) radius + (width - radius) / 2 else (width - radius) / 2
+    val freeCenterX get() = when {
+        // Upright, the fan spans most of the width; the bubble and preview sit above it, centered.
+        upright -> width / 2
+        left -> radius + (width - radius) / 2
+        else -> (width - radius) / 2
+    }
+
+    /** Taller than wide: a vertical video shown full screen upright. */
+    val upright get() = width - radius < 220f
 
     companion object {
         const val U0 = 0.05f
@@ -85,4 +93,17 @@ object FullscreenOrientation {
         OrientationLock.Portrait -> if (physical == PhysicalOrientation.Portrait) OrientationLock.None to false else lock to false
         OrientationLock.None -> lock to false
     }
+}
+
+/**
+ * The fullscreen controls arrive layer by layer out of the corner on one timeline: the shade,
+ * the arc drawing itself, the three main buttons one after another, then chips and text. Hiding
+ * runs the same timeline backward, faster, so the outer layers leave first.
+ */
+object FanMotion {
+    const val IN_MS = 520
+    const val OUT_MS = 300
+
+    /** Progress 0..1 of a layer that starts [startMs] into the timeline at overall progress [t]. */
+    fun stage(t: Float, startMs: Int, lengthMs: Int = 220): Float = ((t * IN_MS - startMs) / lengthMs).coerceIn(0f, 1f)
 }

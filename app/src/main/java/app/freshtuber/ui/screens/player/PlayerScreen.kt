@@ -86,11 +86,32 @@ fun PlayerScreen(
     var moreOpen by rememberSaveable { mutableStateOf(false) }
     var lock by rememberSaveable { mutableStateOf(OrientationLock.None) }
     var rotateHint by remember { mutableStateOf(false) }
+    var videoAspect by remember(viewModel.player, viewModel.videoId) { mutableFloatStateOf(16f / 9f) }
+    DisposableEffect(viewModel.player, viewModel.videoId) {
+        fun update(size: androidx.media3.common.VideoSize) {
+            if (size.width > 0 && size.height > 0) videoAspect = size.width * size.pixelWidthHeightRatio / size.height
+        }
+        val listener = object : androidx.media3.common.Player.Listener {
+            override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) = update(videoSize)
+        }
+        // The shared player may still show the previous video; only its own size counts.
+        if (viewModel.player.currentMediaItem?.mediaId == viewModel.videoId) update(viewModel.player.videoSize)
+        viewModel.player.addListener(listener)
+        onDispose { viewModel.player.removeListener(listener) }
+    }
+    // A vertical video goes full screen upright, like YouTube, instead of turning the phone.
+    val vertical = videoAspect < 0.9f
+    var uprightFull by rememberSaveable { mutableStateOf(false) }
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     // Turning the phone opens fullscreen like YouTube; the button and the pad swipe ask for it.
-    val fullscreen = lock == OrientationLock.Landscape || (landscape && lock != OrientationLock.Portrait)
-    val enterFullscreen = { lock = OrientationLock.Landscape; rotateHint = !landscape }
-    val exitFullscreen = { lock = if (landscape) OrientationLock.Portrait else OrientationLock.None; rotateHint = false }
+    val fullscreen = uprightFull || lock == OrientationLock.Landscape || (landscape && lock != OrientationLock.Portrait)
+    val enterFullscreen = {
+        if (vertical && !landscape) uprightFull = true
+        else { lock = OrientationLock.Landscape; rotateHint = !landscape }
+    }
+    val exitFullscreen = { uprightFull = false; lock = if (landscape) OrientationLock.Portrait else OrientationLock.None; rotateHint = false }
+    // The next video is wide: it turns the phone like any other.
+    LaunchedEffect(vertical) { if (uprightFull && !vertical) { uprightFull = false; lock = OrientationLock.Landscape } }
     val padUi = remember { PadUi() }
     val pages = remember { StoryboardPages() }
     var lastSubtitle by remember(playerState.nowPlaying?.videoId) { mutableIntStateOf(-1) }
@@ -101,7 +122,7 @@ fun PlayerScreen(
         viewModel.setVideoOnScreen(true)
         onDispose { viewModel.setVideoOnScreen(false) }
     }
-    FullscreenEffect(fullscreen = fullscreen, lock = lock, onLock = { lock = it })
+    FullscreenEffect(fullscreen = fullscreen, lock = lock, upright = uprightFull, onLock = { lock = it })
     BackHandler(enabled = fullscreen) { exitFullscreen() }
 
     LaunchedEffect(Unit) {
@@ -119,18 +140,6 @@ fun PlayerScreen(
         viewModel.consumeMessage()
     }
 
-    var videoAspect by remember(viewModel.player) { mutableFloatStateOf(16f / 9f) }
-    DisposableEffect(viewModel.player) {
-        fun update(size: androidx.media3.common.VideoSize) {
-            if (size.width > 0 && size.height > 0) videoAspect = size.width * size.pixelWidthHeightRatio / size.height
-        }
-        val listener = object : androidx.media3.common.Player.Listener {
-            override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) = update(videoSize)
-        }
-        update(viewModel.player.videoSize)
-        viewModel.player.addListener(listener)
-        onDispose { viewModel.player.removeListener(listener) }
-    }
 
     // The portrait page is lit by the video itself.
     val light = app.freshtuber.ui.liquid.LocalLiquidLight.current
@@ -182,7 +191,10 @@ fun PlayerScreen(
     BoxWithConstraints(Modifier.fillMaxSize().then(if (fullscreen || inPip) Modifier.background(Color.Black) else Modifier)) {
         val details = state.details
         val pageHeight = maxHeight - with(density) { statusTop.toDp() }
-        val videoHeight = minOf(maxWidth / videoAspect, pageHeight * 0.4f)
+        // Upright videos get more of the page, wide ones keep the top 40 %.
+        val share = when { videoAspect < 0.8f -> 0.56f; videoAspect < 1.2f -> 0.48f; else -> 0.4f }
+        val videoHeight by androidx.compose.animation.core.animateDpAsState(minOf(maxWidth / videoAspect, pageHeight * share),
+            androidx.compose.animation.core.tween(320, easing = app.freshtuber.ui.motion.Motion.Emphasized), label = "videoHeight")
         val videoHeightPx = with(density) { videoHeight.roundToPx() }
         val widthPx = with(density) { maxWidth.toPx() }
         val heightPx = with(density) { maxHeight.toPx() }
@@ -390,14 +402,16 @@ private fun PlayerActions(state: VideoUiState, viewModel: VideoViewModel, left: 
 
 /** Hidden system bars while full screen; the orientation follows [lock] and the phone's turns. */
 @Composable
-private fun FullscreenEffect(fullscreen: Boolean, lock: OrientationLock, onLock: (OrientationLock) -> Unit) {
+private fun FullscreenEffect(fullscreen: Boolean, lock: OrientationLock, upright: Boolean, onLock: (OrientationLock) -> Unit) {
     val activity = LocalActivity.current ?: return
     val currentLock by rememberUpdatedState(lock)
+    val holdUpright by rememberUpdatedState(upright)
     val setLock by rememberUpdatedState(onLock)
     DisposableEffect(activity) {
         var seenLandscape = false
         val listener = object : android.view.OrientationEventListener(activity) {
             override fun onOrientationChanged(degrees: Int) {
+                if (holdUpright) return
                 val (next, seen) = FullscreenOrientation.next(currentLock, seenLandscape, FullscreenOrientation.physical(degrees))
                 seenLandscape = seen
                 if (next != currentLock) setLock(next)
@@ -409,8 +423,8 @@ private fun FullscreenEffect(fullscreen: Boolean, lock: OrientationLock, onLock:
             activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
     }
-    LaunchedEffect(lock) {
-        activity.requestedOrientation = when (lock) {
+    LaunchedEffect(lock, upright) {
+        activity.requestedOrientation = if (upright) ActivityInfo.SCREEN_ORIENTATION_PORTRAIT else when (lock) {
             OrientationLock.Landscape -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
             OrientationLock.Portrait -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
             OrientationLock.None -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED

@@ -111,19 +111,11 @@ fun FullscreenPlayer(
     }
     LaunchedEffect(ui.bubbleId) { if (ui.bubble != null && !ui.bubbleKeep) { delay(800); ui.hush() } }
     LaunchedEffect(showRotateHint) { if (showRotateHint) { hint = true; delay(2_600); hint = false } }
-    // The controls come into focus out of a soft blur, growing from the corner; they leave the same way.
+    // The controls arrive layer by layer out of the corner and leave in reverse (see FanMotion).
     val shown by animateFloatAsState(if (awake) 1f else 0f,
-        androidx.compose.animation.core.tween(if (awake) 360 else 520, easing = if (awake) app.freshtuber.ui.motion.Motion.Decelerate else app.freshtuber.ui.motion.Motion.Emphasized),
+        androidx.compose.animation.core.tween(if (awake) FanMotion.IN_MS else FanMotion.OUT_MS, easing = androidx.compose.animation.core.LinearEasing),
         label = "fan")
-    val fanLayer = Modifier.graphicsLayer {
-        alpha = shown
-        val s = 0.9f + 0.1f * shown
-        scaleX = s; scaleY = s
-        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(if (left) 0f else 1f, 1f)
-        val r = (1f - shown) * 16.dp.toPx()
-        renderEffect = if (android.os.Build.VERSION.SDK_INT >= 31 && r > 0.5f && shown > 0f)
-            androidx.compose.ui.graphics.BlurEffect(r, r, androidx.compose.ui.graphics.TileMode.Decal) else null
-    }
+    fun stage(startMs: Int, lengthMs: Int = 220) = FanMotion.stage(shown, startMs, lengthMs)
 
     Box(Modifier.fillMaxSize()) {
     // While the video just plays, a plain straight timeline along the very bottom edge.
@@ -151,7 +143,8 @@ fun FullscreenPlayer(
                 val down = awaitFirstDown(requireUnconsumed = false)
                 if (awake && buttons.values.any { it.contains(down.position) }) return@awaitEachGesture
                 val (r0, u0) = geo.polar(down.position.x / density, down.position.y / density)
-                if (r0 <= geo.radius) {
+                // Hidden, the fan takes no taps: double taps seek anywhere, as on the bare video.
+                if (awake && r0 <= geo.radius) {
                     // The fan.
                     val woke = awake
                     touching = true
@@ -262,18 +255,28 @@ fun FullscreenPlayer(
             }
         }) {
             // Shade under the fan, so white icons read on any picture; it spreads out of the corner.
-            if (shown > 0f) Canvas(Modifier.fillMaxSize()) {
+            val shade = app.freshtuber.ui.motion.Motion.Decelerate.transform(stage(0, 200))
+            if (shade > 0f) Canvas(Modifier.fillMaxSize()) {
                 val corner = Offset(if (left) 0f else size.width, size.height)
-                val r = geo.radius.dp.toPx() * (0.6f + 0.4f * shown)
+                val r = geo.radius.dp.toPx() * (0.6f + 0.4f * shade)
                 val outer = r + 80.dp.toPx()
-                drawCircle(Brush.radialGradient(0f to Color.Black.copy(alpha = 0.6f * shown), (r / outer) to Color.Black.copy(alpha = 0.45f * shown),
+                drawCircle(Brush.radialGradient(0f to Color.Black.copy(alpha = 0.6f * shade), (r / outer) to Color.Black.copy(alpha = 0.45f * shade),
                     1f to Color.Transparent, center = corner, radius = outer), outer, corner)
                 // A soft wash along the top keeps the title readable.
-                drawRect(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.42f * shown), Color.Transparent), endY = 96.dp.toPx()),
+                drawRect(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.42f * shade), Color.Transparent), endY = 96.dp.toPx()),
                     size = Size(size.width, 96.dp.toPx()))
             }
-            // The arc: chapters with gaps, progress in red, a dot. Only while the controls are shown.
-            if (shown > 0f) Canvas(Modifier.fillMaxSize().then(fanLayer)) {
+            // The arc: chapters with gaps, progress in red, a dot. It draws itself from the back end
+            // to the forward end as the controls arrive.
+            val arcIn = stage(40, 300)
+            val sweep = app.freshtuber.ui.motion.Motion.Decelerate.transform(arcIn)
+            val dotIn = FanOvershoot.transform(stage(260, 200))
+            if (arcIn > 0f) Canvas(Modifier.fillMaxSize().graphicsLayer {
+                alpha = (arcIn * 3f).coerceAtMost(1f)
+                val s = 0.86f + 0.14f * sweep
+                scaleX = s; scaleY = s
+                transformOrigin = androidx.compose.ui.graphics.TransformOrigin(if (left) 0f else 1f, 1f)
+            }) {
                 val corner = Offset(if (left) 0f else size.width, size.height)
                 val r = geo.track.dp.toPx()
                 val box = Rect(corner - Offset(r, r), Size(2 * r, 2 * r))
@@ -283,7 +286,7 @@ fun FullscreenPlayer(
                 val gap = if (cuts.size > 2) 0.014f else 0f
                 for (i in 0 until cuts.lastIndex) {
                     val a = cuts[i] + if (i > 0) gap / 2 else 0f
-                    val b = cuts[i + 1] - if (i < cuts.lastIndex - 1) gap / 2 else 0f
+                    val b = minOf(sweep, cuts[i + 1] - if (i < cuts.lastIndex - 1) gap / 2 else 0f)
                     if (b <= a) continue
                     val ua = FanGeometry.toArc(a); val ub = FanGeometry.toArc(b)
                     drawArc(Color.White.copy(alpha = 0.4f), base + ua * 90f, (ub - ua) * 90f, false, box.topLeft, box.size, style = stroke)
@@ -292,54 +295,63 @@ fun FullscreenPlayer(
                         drawArc(BrandColors.Red, base + ua * 90f, (uf - ua) * 90f, false, box.topLeft, box.size, style = stroke)
                     }
                 }
-                if (awake && !live) {
+                if (!live && dotIn > 0f) {
                     val p = geo.position(geo.track, FanGeometry.toArc(fraction))
-                    drawCircle(BrandColors.Red, (if (ui.scrubMs != null) 11.dp else 8.dp).toPx(), Offset(p.x.dp.toPx(), p.y.dp.toPx()))
+                    drawCircle(BrandColors.Red, (if (ui.scrubMs != null) 11.dp else 8.dp).toPx() * dotIn, Offset(p.x.dp.toPx(), p.y.dp.toPx()))
                 }
             }
             fun Modifier.at(p: Offset, size: Float) = offset { IntOffset(((p.x - size / 2).dp).roundToPx(), ((p.y - size / 2).dp).roundToPx()) }
-            if (awake || shown > 0f) Box(Modifier.fillMaxSize().then(fanLayer)) {
+            if (awake || shown > 0f) Box(Modifier.fillMaxSize()) {
                 val playing = progress.isPlaying || (progress.buffering && player.playWhenReady)
-                FanIcon(Icons.Rounded.Replay10, stringResource(R.string.player_back_10), Modifier.at(geo.position(geo.main, 0.16f), 60f), enabled = !live) {
+                FanIcon(Icons.Rounded.Replay10, stringResource(R.string.player_back_10), Modifier.at(geo.position(geo.main, 0.16f), 60f).layerIn(stage(90), left), enabled = !live) {
                     ui.skip(player, -10) { secondsFormat.format(it) } }
                 val playLabel = stringResource(if (playing) R.string.player_pause else R.string.player_play)
-                Box(Modifier.at(geo.position(geo.main, 0.5f), 76f).size(76.dp).background(Color.White.copy(alpha = 0.14f), CircleShape)
+                Box(Modifier.at(geo.position(geo.main, 0.5f), 76f).layerIn(stage(140), left).size(76.dp).background(Color.White.copy(alpha = 0.14f), CircleShape)
                     .semantics { contentDescription = playLabel; role = Role.Button; onClick { toggle(); true } }, contentAlignment = Alignment.Center) {
                     Icon(if (progress.ended) Icons.Rounded.Replay else if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         null, Modifier.size(48.dp), tint = Color.White)
                 }
-                FanIcon(Icons.Rounded.Forward10, stringResource(R.string.player_forward_10), Modifier.at(geo.position(geo.main, 0.84f), 60f), enabled = !live) {
+                FanIcon(Icons.Rounded.Forward10, stringResource(R.string.player_forward_10), Modifier.at(geo.position(geo.main, 0.84f), 60f).layerIn(stage(190), left), enabled = !live) {
                     ui.skip(player, 10) { secondsFormat.format(it) } }
-                val chip: @Composable (String, Offset, Float, @Composable () -> Unit, Boolean, () -> Unit) -> Unit = { key, p, width, content, selected, click ->
+                val chip: @Composable (String, Offset, Float, @Composable () -> Unit, Boolean, Float, () -> Unit) -> Unit = { key, p, width, content, selected, appear, click ->
                     Surface(onClick = { click(); wake() }, enabled = awake, shape = RoundedCornerShape(22.dp),
                         color = if (selected) Color.White else Color.White.copy(alpha = 0.18f), contentColor = if (selected) Color(0xFF0F0F0F) else Color.White,
                         modifier = Modifier.offset { IntOffset(((p.x - width / 2).dp).roundToPx(), ((p.y - 22).dp).roundToPx()) }
-                            .size(width.dp, 44.dp).onGloballyPositioned { buttons[key] = it.boundsInParent() }) {
+                            .size(width.dp, 44.dp).onGloballyPositioned { buttons[key] = it.boundsInParent() }.layerIn(appear, left)) {
                         Box(contentAlignment = Alignment.Center) { content() }
                     }
                 }
-                chip("exit", geo.position(geo.inner, 0.25f), 44f, { Icon(Icons.Rounded.FullscreenExit, stringResource(R.string.player_exit_fullscreen), Modifier.size(22.dp)) }, false, onExit)
-                if (hasNext) chip("next", geo.position(geo.inner, 0.75f), 44f, { Icon(Icons.Rounded.SkipNext, stringResource(R.string.player_next), Modifier.size(22.dp)) }, false, onNext)
+                chip("exit", geo.position(geo.inner, 0.25f), 44f, { Icon(Icons.Rounded.FullscreenExit, stringResource(R.string.player_exit_fullscreen), Modifier.size(22.dp)) }, false, stage(210), onExit)
+                if (hasNext) chip("next", geo.position(geo.inner, 0.75f), 44f, { Icon(Icons.Rounded.SkipNext, stringResource(R.string.player_next), Modifier.size(22.dp)) }, false, stage(250), onNext)
                 if (!live) chip("speed", geo.position(geo.outer, 0.3f), 56f, {
                     Text(if (ui.boost) "2×" else speedLabel(state.speed), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                }, ui.boost || state.speed != 1f, onSpeed)
+                }, ui.boost || state.speed != 1f, stage(250), onSpeed)
                 if (captionsAvailable) chip("cc", geo.position(geo.outer, 0.7f), 44f, {
                     Icon(if (captionsOn) Icons.Rounded.ClosedCaption else Icons.Rounded.ClosedCaptionDisabled, stringResource(R.string.player_subtitles), Modifier.size(22.dp))
-                }, captionsOn, onCaptions)
+                }, captionsOn, stage(290), onCaptions)
                 if (!live) Text(buildString {
                     append("${formatDuration(shownMs / 1000)} / ${formatDuration(durationMs / 1000)}")
                     Chapter.at(chapters, shownMs / 1000)?.let { append(" · ${it.title}") }
                 }, color = Color(0xFFE6E6E6), style = MaterialTheme.typography.labelLarge.merge(Shade), maxLines = 1,
                     modifier = Modifier.align(if (left) Alignment.BottomStart else Alignment.BottomEnd)
-                        .padding(bottom = 12.dp, start = if (left) (geo.radius + 12).dp else 0.dp, end = if (left) 0.dp else (geo.radius + 12).dp))
+                        // Upright the fan fills the width, so the time sits just above it.
+                        .padding(bottom = if (geo.upright) (geo.radius + 20).dp else 12.dp,
+                            start = if (geo.upright) 20.dp else if (left) (geo.radius + 12).dp else 0.dp,
+                            end = if (geo.upright) 20.dp else if (left) 0.dp else (geo.radius + 12).dp)
+                        .graphicsLayer {
+                            val e = app.freshtuber.ui.motion.Motion.Decelerate.transform(stage(280))
+                            alpha = e
+                            translationY = (1f - e) * 8.dp.toPx()
+                        })
             }
-            // The title drifts down into place, out of the same blur.
-            if (shown > 0f) Text(now?.title.orEmpty(), color = Color.White, style = MaterialTheme.typography.titleSmall.merge(Shade), maxLines = 1,
-                overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 20.dp, top = 14.dp).fillMaxWidth(0.58f)
-                    .offset { IntOffset(0, ((1f - shown) * -10).dp.roundToPx()) }
+            // The title drifts down into place out of a blur, last of all.
+            val titleIn = app.freshtuber.ui.motion.Motion.Decelerate.transform(stage(200, 260))
+            if (titleIn > 0f) Text(now?.title.orEmpty(), color = Color.White, style = MaterialTheme.typography.titleSmall.merge(Shade), maxLines = 1,
+                overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 20.dp, top = 14.dp).fillMaxWidth(if (geo.upright) 0.9f else 0.58f)
+                    .offset { IntOffset(0, ((1f - titleIn) * -12).dp.roundToPx()) }
                     .graphicsLayer {
-                        alpha = shown
-                        val r = (1f - shown) * 10.dp.toPx()
+                        alpha = titleIn
+                        val r = (1f - titleIn) * 10.dp.toPx()
                         renderEffect = if (android.os.Build.VERSION.SDK_INT >= 31 && r > 0.5f)
                             androidx.compose.ui.graphics.BlurEffect(r, r, androidx.compose.ui.graphics.TileMode.Decal) else null
                     })
@@ -373,6 +385,25 @@ fun FullscreenPlayer(
         }
     }
     }
+}
+
+/** Buttons pop slightly past their size before settling. */
+private val FanOvershoot = androidx.compose.animation.core.CubicBezierEasing(0.34f, 1.45f, 0.64f, 1f)
+
+/**
+ * One layer of the fan arriving: it grows out of the corner's direction, sharpens out of a
+ * blur and pops a little past its size. [p] runs 0..1.
+ */
+private fun Modifier.layerIn(p: Float, left: Boolean): Modifier = graphicsLayer {
+    val e = app.freshtuber.ui.motion.Motion.Decelerate.transform(p)
+    alpha = e
+    val s = 0.55f + 0.45f * FanOvershoot.transform(p)
+    scaleX = s; scaleY = s
+    translationX = (1f - e) * (if (left) -18f else 18f) * density
+    translationY = (1f - e) * 18f * density
+    val r = (1f - e) * 8f * density
+    renderEffect = if (android.os.Build.VERSION.SDK_INT >= 31 && r > 0.5f)
+        androidx.compose.ui.graphics.BlurEffect(r, r, androidx.compose.ui.graphics.TileMode.Decal) else null
 }
 
 @Composable
