@@ -389,3 +389,15 @@ The existing focused instrumentation scenario now taps the actual system cross v
 - **Foldable, unfolded upright:** on a near-square page a wide video gets up to 60 % of the height, so a 16:9 picture fills the width. The video box is never wider than the picture, so no black side bars come from the app (bars baked into the video itself remain).
 - **Shorts on wide screens:** filling the width of a near-square screen cut about half of an upright Short away. When more than 15 % would be cut, the Short is shown whole at full height, centred, with rounded corners and the liquid light around it.
 - Validation: unit tests, debug and release builds, ErgoTube_Fold emulator (unfolded) with screenshots of the watch page, the palette (screen recording, because screencap misses popups) and Shorts playback and swiping. APKs: `apk/ErgoTube-liquid-15-{debug,release}.apk`.
+
+
+## 2026-11-05 — approved cloud-sofa application identity
+
+The user selected the second cloud concept and authorized replacing every app-owned YouTube logo and the launcher icon with its symbol, without lettering. The approved silhouette was traced from `docs/design/logo-2026-11-05/clouds/cloud-sofa.png` into native vector paths, preserving the play counter and curled sofa arms. The trace script and source provenance live in `docs/design/logo-2026-11-05/production/`.
+
+- Classic header: the YouTube badge and adjacent wordmark are replaced by the cloud-sofa mark alone.
+- Welcome: the historical fan mark is replaced by the same vector.
+- Launcher, round icon and Android themed-icon layer share that geometry; apricot on wine for the regular launcher. Notification icons use the same silhouette in monochrome.
+- In-app marks use apricot on dark surfaces and wine on light surfaces. Playback control icons and third-party website content remain their functional sources.
+- Validation: 136 JVM tests, Debug and minified Release builds pass. API37 emulator with host GPU: visually inspected the classic header and the installed launcher icon (screenshots in production/). Welcome uses the same shared composable; no fresh-onboarding flow or themed-launcher setting was exercised. Emulator shut down after checking.
+- APKs: `apk/ErgoTube-cloud-sofa-{debug,release}.apk`.

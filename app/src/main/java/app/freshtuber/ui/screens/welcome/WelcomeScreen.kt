@@ -22,7 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.freshtuber.R
-import app.freshtuber.ui.components.FanMark
+import app.freshtuber.ui.components.CloudMark
 
 /**
  * First launch. The choice sits at the bottom, under the thumb; the mark and name take the top.
@@ -43,7 +43,7 @@ fun WelcomeScreen(onSignIn: () -> Unit, onSkip: () -> Unit) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            FanMark(Modifier.size(96.dp))
+            CloudMark(Modifier.size(96.dp))
             Spacer(Modifier.size(24.dp))
             Text(
                 stringResource(R.string.app_name),

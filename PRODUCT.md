@@ -37,7 +37,7 @@ Every frequent action sits on an arc under the thumb: a radial menu anchored in 
 - No Google Play Services, microG, Firebase, analytics or tracking. Account cookies go only to youtube.com and googlevideo.com.
 - Signing in with an unofficial client breaks YouTube's terms and can trigger captchas or an account block. The author signs in with their main account, so the app must act on the account only when the user does something.
 - UI in Russian and English. License GPLv3.
-- Name: ErgoTube (chosen 2026-11-02). Open: final app icon.
+- Name: ErgoTube (chosen 2026-11-02). App icon: approved cloud-sofa silhouette (5 November 2026).
 
 ## Brand Commitments
 
@@ -74,3 +74,6 @@ Stage 5.7 (2026-11-03): user-approved portrait trial replaces the red navigation
 Home and related recommendation cards have a three-dot contextual fan: Not interested, Save, Share, disabled Download. Action centers are equally far from the pressed dots. Full action labels fit the 72dp preferred targets; layout adapts inward near edges, retaining 48dp minimum if needed. Local hiding persists on the device and applies only to recommendations, not saved lists/search. Signed-in Not interested replays the response's matching feedback command through ActionGuard when available; otherwise hiding is local. Save reuses the guarded playlist picker; Share uses Android's chooser. Download intentionally has no action.
 
 Mixes (RD playlists) load through watch-next playlist panels with seed video and playlistIndex continuation, rather than ordinary VL browse requests. Only the playlist panel is parsed, so related recommendations cannot leak into the mix list.
+
+
+Brand revision (5 November 2026): the user selected cloud-sofa, without lettering, as the application mark and launcher icon. This supersedes the historical fan-mark commitment. Apricot on wine for the launcher; apricot on dark and wine on light surfaces inside the app.

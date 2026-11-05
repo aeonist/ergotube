@@ -1,5 +1,7 @@
 # ErgoTube
 
+Cloud-sofa branding: the selected cloud-sofa symbol replaces the classic YouTube badge and the welcome mark, without a wordmark in the header. Launcher/themed and notification icons share its vector silhouette. 136 JVM tests pass; Debug and minified Release build. APK: `apk/ErgoTube-cloud-sofa-release.apk`.
+
 English · [Русский](README.ru.md)
 
 ErgoTube is an Android YouTube client built for one-handed use. Everything you tap often sits in the lower part of the screen, next to your thumb, on the side of the hand you hold the phone with. You can sign in with your Google account without Google Play Services or microG, or use the app with no account at all. There are no ads, and playback continues in the background.

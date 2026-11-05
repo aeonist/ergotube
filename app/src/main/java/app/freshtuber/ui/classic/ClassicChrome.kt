@@ -1,6 +1,5 @@
 package app.freshtuber.ui.classic
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -14,49 +13,30 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.freshtuber.R
 import app.freshtuber.ui.components.Reach
 import app.freshtuber.ui.navigation.DockTab
-import app.freshtuber.ui.theme.BrandColors
 
 /** YouTube's top bar: the logo on the left, search and settings on the right. */
 @Composable
 fun ClassicTopBar(onSearch: () -> Unit, onSettings: () -> Unit, modifier: Modifier = Modifier) {
     Row(modifier.fillMaxWidth().height(48.dp).padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        ClassicLogo()
-        Spacer(Modifier.width(4.dp))
-        Text(stringResource(R.string.app_name), style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.6).sp),
-            maxLines = 1, overflow = TextOverflow.Ellipsis)
+        app.freshtuber.ui.components.CloudMark(Modifier.size(42.dp, 28.dp))
         Spacer(Modifier.weight(1f))
         IconButton(onClick = onSearch, modifier = Modifier.testTag("classic:search")) {
             Icon(Icons.Rounded.Search, stringResource(R.string.nav_search))
         }
         IconButton(onClick = onSettings) { Icon(Icons.Rounded.Settings, stringResource(R.string.nav_settings)) }
-    }
-}
-
-/** The red rounded rectangle with a white play triangle. */
-@Composable
-fun ClassicLogo(modifier: Modifier = Modifier) {
-    Canvas(modifier.size(30.dp, 21.dp)) {
-        drawRoundRect(BrandColors.Red, cornerRadius = androidx.compose.ui.geometry.CornerRadius(size.height * 0.3f))
-        val w = size.width; val h = size.height
-        drawPath(Path().apply {
-            moveTo(w * 0.40f, h * 0.30f); lineTo(w * 0.40f, h * 0.70f); lineTo(w * 0.66f, h * 0.50f); close()
-        }, Color.White)
     }
 }
 

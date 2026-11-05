@@ -316,3 +316,7 @@ The current liquid / classic implementation is the visual authority for this ref
 
 ## Liquid 12 refinement (5 Nov 2026)
 Quality is a contextual palette anchored to HQ, using rounded remote-style choice pills and a blur/scale reveal in portrait/fullscreen; no radio-list sheet. Ordinary video-picture single taps never pause. Both orientations support pinch and pan independently of playback; visible controls retain their gesture zones. Elapsed/total time stays over the picture, temporarily duplicated on the remote while seeking. The card fan emerges through blur over the blurred feed. An independent preference swaps only Mine and Home. Descriptions/comments retain native selectable text and annotated links/timestamps. All other liquid effects, typography and colour choices remain the incumbent implementation.
+
+
+## Approved cloud-sofa mark (5 November 2026)
+The user selected `docs/design/logo-2026-11-05/clouds/cloud-sofa.png`, without its wordmark. Its traced vector silhouette supersedes the historical fan mark and the classic YouTube badge. In-app marks are apricot on dark surfaces and wine on light surfaces; the launcher uses apricot (#F3C39E) on wine (#572A35), including themed-icon geometry. Other interface colors and typography retain their existing settings.
