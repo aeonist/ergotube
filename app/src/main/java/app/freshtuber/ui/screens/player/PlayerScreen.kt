@@ -333,7 +333,7 @@ fun PlayerScreen(
                 else -> PortraitVideoLayer(viewModel.player, playerState, onMinimize = onBack, onRetry = viewModel::retryPlayback)
             }
             if (!inPip && !tabletop && now?.isLive != true) PlaybackTime(rememberProgress(viewModel.player), padUi.scrubMs,
-                Modifier.align(Alignment.TopEnd).padding(end = 12.dp, top = if (fullscreen) 48.dp else if (classic) 56.dp else 12.dp))
+                Modifier.align(Alignment.BottomStart).padding(start = if (fullscreen) 24.dp else 12.dp, bottom = if (fullscreen) 24.dp else if (classic) 56.dp else 12.dp))
         }
         // Below the fold the controls get the whole lower half.
         if (tabletop && !inPip) fullControls(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(belowHinge), true)

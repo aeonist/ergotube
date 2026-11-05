@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.launch
 import app.freshtuber.innertube.parse.PlayerFormat
 import app.freshtuber.innertube.parse.PlayerResponse
 import app.freshtuber.innertube.parse.PlayerResponseParser
@@ -14,7 +15,6 @@ import org.schabi.newpipe.extractor.MediaFormat
 import org.schabi.newpipe.extractor.NewPipe
 import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.services.youtube.YoutubeParsingHelper
-import org.schabi.newpipe.extractor.services.youtube.YoutubeStreamHelper
 import org.schabi.newpipe.extractor.exceptions.AgeRestrictedContentException
 import org.schabi.newpipe.extractor.stream.AudioStream
 import org.schabi.newpipe.extractor.stream.AudioTrackType
@@ -122,12 +122,21 @@ class StreamResolver @Inject constructor(
     private fun full(id: String): ResolvedVideo =
         StreamInfo.getInfo(ServiceList.YouTube, "https://www.youtube.com/watch?v=$id").toResolved(id)
 
-    /** One visitor-data and one player request; null when the full extraction must decide. */
+    private val visionOs = VisionOsPlayer()
+
+    init {
+        // Fetch the visitor id while the user is still choosing a video.
+        io.launch { runCatching { visionOs.visitorData() } }
+    }
+
+    /** A single player request (visitor id cached); null when the full extraction must decide. */
     private fun quick(id: String): ResolvedVideo? {
         val cpn = YoutubeParsingHelper.generateContentPlaybackNonce()
-        val raw = YoutubeStreamHelper.getVisionOsPlayerResponse(NewPipe.getPreferredContentCountry(), NewPipe.getPreferredLocalization(), id, cpn)
+        val raw = visionOs.player(id, cpn)
         val json = kotlinx.serialization.json.Json.parseToJsonElement(com.grack.nanojson.JsonWriter.string(raw)) as kotlinx.serialization.json.JsonObject
         val parsed = PlayerResponseParser.parse(json)
+        // A bot check or odd answer may come from a stale visitor id: get a new one next time.
+        if (parsed.status != "OK") visionOs.forget()
         return QuickStart.resolved(parsed, id, cpn, ::canDecode).also {
             if (it == null && app.freshtuber.BuildConfig.DEBUG) android.util.Log.d("StreamResolver",
                 "quick start declined: status=${parsed.status} live=${parsed.isLive} formats=${parsed.adaptive.size} " +
@@ -205,6 +214,48 @@ class StreamResolver @Inject constructor(
     }
 
     private fun canDecode(mimeType: String): Boolean = Decoders.any(mimeType)
+}
+
+/**
+ * NewPipeExtractor's visionOS `player` request (YoutubeStreamHelper.getVisionOsPlayerResponse,
+ * v0.26.5) without its visitor-data request before every video: the visitor id lives for hours,
+ * so it is fetched once, ahead of time, and reused. Same URL, headers and body as the original.
+ */
+private class VisionOsPlayer {
+    private val lock = Any()
+    @Volatile private var visitor: String? = null
+    @Volatile private var fetchedAt = 0L
+
+    private fun headers() = mapOf(
+        "User-Agent" to listOf(YoutubeParsingHelper.getVisionOsUserAgent(NewPipe.getPreferredLocalization())),
+        "X-Goog-Api-Format-Version" to listOf("2"),
+    )
+
+    fun visitorData(): String = synchronized(lock) {
+        visitor?.takeIf { System.currentTimeMillis() - fetchedAt < MAX_AGE_MS }?.let { return it }
+        val client = org.schabi.newpipe.extractor.services.youtube.InnertubeClientRequestInfo.ofVisionOsClient()
+        YoutubeParsingHelper.getVisitorDataFromInnertube(client, NewPipe.getPreferredLocalization(), NewPipe.getPreferredContentCountry(),
+            headers(), "https://www.youtube.com/youtubei/v1/", null, false).also { visitor = it; fetchedAt = System.currentTimeMillis() }
+    }
+
+    fun forget() { visitor = null }
+
+    fun player(videoId: String, cpn: String): com.grack.nanojson.JsonObject {
+        val localization = NewPipe.getPreferredLocalization()
+        val client = org.schabi.newpipe.extractor.services.youtube.InnertubeClientRequestInfo.ofVisionOsClient()
+        client.clientInfo.visitorData = visitorData()
+        val body = YoutubeParsingHelper.prepareJsonBuilder(localization, NewPipe.getPreferredContentCountry(), client, null)
+            .value("videoId", videoId).value("cpn", cpn).value("contentCheckOk", true).value("racyCheckOk", true)
+            .done()
+        val url = "https://youtubei.googleapis.com/youtubei/v1/player?prettyPrint=false&t=${YoutubeParsingHelper.generateTParameter()}&id=$videoId"
+        return try {
+            val response = NewPipe.getDownloader().postWithContentTypeJson(url, headers(),
+                com.grack.nanojson.JsonWriter.string(body).toByteArray(Charsets.UTF_8), localization)
+            org.schabi.newpipe.extractor.utils.JsonUtils.toJsonObject(YoutubeParsingHelper.getValidJsonResponseBody(response))
+        } catch (e: Exception) { forget(); throw e }
+    }
+
+    companion object { const val MAX_AGE_MS = 3 * 60 * 60 * 1000L }
 }
 
 /** What this device can decode, asked once per codec family. */

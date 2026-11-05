@@ -86,6 +86,7 @@ fun VideoCard(
     // Where the thumbnail is on screen, so a tap sends it flying into the player.
     val thumbRect = remember { arrayOf(androidx.compose.ui.geometry.Rect.Zero) }
     val handoff = app.freshtuber.ui.player.LocalVideoHandoff.current
+    val warm = app.freshtuber.ui.player.LocalWarmVideo.current
     val thumbRadius = with(androidx.compose.ui.platform.LocalDensity.current) { 20.dp.toPx() }
     val thumbnailForFlight = effectiveBranding?.thumbnailUrl ?: video.thumbnailUrl
     val loaded = remember { arrayOfNulls<coil3.Image>(1) }
@@ -124,6 +125,22 @@ fun VideoCard(
                         is app.freshtuber.ui.feed.FanResult.Picked -> currentAct(result.action)
                         app.freshtuber.ui.feed.FanResult.None -> Unit
                     }
+                }
+            } else Modifier)
+            .then(if (!video.isLive) Modifier.pointerInput(video.id) {
+                // A finger that rests on the card (not a scroll) is about to open it: look up
+                // its streams now, so playback starts sooner.
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    var rested = true
+                    withTimeoutOrNull(70) {
+                        while (true) {
+                            val change = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial).changes.firstOrNull { it.id == down.id }
+                            if (change == null || (change.pressed && (change.position - down.position).getDistance() > viewConfiguration.touchSlop)) { rested = false; break }
+                            if (!change.pressed) break
+                        }
+                    }
+                    if (rested) warm(video.id)
                 }
             } else Modifier)
             .clickable(onClick = open)

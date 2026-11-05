@@ -257,7 +257,7 @@ fun PlayerPad(
             val top: List<@Composable RowScope.() -> Unit> = listOf(
                 { PadButton(Icons.Rounded.KeyboardArrowDown, stringResource(R.string.player_minimize), Modifier.button("collapse"), small = true, onClick = onMinimize) },
                 {
-                    val time = if (live || (ui.scrubMs == null && !ui.seekTimeVisible)) null else "${formatDuration(shownMs / 1000)} / ${formatDuration(durationMs / 1000)}"
+                    val time = if (live || durationMs <= 0) null else "${formatDuration(shownMs / 1000)} / ${formatDuration(durationMs / 1000)}"
                     Row(Modifier.weight(1f).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (live) Text(stringResource(R.string.search_live), color = Color.White, style = MaterialTheme.typography.labelMedium,
                             modifier = Modifier.background(BrandColors.Red, RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp))

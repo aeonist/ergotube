@@ -51,13 +51,12 @@ class MiniPlayerContinuityIntegrationTest {
                     player.removeListener(listener)
                 }
                 compose.onNodeWithTag("video:time").assertExists()
-                compose.onAllNodesWithTag("pad:time").assertCountEquals(0)
+                compose.onNodeWithTag("pad:time").assertExists()
                 compose.onNodeWithTag("player:track").performTouchInput { down(center); moveTo(centerRight) }
                 compose.onNodeWithTag("pad:time").assertExists()
                 compose.onNodeWithTag("video:time").assertExists()
                 compose.onNodeWithTag("player:track").performTouchInput { up() }
-                compose.waitUntil(5_000) { compose.onAllNodesWithTag("pad:time").fetchSemanticsNodes().isEmpty() }
-                compose.onAllNodesWithTag("pad:time").assertCountEquals(0)
+                compose.onNodeWithTag("pad:time").assertExists()
                 compose.onNodeWithTag("video:time").assertExists()
             }
         } finally {

@@ -159,10 +159,11 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     val messages = remember(snackbarHost, scope) { AppMessages(snackbarHost, scope) }
     val barSpace = remember { BottomBarSpace() }
     val fanHost = remember { app.freshtuber.ui.feed.FanHost() }
+    val warmVideo: (String) -> Unit = remember(viewModel) { { id -> viewModel.player.warmShort(id) } }
 
     CompositionLocalProvider(LocalInPictureInPicture provides inPictureInPicture, LocalAppMessages provides messages,
         LocalBottomBarSpace provides barSpace, app.freshtuber.ui.components.LocalLeftHanded provides leftHanded, app.freshtuber.ui.feed.LocalFanHost provides fanHost, app.freshtuber.ui.feed.LocalFeedBottomClearance provides 16.dp,
-        app.freshtuber.ui.player.LocalVideoHandoff provides handoff) {
+        app.freshtuber.ui.player.LocalVideoHandoff provides handoff, app.freshtuber.ui.player.LocalWarmVideo provides warmVideo) {
     val light = app.freshtuber.ui.liquid.LocalLiquidLight.current
     // Shorts decide themselves: a full-screen video covers the light, a square one is lit around.
     SideEffect { light?.setRouteCovered(inPictureInPicture) }

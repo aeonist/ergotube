@@ -375,3 +375,10 @@ User-approved clarifications: navigation width (not icon scaling); fixed left-to
 The user reported that the native cross behaved like headphones, and requested minimal tests. The old fallback only stopped on `onStop` after an exit callback, or on a finishing destruction. Track stopped state and handle the opposite callback order as well; destruction after PiP stops playback unless it is a configuration change or an explicit headphones request. This follows the [Android PiP lifecycle](https://developer.android.com/develop/ui/views/picture-in-picture). Headphones still deliberately retain audio.
 
 The existing focused instrumentation scenario now taps the actual system cross via accessibility rather than sending the app PendingIntent directly. It checks that the media queue and now-playing state are cleared and playback stays stopped after the exit transition; Activity destruction is not required. No broad test suite was requested or run. Build: versionCode 16, liquid 13. API37 is the emulator check; vendor devices were not available.
+
+## 2026-11-05 — liquid 14: one-request starts, press warm-up, clock placement
+
+- **One request before playback.** NewPipeExtractor's `getVisionOsPlayerResponse` asks for visitor data before every player request. `StreamResolver` now sends the same visionOS `player` request itself (URL, headers and body copied from v0.26.5 bytecode) with a visitor id fetched once at startup and reused for 3 h; it is dropped after a failed request or a non-OK status. Emulator, same videos: resolve 0.8–1.1 s vs 1.4–2.7 s on liquid 13.
+- **Press warm-up.** A finger resting on a feed card for 70 ms without scrolling starts the anonymous stream lookup (`LocalWarmVideo` → `warmShort`), so the lookup is under way before the tap completes.
+- **Clock.** Elapsed/total sits in the bottom-left corner of the picture (portrait, fullscreen; above the classic bar) and is always shown on the remote, not only while seeking.
+- Validation: unit tests, debug + release builds, API37 playback check with screenshots. APKs `apk/ErgoTube-liquid-14-{debug,release}.apk`.
