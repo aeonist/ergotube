@@ -4,7 +4,9 @@ English · [Русский](README.ru.md)
 
 ErgoTube is an Android YouTube client built for one-handed use. Everything you tap often sits in the lower part of the screen, next to your thumb, on the side of the hand you hold the phone with. You can sign in with your Google account without Google Play Services or microG, or use the app with no account at all. There are no ads, and playback continues in the background.
 
-Current build: **1.2 "liquid 12"** (versionCode 15), branch `liquid-light-ui`.
+PiP hotfix: the system cross clears playback even when Android reports dismissal after `onStop`; headphones retain background audio. Validation is limited to the focused PiP action scenario and APK builds, as requested.
+
+Current build: **1.2 "liquid 13"** (versionCode 16), branch `liquid-light-ui`.
 
 > ErgoTube is an independent project. It is not affiliated with, endorsed by or connected to YouTube or Google. YouTube is a trademark of Google LLC.
 

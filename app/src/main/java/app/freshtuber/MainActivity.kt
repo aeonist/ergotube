@@ -45,6 +45,7 @@ class MainActivity : ComponentActivity() {
     private var pipOnLeave = true
     private var backgroundPlayback = true
     private var leftPictureInPicture = false
+    private var stopped = false
     private var audioOnlyRequested = false
     private var wasInPictureInPicture = false
     private var videoBounds: android.graphics.Rect? = null
@@ -57,7 +58,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** Buttons of the floating window: previous, play/pause, next. */
+    /** Floating-window commands: background audio, playback and complete dismissal. */
     private val pipReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: android.content.Context?, intent: Intent?) {
             when (intent?.getIntExtra(PIP_COMMAND, -1)) {
@@ -127,6 +128,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onStart() {
         super.onStart()
+        stopped = false
         controllerFuture = MediaController.Builder(
             this, SessionToken(this, ComponentName(this, app.freshtuber.player.PlaybackService::class.java)),
         ).buildAsync()
@@ -180,7 +182,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        if (isFinishing && wasInPictureInPicture && !audioOnlyRequested) playerController.stop()
+        if (wasInPictureInPicture && !isChangingConfigurations && !audioOnlyRequested) playerController.stop()
         playerController.player.removeListener(pipPlayerListener)
         runCatching { unregisterReceiver(pipReceiver) }
         super.onDestroy()
@@ -190,7 +192,12 @@ class MainActivity : ComponentActivity() {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         inPictureInPicture = isInPictureInPictureMode
         if (isInPictureInPictureMode) wasInPictureInPicture = true
-        if (!isInPictureInPictureMode) leftPictureInPicture = true
+        if (!isInPictureInPictureMode) {
+            leftPictureInPicture = true
+            // Some Android versions report PiP dismissal after onStop, with no second
+            // onStop or immediate onDestroy. Stop here too; expanding starts the activity.
+            if (stopped && !audioOnlyRequested && !isChangingConfigurations) playerController.stop()
+        }
     }
 
     override fun onResume() {
@@ -201,11 +208,12 @@ class MainActivity : ComponentActivity() {
 
     /** Closing the floating window stops the video, as YouTube does. */
     override fun onStop() {
+        stopped = true
         if (!backgroundPlayback && !audioOnlyRequested && !isInPictureInPictureMode && !isChangingConfigurations) playerController.player.pause()
         super.onStop()
         controllerFuture?.let(MediaController::releaseFuture)
         controllerFuture = null
-        if (leftPictureInPicture) {
+        if (leftPictureInPicture || (wasInPictureInPicture && isFinishing)) {
             if (!audioOnlyRequested) playerController.stop()
             leftPictureInPicture = false
         }

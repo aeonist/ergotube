@@ -52,8 +52,35 @@ class PipAudioCloseIntegrationTest {
                             assertTrue(activity!!.playerController.player.trackSelectionParameters.disabledTrackTypes.contains(androidx.media3.common.C.TRACK_TYPE_VIDEO))
                         }
                     } else {
-                        params!!.closeAction!!.actionIntent.send()
-                        until { activity!!.isDestroyed }
+                        // Exercise the actual system cross, not just our PendingIntent.
+                        val automation = instrumentation.uiAutomation
+                        automation.serviceInfo = automation.serviceInfo.apply {
+                            flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+                        }
+                        val bounds = android.graphics.Rect()
+                        val pipWindow = automation.windows.first { it.root?.packageName?.toString() == context.packageName }
+                        pipWindow.getBoundsInScreen(bounds)
+                        automation.executeShellCommand("input tap ${bounds.centerX()} ${bounds.centerY()}").use { android.os.ParcelFileDescriptor.AutoCloseInputStream(it).readBytes() }
+                        delay(400)
+                        fun findClose(node: android.view.accessibility.AccessibilityNodeInfo?): android.view.accessibility.AccessibilityNodeInfo? {
+                            if (node == null) return null
+                            if (node.viewIdResourceName?.endsWith(":id/dismiss") == true ||
+                                node.viewIdResourceName?.endsWith(":id/pip_dismiss") == true ||
+                                node.contentDescription?.toString()?.lowercase() in listOf("close", "закрыть")) return node
+                            for (i in 0 until node.childCount) findClose(node.getChild(i))?.let { return it }
+                            return null
+                        }
+                        var close: android.view.accessibility.AccessibilityNodeInfo? = null
+                        withTimeout(5_000) {
+                            while (close == null) {
+                                close = automation.windows.firstNotNullOfOrNull { findClose(it.root) }
+                                if (close == null) delay(200)
+                            }
+                        }
+                        assertNotNull("System PiP cross is visible", close)
+                        assertTrue(close!!.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK))
+                        until { activity!!.playerController.player.mediaItemCount == 0 }
+                        delay(1_000) // No hidden restart after the PiP exit transition.
                         instrumentation.runOnMainSync {
                             assertEquals(0, activity!!.playerController.player.mediaItemCount)
                             assertFalse(activity!!.playerController.player.isPlaying)

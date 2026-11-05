@@ -368,3 +368,10 @@ User-approved clarifications: navigation width (not icon scaling); fixed left-to
 - Test-clock note: Compose tests explicitly advance/wait for Compose frames; polling only ExoPlayer before the initial composition can freeze the test clock. Floating native selection menus are verified through real selection/clipboard rather than assuming they belong to Compose's root tree.
 - Checked Android primary references: https://developer.android.com/develop/ui/compose/text/user-interactions and https://developer.android.com/reference/android/app/PictureInPictureParams.Builder.
 - Local APKs: `apk/ErgoTube-liquid-12-release.apk`, `apk/ErgoTube-liquid-12-debug.apk`. No publication/push.
+
+
+## 2026-11-05 — liquid 13: PiP cross dismissal
+
+The user reported that the native cross behaved like headphones, and requested minimal tests. The old fallback only stopped on `onStop` after an exit callback, or on a finishing destruction. Track stopped state and handle the opposite callback order as well; destruction after PiP stops playback unless it is a configuration change or an explicit headphones request. This follows the [Android PiP lifecycle](https://developer.android.com/develop/ui/views/picture-in-picture). Headphones still deliberately retain audio.
+
+The existing focused instrumentation scenario now taps the actual system cross via accessibility rather than sending the app PendingIntent directly. It checks that the media queue and now-playing state are cleared and playback stays stopped after the exit transition; Activity destruction is not required. No broad test suite was requested or run. Build: versionCode 16, liquid 13. API37 is the emulator check; vendor devices were not available.
