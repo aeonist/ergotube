@@ -47,6 +47,9 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.semantics.contentDescription
@@ -124,6 +127,15 @@ fun PlayerScreen(
         onDispose { viewModel.player.removeListener(listener) }
     }
 
+    // The portrait page is lit by the video itself.
+    val light = app.freshtuber.ui.liquid.LocalLiquidLight.current
+    DisposableEffect(light) {
+        light?.enterPlayer()
+        onDispose { light?.setPlayerCovered(false); light?.exitPlayer() }
+    }
+    LaunchedEffect(light, playerState.nowPlaying?.videoId) { light?.setVideoThumbnail(playerState.nowPlaying?.thumbnailUrl) }
+    val grab: ((android.graphics.Bitmap) -> Unit)? = light?.let { l -> { bitmap -> l.pushVideoFrame(bitmap) } }
+
     if (LocalInPictureInPicture.current) {
         VideoSurface(viewModel.player, Modifier.fillMaxSize().background(Color.Black))
         return
@@ -146,6 +158,8 @@ fun PlayerScreen(
     }
     val onBoost: (Boolean) -> Unit = { on -> viewModel.player.setPlaybackSpeed(if (on) 2f else playerState.speed) }
     val onNext: () -> Unit = { if (playerState.queue.isNotEmpty()) viewModel.playNext() }
+    val onPrevious: () -> Unit = { if (playerState.history.isNotEmpty()) viewModel.playPrevious() }
+    SideEffect { light?.setPlayerCovered(fullscreen) }
 
     if (fullscreen) {
         Box(Modifier.fillMaxSize().background(Color.Black)) {
@@ -170,8 +184,11 @@ fun PlayerScreen(
             )
         }
     } else {
-        BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black).statusBarsPadding()
-            .background(MaterialTheme.colorScheme.surface).clipToBounds()) {
+        val statusBar = WindowInsets.statusBars
+        BoxWithConstraints(Modifier.fillMaxSize()
+            // Black under the status bar only; below it the background light shows through.
+            .drawBehind { drawRect(Color.Black, size = androidx.compose.ui.geometry.Size(size.width, statusBar.getTop(this).toFloat())) }
+            .statusBarsPadding().clipToBounds()) {
             val details = state.details
             val videoHeight = minOf(maxWidth / videoAspect, maxHeight * 0.4f)
             val density = LocalDensity.current
@@ -198,9 +215,9 @@ fun PlayerScreen(
                     }
                 }
                 // Everything pressed sits here, under the thumb.
-                Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerLow)
+                Column(Modifier.fillMaxWidth()
                     .onSizeChanged { zoneHeight = with(density) { it.height.toDp() } }
-                    .navigationBarsPadding().padding(bottom = 4.dp)) {
+                    .navigationBarsPadding().padding(bottom = 14.dp)) {
                     val padShown = padHide.visible || padUi.active || padUi.scrubMs != null
                     if (!padShown) MiniProgress(viewModel.player)
                     PlayerActions(state, viewModel, left, pinned = pinned, onPin = { viewModel.setVideoPinned(!pinned) }, onMore = { moreOpen = true })
@@ -217,6 +234,8 @@ fun PlayerScreen(
                             left = left,
                             hasNext = playerState.queue.isNotEmpty(),
                             onNext = onNext,
+                            hasPrevious = playerState.history.isNotEmpty(),
+                            onPrevious = onPrevious,
                             onMinimize = onBack,
                             onFullscreen = enterFullscreen,
                             onSpeed = onSpeed,
@@ -227,8 +246,13 @@ fun PlayerScreen(
                 }
             }
             // Watch at the top; nothing here needs reaching.
-            Box(Modifier.fillMaxWidth().height(videoHeight).offset { androidx.compose.ui.unit.IntOffset(0, videoOffset) }.background(Color.Black)) {
-                VideoSurface(viewModel.player, Modifier.fillMaxSize())
+            Box(Modifier.fillMaxWidth().height(videoHeight).offset { androidx.compose.ui.unit.IntOffset(0, videoOffset) }
+                .onGloballyPositioned { c ->
+                    val p = c.positionInRoot()
+                    light?.setVideoRect(androidx.compose.ui.geometry.Rect(p.x, p.y, p.x + c.size.width, p.y + c.size.height))
+                }
+                .background(Color.Black)) {
+                VideoSurface(viewModel.player, Modifier.fillMaxSize(), onFrame = grab)
                 PortraitVideoLayer(viewModel.player, playerState, onMinimize = onBack, onRetry = viewModel::retryPlayback)
             }
             val scrub = padUi.scrubMs
@@ -391,7 +415,7 @@ private fun TitleBlock(details: VideoDetails, offline: Boolean = false) {
             .clickable { expanded = !expanded }
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
-        Text(details.title, style = MaterialTheme.typography.titleLarge, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(details.title, style = app.freshtuber.ui.theme.AppType.playerTitle, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Text(
             listOfNotNull(if (offline) stringResource(R.string.download_complete) else null, details.viewsText, details.dateText).joinToString(" · "),
             style = MaterialTheme.typography.bodySmall,
@@ -406,7 +430,7 @@ private fun TitleBlock(details: VideoDetails, offline: Boolean = false) {
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 10.dp).fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 10.dp),
+                    .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f), RoundedCornerShape(16.dp)).padding(horizontal = 12.dp, vertical = 10.dp),
             )
         }
     }

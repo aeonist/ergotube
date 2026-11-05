@@ -123,6 +123,7 @@ class VideoViewModel @Inject constructor(
     }
 
     fun playNext() = controller.playNext()
+    fun playPrevious() = controller.playPrevious()
 
     fun retryPlayback() = controller.retry()
 

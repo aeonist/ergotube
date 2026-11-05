@@ -105,6 +105,8 @@ data class PlayerState(
     val repeat: Boolean = false,
     val sleepTimer: SleepTimer = SleepTimer.Off,
     val queue: List<VideoSummary> = emptyList(),
+    /** Videos played before this one in this session, oldest first; Previous goes back here. */
+    val history: List<String> = emptyList(),
 )
 
 /** Something the user should briefly see, e.g. a skipped sponsor segment. */
@@ -194,6 +196,8 @@ class PlayerController @Inject constructor(
     private var loadJob: Job? = null
     private var requestedId: String? = null
     private var requestedShort = false
+    /** True while [playPrevious] reopens a video, so it is not added to the history again. */
+    private var goingBack = false
     private var startedAt = 0L
     private var frameReported = false
     private var tickJob: Job? = null
@@ -235,6 +239,10 @@ class PlayerController @Inject constructor(
     /** Opens [videoId]; does nothing if it is already the current video. */
     fun play(videoId: String, isShort: Boolean = false) {
         if (requestedId == videoId && (_state.value.nowPlaying?.videoId == videoId || _state.value.loadingId == videoId) && _state.value.error == null) return
+        val leaving = requestedId
+        if (!goingBack && leaving != null && leaving != videoId && !requestedShort && !isShort) {
+            _state.update { it.copy(history = (it.history - leaving + leaving).takeLast(MAX_HISTORY)) }
+        }
         requestedId = videoId
         requestedShort = isShort
         startedAt = SystemClock.elapsedRealtime()
@@ -391,6 +399,15 @@ class PlayerController @Inject constructor(
         _state.update { it.copy(queue = it.queue.drop(1)) }
         play(next.id)
         _events.tryEmit(PlayerEvent.Advanced(next.id))
+    }
+
+    /** Goes back to the video played before this one; the current one is not queued again. */
+    fun playPrevious() {
+        val previous = _state.value.history.lastOrNull() ?: return
+        _state.update { it.copy(history = it.history.dropLast(1)) }
+        goingBack = true
+        try { play(previous) } finally { goingBack = false }
+        _events.tryEmit(PlayerEvent.Advanced(previous))
     }
 
     fun togglePlayPause() {
@@ -556,6 +573,7 @@ class PlayerController @Inject constructor(
     }
 
     private companion object {
+        const val MAX_HISTORY = 50
         val DECODER_ERRORS = setOf(
             PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
             PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED,

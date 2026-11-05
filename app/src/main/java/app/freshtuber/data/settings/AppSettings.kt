@@ -25,13 +25,15 @@ class AppSettings @Inject constructor(
         AppPreferences(features = AppFeature.entries.associateWith { data[booleanPreferencesKey(it.key)] ?: it.default },
             theme = runCatching { ThemeMode.valueOf(data[THEME] ?: "System") }.getOrDefault(ThemeMode.System),
             quality = data[QUALITY]?.coerceIn(144, 4320) ?: 1080,
-            downloadQuality = data[DOWNLOAD_QUALITY]?.coerceIn(144, 4320) ?: 720)
+            downloadQuality = data[DOWNLOAD_QUALITY]?.coerceIn(144, 4320) ?: 720,
+            motion = runCatching { BackgroundMotion.valueOf(data[MOTION] ?: "Always") }.getOrDefault(BackgroundMotion.Always))
     }
     val backgroundPlayback: Flow<Boolean> = context.settingsStore.data.map { it[booleanPreferencesKey(AppFeature.BackgroundPlayback.key)] ?: true }
     val shortsEnabled: Flow<Boolean> = context.settingsStore.data.map { it[booleanPreferencesKey(AppFeature.ShortsTab.key)] ?: true }
     val downloadWifiOnly: Flow<Boolean> = context.settingsStore.data.map { it[booleanPreferencesKey(AppFeature.DownloadsWifi.key)] ?: true }
     val downloadQuality: Flow<Int> = context.settingsStore.data.map { it[DOWNLOAD_QUALITY]?.coerceIn(144, 4320) ?: 720 }
     suspend fun setFeature(feature: AppFeature, enabled: Boolean) { context.settingsStore.edit { it[booleanPreferencesKey(feature.key)] = enabled } }
+    suspend fun setMotion(motion: BackgroundMotion) { context.settingsStore.edit { it[MOTION] = motion.name } }
     suspend fun setTheme(theme: ThemeMode) { context.settingsStore.edit { it[THEME] = theme.name } }
     suspend fun setDownloadQuality(height: Int) { context.settingsStore.edit { it[DOWNLOAD_QUALITY] = height.coerceIn(144, 4320) } }
     suspend fun resetHiddenVideos() { context.settingsStore.edit { it.remove(HIDDEN_VIDEOS) } }
@@ -95,6 +97,7 @@ class AppSettings @Inject constructor(
 
     private companion object {
         val THEME = stringPreferencesKey("theme_mode")
+        val MOTION = stringPreferencesKey("liquid_motion")
         val DOWNLOAD_QUALITY = intPreferencesKey("download_quality")
         val NOTIFICATIONS = booleanPreferencesKey("new_video_notifications")
         val HIDDEN_VIDEOS = androidx.datastore.preferences.core.stringSetPreferencesKey("hidden_videos")

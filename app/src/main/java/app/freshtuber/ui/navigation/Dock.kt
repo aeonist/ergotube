@@ -16,6 +16,9 @@ import androidx.compose.material.icons.outlined.Slideshow as OutlinedSlideshow
 import androidx.compose.material.icons.outlined.VideoLibrary as OutlinedVideoLibrary
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -65,18 +68,27 @@ object DockLayout {
     fun mineRows(): List<MineItem> = MineItem.entries.reversed()
 }
 
+/**
+ * The navigation bar: a floating liquid drop. The container is transparent; the background
+ * shader draws the drop at the rect reported here.
+ */
 @Composable
 fun AppDock(selected: DockTab?, mineOpen: Boolean, left: Boolean, shorts: Boolean, onSelect: (DockTab) -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+    val light = app.freshtuber.ui.liquid.LocalLiquidLight.current
+    val radius = with(androidx.compose.ui.platform.LocalDensity.current) { 34.dp.toPx() }
+    DisposableEffect(light) { onDispose { light?.setDrop(0, null, 0f) } }
+    Column(modifier.fillMaxWidth()) {
         Row(
-            Modifier.fillMaxWidth().height(Reach.DockHeight).padding(horizontal = 6.dp)
-                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)),
-            horizontalArrangement = if (left) Arrangement.Start else Arrangement.End,
+            Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                .padding(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 14.dp)
+                .fillMaxWidth().height(Reach.DockHeight)
+                .onGloballyPositioned { light?.setDrop(0, it.boundsInRoot(), radius) }
+                .padding(horizontal = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             DockLayout.order(left, shorts).forEach { tab ->
                 val active = if (tab == DockTab.Mine) mineOpen || (selected == DockTab.Mine) else selected == tab && !mineOpen
-                DockButton(tab, active) { onSelect(tab) }
+                DockButton(tab, active, Modifier.weight(1f)) { onSelect(tab) }
             }
         }
         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
@@ -84,21 +96,24 @@ fun AppDock(selected: DockTab?, mineOpen: Boolean, left: Boolean, shorts: Boolea
 }
 
 @Composable
-private fun DockButton(tab: DockTab, active: Boolean, onClick: () -> Unit) {
+private fun DockButton(tab: DockTab, active: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val label = stringResource(tab.labelRes)
     val description = if (tab == DockTab.Mine) stringResource(R.string.nav_mine_description) else label
     Column(
-        Modifier.width(62.dp).fillMaxHeight().testTag("dock:${tab.name}")
+        modifier.fillMaxHeight().testTag("dock:${tab.name}")
             .semantics { selected = active; contentDescription = description }
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = ripple(bounded = false, radius = 32.dp),
                 role = Role.Tab, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        val color = if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant
-        Icon(if (active) tab.selectedIcon else tab.icon, null, Modifier.size(26.dp), tint = color)
-        Text(label, style = MaterialTheme.typography.labelSmall, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 3.dp))
+        val color = if (active) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+        Box(Modifier.size(56.dp, 30.dp).background(if (active) MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent,
+            RoundedCornerShape(15.dp)), contentAlignment = Alignment.Center) {
+            Icon(if (active) tab.selectedIcon else tab.icon, null, Modifier.size(24.dp), tint = color)
+        }
+        Text(label, style = MaterialTheme.typography.labelSmall, color = if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
     }
 }
 

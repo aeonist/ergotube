@@ -34,7 +34,8 @@ object Reach {
     /** Fixed controls start below this fraction of the screen height. */
     const val LINE = 0.55f
 
-    val DockHeight: Dp = 64.dp
+    /** Height of the floating navigation drop. */
+    val DockHeight: Dp = 68.dp
 }
 
 /** The working hand from settings; controls press to this side. */
@@ -50,9 +51,8 @@ val LocalBottomBarSpace = staticCompositionLocalOf { BottomBarSpace() }
 /** A compact title above a list: little air above and below, the first item follows right away. */
 @Composable
 fun ScreenHeader(title: String, subtitle: String? = null, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 8.dp)) {
-        Text(title, style = MaterialTheme.typography.headlineSmall.copy(fontSize = 26.sp, lineHeight = 32.sp),
-            maxLines = 2, overflow = TextOverflow.Ellipsis)
+    Column(modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 10.dp)) {
+        Text(title, style = app.freshtuber.ui.theme.AppType.screenTitle, maxLines = 2, overflow = TextOverflow.Ellipsis)
         subtitle?.takeIf(String::isNotBlank)?.let {
             Text(it, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
@@ -68,10 +68,9 @@ fun BottomBar(modifier: Modifier = Modifier, content: @Composable ColumnScope.()
     DisposableEffect(space) { onDispose { space.height = 0.dp } }
     Column(
         modifier.fillMaxWidth()
-            .onSizeChanged { space.height = with(density) { it.height.toDp() } }
-            .background(MaterialTheme.colorScheme.surface),
+            .onSizeChanged { space.height = with(density) { it.height.toDp() } },
     ) {
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        // Transparent: the background light shows through under the bar.
         content()
     }
 }

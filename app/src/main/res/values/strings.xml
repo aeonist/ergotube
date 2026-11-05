@@ -223,4 +223,20 @@
     <string name="download_error_unsupported">Live or unavailable stream cannot be downloaded</string>
     <string name="download_error_network">Download interrupted. Check the connection and retry.</string>
     <string name="download_error_background">Android could not start the background download. Keep the app open and retry.</string>
+    <string name="player_previous">Previous video</string>
+    <string name="player_minimize">Collapse player</string>
+    <string name="settings_font">Font</string>
+    <string name="settings_font_serif">Serif</string>
+    <string name="settings_font_sans">Sans serif</string>
+    <string name="settings_energy">Energy saving</string>
+    <string name="settings_motion">Background motion</string>
+    <string name="settings_motion_always">Always</string>
+    <string name="settings_motion_transition">While flowing between videos</string>
+    <string name="settings_motion_off">Off</string>
+    <string name="settings_refraction">Refraction in drops</string>
+    <string name="settings_refraction_hint">The navigation bar and the player remote bend the light behind them.</string>
+    <string name="settings_grain">Grain</string>
+    <string name="settings_grain_hint">Fine film grain over the background light.</string>
+    <string name="settings_power_saver">Follow system battery saver</string>
+    <string name="settings_power_saver_hint">With battery saver on: motion only while flowing, no refraction, no grain.</string>
 </resources>

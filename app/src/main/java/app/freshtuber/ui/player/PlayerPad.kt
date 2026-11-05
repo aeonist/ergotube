@@ -93,6 +93,8 @@ fun PlayerPad(
     left: Boolean,
     hasNext: Boolean,
     onNext: () -> Unit,
+    hasPrevious: Boolean,
+    onPrevious: () -> Unit,
     onMinimize: () -> Unit,
     onFullscreen: () -> Unit,
     onSpeed: () -> Unit,
@@ -123,8 +125,14 @@ fun PlayerPad(
     val backLabel = stringResource(R.string.player_back_10)
     val forwardLabel = stringResource(R.string.player_forward_10)
 
-    Box(modifier.fillMaxWidth().padding(horizontal = 12.dp).clip(RoundedCornerShape(20.dp))
-        .background(if (ui.active) MaterialTheme.colorScheme.surfaceContainerHighest else MaterialTheme.colorScheme.surfaceContainerHigh)
+    val light = app.freshtuber.ui.liquid.LocalLiquidLight.current
+    val dropRadius = with(androidx.compose.ui.platform.LocalDensity.current) { 30.dp.toPx() }
+    DisposableEffect(light) { onDispose { light?.setDrop(1, null, 0f) } }
+    // The remote is the second liquid drop: the background draws it at this rect.
+    Box(modifier.fillMaxWidth().padding(horizontal = 14.dp)
+        .onGloballyPositioned { light?.setDrop(1, it.boundsInRoot(), dropRadius) }
+        .clip(RoundedCornerShape(30.dp))
+        .background(if (ui.active) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f) else Color.Transparent)
         .onGloballyPositioned { padCoords = it }
         .pointerInput(player, live, durationMs) {
             awaitEachGesture {
@@ -229,39 +237,48 @@ fun PlayerPad(
                 }
             }
         }) {
-        Column(Modifier.fillMaxWidth()) {
-            // Compact: tap zones, then time with the small buttons, then the track. Minimize is
-            // the system Back or a swipe down, so it has no button of its own.
-            Row(Modifier.fillMaxWidth().height(56.dp).onGloballyPositioned { mainBounds = it.boundsInRoot() }) {
+        Column(Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = 2.dp, bottom = 10.dp)) {
+            // Compact remote: collapse and settings, then transport, then time, then the track.
+            val top: List<@Composable RowScope.() -> Unit> = listOf(
+                { PadButton(Icons.Rounded.KeyboardArrowDown, stringResource(R.string.player_minimize), Modifier.button("collapse"), onClick = onMinimize) },
+                { Spacer(Modifier.weight(1f)) },
+                { if (captionsAvailable) PadButton(if (captionsOn) Icons.Rounded.ClosedCaption else Icons.Rounded.ClosedCaptionDisabled,
+                    stringResource(R.string.player_subtitles), Modifier.button("cc"), selected = captionsOn, onClick = onCaptions) },
+                { if (!live) SpeedChip(if (ui.boost) "2×" else speedLabel(speed), selected = ui.boost || speed != 1f, Modifier.button("speed"), onClick = onSpeed) },
+            )
+            Row(Modifier.fillMaxWidth().height(40.dp), verticalAlignment = Alignment.CenterVertically) {
+                (if (left) top.reversed() else top).forEach { it() }
+            }
+            Row(Modifier.fillMaxWidth().height(52.dp).onGloballyPositioned { mainBounds = it.boundsInRoot() },
+                verticalAlignment = Alignment.CenterVertically) {
+                PadButton(Icons.Rounded.SkipPrevious, stringResource(R.string.player_previous), Modifier.button("previous"), enabled = hasPrevious, onClick = onPrevious)
                 PadZoneIcon(Icons.Rounded.Replay10, backLabel, Modifier.weight(1f), enabled = !live) { ui.skip(player, -10) { secondsFormat.format(it) } }
                 PadZoneIcon(if (progress.ended) Icons.Rounded.Replay else if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                     playLabel, Modifier.weight(1.2f), big = true, onClick = toggle)
                 PadZoneIcon(Icons.Rounded.Forward10, forwardLabel, Modifier.weight(1f), enabled = !live) { ui.skip(player, 10) { secondsFormat.format(it) } }
+                PadButton(Icons.Rounded.SkipNext, stringResource(R.string.player_next), Modifier.button("next"), enabled = hasNext, onClick = onNext)
             }
-            Row(Modifier.fillMaxWidth().height(44.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                val parts: List<@Composable RowScope.() -> Unit> = listOf(
-                    {
-                        Row(Modifier.weight(1f).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            if (live) Text(stringResource(R.string.search_live), color = Color.White, style = MaterialTheme.typography.labelMedium,
-                                modifier = Modifier.background(BrandColors.Red, RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
-                            else Text("${formatDuration(shownMs / 1000)} / ${formatDuration(durationMs / 1000)}", style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Medium, maxLines = 1)
-                            chapter?.let { Text(" · ${it.title}", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                        }
-                    },
-                    { if (captionsAvailable) PadButton(if (captionsOn) Icons.Rounded.ClosedCaption else Icons.Rounded.ClosedCaptionDisabled,
-                        stringResource(R.string.player_subtitles), Modifier.button("cc"), selected = captionsOn, onClick = onCaptions) },
-                    { if (!live) SpeedChip(if (ui.boost) "2×" else speedLabel(speed), selected = ui.boost || speed != 1f, Modifier.button("speed"), onClick = onSpeed) },
-                    { PadButton(Icons.Rounded.SkipNext, stringResource(R.string.player_next), Modifier.button("next"), enabled = hasNext, onClick = onNext) },
-                    { PadButton(Icons.Rounded.Fullscreen, stringResource(R.string.player_fullscreen), Modifier.button("fs"), onClick = onFullscreen) },
-                )
-                (if (left) parts.reversed() else parts).forEach { it() }
+            val bottom: List<@Composable RowScope.() -> Unit> = listOf(
+                {
+                    val time = if (live) null else "${formatDuration(shownMs / 1000)} / ${formatDuration(durationMs / 1000)}"
+                    Row(Modifier.weight(1f).padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (live) Text(stringResource(R.string.search_live), color = Color.White, style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.background(BrandColors.Red, RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
+                        Text(listOfNotNull(time, chapter?.title).joinToString(" · "),
+                            style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = app.freshtuber.ui.theme.TabularNumbers),
+                            fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(start = if (live) 8.dp else 0.dp))
+                    }
+                },
+                { PadButton(Icons.Rounded.Fullscreen, stringResource(R.string.player_fullscreen), Modifier.button("fs"), onClick = onFullscreen) },
+            )
+            Row(Modifier.fillMaxWidth().height(40.dp), verticalAlignment = Alignment.CenterVertically) {
+                (if (left) bottom.reversed() else bottom).forEach { it() }
             }
             Track(if (durationMs > 0) shownMs.toFloat() / durationMs else 0f, chapters, durationMs, scrubbing = ui.scrubMs != null,
-                live = live, modifier = Modifier.fillMaxWidth().height(24.dp).padding(horizontal = 18.dp)
-                    .onGloballyPositioned { trackBounds = it.boundsInRoot() })
-            Spacer(Modifier.height(2.dp))
+                live = live, modifier = Modifier.fillMaxWidth().height(24.dp).padding(horizontal = 8.dp)
+                    .onGloballyPositioned { trackBounds = it.boundsInRoot() },
+                gap = Color.Transparent)
         }
         ui.bubble?.let { Bubble(it, Modifier.align(Alignment.TopCenter).padding(top = 6.dp)) }
     }
@@ -299,7 +316,11 @@ private fun SpeedChip(label: String, selected: Boolean, modifier: Modifier, onCl
 private fun PadZoneIcon(icon: ImageVector, label: String, modifier: Modifier, big: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
     Box(modifier.fillMaxHeight().semantics { contentDescription = label; role = Role.Button; onClick(label) { if (enabled) onClick(); enabled } },
         contentAlignment = Alignment.Center) {
-        Icon(icon, null, Modifier.size(if (big) 44.dp else 30.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.38f))
+        if (big) Box(Modifier.size(52.dp).background(MaterialTheme.colorScheme.primary, androidx.compose.foundation.shape.CircleShape),
+            contentAlignment = Alignment.Center) {
+            Icon(icon, null, Modifier.size(28.dp), tint = MaterialTheme.colorScheme.onPrimary)
+        }
+        else Icon(icon, null, Modifier.size(28.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.38f))
     }
 }
 

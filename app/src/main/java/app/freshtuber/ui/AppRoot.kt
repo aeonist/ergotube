@@ -118,8 +118,12 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
 
     CompositionLocalProvider(LocalInPictureInPicture provides inPictureInPicture, LocalAppMessages provides messages,
         LocalBottomBarSpace provides barSpace, app.freshtuber.ui.components.LocalLeftHanded provides leftHanded, app.freshtuber.ui.feed.LocalFanHost provides fanHost, app.freshtuber.ui.feed.LocalFeedBottomClearance provides 16.dp) {
-    androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
+    val light = app.freshtuber.ui.liquid.LocalLiquidLight.current
+    val onShorts = destination?.hasRoute<ShortsRoute>() == true
+    SideEffect { light?.setRouteCovered(inPictureInPicture || onShorts) }
+    androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
     Box(Modifier.fillMaxSize()) {
+    if (light != null) app.freshtuber.ui.liquid.LiquidBackground(light)
     Column(Modifier.fillMaxSize()
         .then(if (onPlayer || inPictureInPicture) Modifier else Modifier.windowInsetsPadding(WindowInsets.ime.only(WindowInsetsSides.Bottom)))) {
         Box(Modifier.weight(1f).fillMaxWidth()) {

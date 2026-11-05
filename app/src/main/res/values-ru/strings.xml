@@ -221,4 +221,20 @@
     <string name="download_error_unsupported">Прямую трансляцию или недоступный поток скачать нельзя</string>
     <string name="download_error_network">Загрузка прервана. Проверь соединение и повтори.</string>
     <string name="download_error_background">Android не запустил фоновую загрузку. Оставь приложение открытым и повтори.</string>
+    <string name="player_previous">Предыдущее видео</string>
+    <string name="player_minimize">Свернуть плеер</string>
+    <string name="settings_font">Шрифт</string>
+    <string name="settings_font_serif">С засечками</string>
+    <string name="settings_font_sans">Без засечек</string>
+    <string name="settings_energy">Энергосбережение</string>
+    <string name="settings_motion">Движение фона</string>
+    <string name="settings_motion_always">Всегда</string>
+    <string name="settings_motion_transition">При перетекании</string>
+    <string name="settings_motion_off">Выключено</string>
+    <string name="settings_refraction">Преломление в каплях</string>
+    <string name="settings_refraction_hint">Нижняя панель и пульт плеера преломляют свет за собой.</string>
+    <string name="settings_grain">Зерно</string>
+    <string name="settings_grain_hint">Мелкое плёночное зерно на фоне.</string>
+    <string name="settings_power_saver">Включать вместе с системным энергосбережением</string>
+    <string name="settings_power_saver_hint">Когда включено энергосбережение: движение только при перетекании, без преломления и зерна.</string>
 </resources>

@@ -60,8 +60,13 @@ class MainActivity : ComponentActivity() {
         setContent {
             val preferences by settings.preferences.collectAsStateWithLifecycle(AppPreferences())
             val dark = when (preferences.theme) { ThemeMode.System -> isSystemInDarkTheme(); ThemeMode.Light -> false; else -> true }
-            AppTheme(darkTheme = dark, dynamicColor = preferences.enabled(AppFeature.DynamicColor), amoled = preferences.theme == ThemeMode.Amoled) {
-                androidx.compose.runtime.CompositionLocalProvider(app.freshtuber.ui.theme.LocalAppPreferences provides preferences) {
+            val lightScope = androidx.compose.runtime.rememberCoroutineScope()
+            val light = androidx.compose.runtime.remember { app.freshtuber.ui.liquid.LiquidLight(this, lightScope) }
+            androidx.compose.runtime.SideEffect { light.setDark(dark) }
+            AppTheme(darkTheme = dark, dynamicColor = preferences.enabled(AppFeature.DynamicColor), amoled = preferences.theme == ThemeMode.Amoled,
+                serif = preferences.enabled(AppFeature.SerifFont), hue = light.hue) {
+                androidx.compose.runtime.CompositionLocalProvider(app.freshtuber.ui.theme.LocalAppPreferences provides preferences,
+                    app.freshtuber.ui.liquid.LocalLiquidLight provides light) {
                     AppRoot(inPictureInPicture = inPictureInPicture, openVideo = externalVideoId, onVideoOpened = { externalVideoId = null })
                 }
             }

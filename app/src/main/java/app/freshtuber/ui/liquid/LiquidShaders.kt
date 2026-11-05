@@ -1,0 +1,147 @@
+package app.freshtuber.ui.liquid
+
+/**
+ * AGSL port of the approved WebGL reference. Coordinates are pixels with a top-left origin.
+ * The scene pass runs at half resolution ([uScale] maps back to full pixels); the grain pass
+ * runs at full resolution on its own.
+ */
+internal object LiquidShaders {
+    private const val COMMON = """
+float h21(float2 p){p=fract(p*float2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
+float vn(float2 p){float2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
+ return mix(mix(h21(i),h21(i+float2(1.,0.)),f.x),mix(h21(i+float2(0.,1.)),h21(i+float2(1.,1.)),f.x),f.y);}
+float sdBox(float2 p,float2 b,float r){float2 q=abs(p)-b+r;return length(max(q,0.))+min(max(q.x,q.y),0.)-r;}
+float sdR(float2 p,float4 R,float r){return sdBox(p-(R.xy+R.zw*.5),R.zw*.5,r);}
+"""
+
+    const val SCENE = """
+uniform float2 uRes;
+uniform float uT;
+uniform float uFlow;
+uniform float uDark;
+uniform float uMode;
+uniform float uBlur;
+uniform float uSurge;
+uniform float uWob;
+uniform float uPx;
+uniform float uRefr;
+uniform float uScale;
+uniform float4 uW;
+uniform float4 uRect;
+uniform float4 uVid;
+uniform float4 uP0;
+uniform float4 uP1;
+uniform float uR0;
+uniform float uR1;
+uniform float2 uS0;
+uniform float2 uS1;
+uniform float2 uS2;
+uniform shader a0; uniform shader a1; uniform shader a2;
+uniform shader b0; uniform shader b1; uniform shader b2;
+uniform shader c0; uniform shader c1; uniform shader c2;
+uniform shader d0; uniform shader d1; uniform shader d2;
+$COMMON
+float fbm(float2 p){float s=0.,a=.5;for(int i=0;i<4;i++){s+=a*vn(p);p=p*2.03+17.1;a*=.5;}return s;}
+float3 lin(float3 c){return pow(max(c,0.),float3(2.2));}
+float3 srgb(float3 c){return pow(max(c,0.),float3(1./2.2));}
+float caus(float2 uv,float t){float2 p=mod(uv*6.2831,6.2831)-250.;float2 i=p;float c=1.;
+ for(int n=0;n<4;n++){float tt=t*(1.-(3.5/float(n+1)));i=p+float2(cos(tt-i.x)+sin(tt+i.y),sin(tt-i.y)+cos(tt+i.x));
+  c+=1./length(float2(p.x/(sin(i.x+tt)/.005),p.y/(cos(i.y+tt)/.005)));}
+ c/=4.;c=1.17-pow(c,1.4);return pow(abs(c),8.);}
+float3 lv0(float2 uv){float2 q=uv*uS0;float3 s=float3(0.);
+ if(uW.x>.0005)s+=uW.x*a0.eval(q).rgb; if(uW.y>.0005)s+=uW.y*b0.eval(q).rgb;
+ if(uW.z>.0005)s+=uW.z*c0.eval(q).rgb; if(uW.w>.0005)s+=uW.w*d0.eval(q).rgb; return s;}
+float3 lv1(float2 uv){float2 q=uv*uS1;float3 s=float3(0.);
+ if(uW.x>.0005)s+=uW.x*a1.eval(q).rgb; if(uW.y>.0005)s+=uW.y*b1.eval(q).rgb;
+ if(uW.z>.0005)s+=uW.z*c1.eval(q).rgb; if(uW.w>.0005)s+=uW.w*d1.eval(q).rgb; return s;}
+float3 lv2(float2 uv){float2 q=uv*uS2;float3 s=float3(0.);
+ if(uW.x>.0005)s+=uW.x*a2.eval(q).rgb; if(uW.y>.0005)s+=uW.y*b2.eval(q).rgb;
+ if(uW.z>.0005)s+=uW.z*c2.eval(q).rgb; if(uW.w>.0005)s+=uW.w*d2.eval(q).rgb; return s;}
+// LOD 4.5 is the first level; each further level is two LOD steps blurrier.
+float3 frame(float2 uv,float lod){float t=clamp((lod-4.5)*.5,0.,2.);float3 c;
+ if(t<1.){c=mix(lv0(uv),lv1(uv),t);}else{c=mix(lv1(uv),lv2(uv),t-1.);}
+ return lin(c);}
+float3 throwLight(float2 p,out float k){
+ if(uMode<.5){
+  float2 c=uRect.xy+uRect.zw*.5;float2 q=(p-c)/uRect.zw+.5;
+  float d=max(sdR(p,uRect,20.*uPx),0.)/uRes.y; if(p.y<uRect.y)d*=mix(1.9,3.6,uDark);
+  float lod=4.5+3.*clamp(d*3.,0.,1.)+uBlur; float2 uv=clamp(.5+(q-.5)/(1.+d*1.6),.03,.97);
+  k=exp(-d*3.4); return frame(uv,lod);
+ }
+ float d=max(p.y-(uVid.y+uVid.w),0.)/uRes.y;
+ float2 pe=float2(p.x,mix(p.y,uVid.y+uVid.w*.94,clamp(d*1.2,0.,.97)));
+ pe.x=mix(pe.x,uVid.x+uVid.z*.5,clamp(d*.6,0.,.6));
+ k=exp(-d*2.4);
+ float2 uv=clamp((pe-uVid.xy)/uVid.zw,.03,.97);
+ return frame(uv,5.+2.5*clamp(d*2.,0.,1.));
+}
+float3 scene(float2 p){
+ float2 w=float2(fbm(p/(uRes.y*.32)+float2(uFlow*.035,0.)),fbm(p/(uRes.y*.32)+float2(7.3,-uFlow*.03)))-.5;
+ float2 pw=p+w*uRes.y*(.22+uSurge*.35+uBlur*.05);
+ float k;float3 L=throwLight(pw,k);float kd=k*k;
+ float lum=dot(L,float3(.2126,.7152,.0722));float3 hue=clamp(L/max(lum,1e-3),0.,3.);
+ float3 warm=mix(clamp(hue*.75+.25,0.,1.6),float3(1.,.74,.44),.35);
+ float cs=caus(p/uRes.y*1.25+float2(0.,uFlow*.01),uFlow*.22);
+ float3 base=float3(.72,.69,.65);
+ float3 lt=base*mix(float3(1.),mix(float3(1.),warm*1.1,.62),k)+L*k*.14+warm*cs*.085*(.4+k);
+ float kb=exp(-(uRes.y-p.y)/uRes.y*2.6);
+ float3 dk=(float3(.004,.003,.0025)+L*(kd*.42+kb*.3)+warm*L*cs*.35*(kd+kb))*.8;
+ return mix(lt,dk,smoothstep(0.,1.,uDark));
+}
+float3 drop(float2 p,float4 R,float r,float3 col){
+ if(R.z<1.||R.w<1.)return col;
+ float s=sdR(p,R,r);
+ if(s>0.){float g=exp(-s/(10.*uPx))*smoothstep(0.,1.,(p.y-R.y)/R.w);
+  return col+col*.25*g*(1.-uDark*.3)-float3(.05)*exp(-s/(16.*uPx))*(1.-uDark)*.35;}
+ float2 gr=float2(sdR(p+float2(1.,0.),R,r)-sdR(p-float2(1.,0.),R,r),sdR(p+float2(0.,1.),R,r)-sdR(p-float2(0.,1.),R,r));
+ float2 n=normalize(gr+1e-5);
+ float edge=smoothstep(-18.*uPx,0.,s);float2 c=R.xy+R.zw*.5;float3 rc;
+ if(uRefr>.5){
+  float2 off=-n*edge*edge*26.*uPx-(p-c)*.07+float2(sin(p.x*.045/uPx+uT*2.6),cos(p.y*.05/uPx+uT*2.1))*uWob*3.*uPx;
+  rc=float3(scene(p+off*1.06).r,scene(p+off).g,scene(p+off*.94).b);
+ } else { rc=col; }
+ float lum=dot(rc,float3(.2126,.7152,.0722));float3 tint=mix(float3(1.03,.95,.84),float3(1.08,.86,.62),uDark);
+ rc=mix(rc,float3(lum),.15)*tint+mix(float3(.06,.05,.04),float3(.012,.008,.005),uDark);rc*=mix(1.,.8,uDark);
+ float rim=smoothstep(-2.2*uPx,0.,s)*clamp(-n.y*.8+.35,0.,1.);float lo=smoothstep(-7.*uPx,0.,s)*clamp(n.y,0.,1.);
+ return rc+float3(1.,.96,.9)*rim*mix(.5,.3,uDark)-rc*lo*.25;
+}
+half4 main(float2 fc){
+ float2 p=fc*uScale;
+ if(uMode>.5&&p.x>=uVid.x&&p.x<=uVid.x+uVid.z&&p.y>=uVid.y&&p.y<=uVid.y+uVid.w)return half4(0.,0.,0.,1.);
+ float3 col=scene(p);
+ col=drop(p,uP0,uR0,col);
+ col=drop(p,uP1,uR1,col);
+ return half4(half3(srgb(col)),1.);
+}
+"""
+
+    /** Static screen-space grain, never inside drops or the video. */
+    const val GRAIN = """
+uniform float uPx;
+uniform float uDark;
+uniform float uMode;
+uniform float4 uVid;
+uniform float4 uP0;
+uniform float4 uP1;
+uniform float uR0;
+uniform float uR1;
+$COMMON
+float hs(float2 p){float3 q=fract(float3(p.xyx)*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}
+half4 main(float2 q){
+ if(uMode>.5&&q.x>=uVid.x&&q.x<=uVid.x+uVid.z&&q.y>=uVid.y&&q.y<=uVid.y+uVid.w)return half4(0.);
+ if(uP0.z>1.&&sdR(q,uP0,uR0)<0.)return half4(0.);
+ if(uP1.z>1.&&sdR(q,uP1,uR1)<0.)return half4(0.);
+ float g=(hs(q)+hs(q+.37)-1.)*.5+(vn(q/(.62*uPx))-.5)*.85+(vn(q/(1.4*uPx)+19.)-.5)*.35;
+ float3 cg=float3(vn(q/(.7*uPx)+41.),vn(q/(.7*uPx)+83.),vn(q/(.7*uPx)+127.))-.5;
+ // The scene is near this lightness in each theme; amplitude follows the reference curve.
+ float l=mix(.84,.07,uDark);
+ float amp=.042*(.35+.65*(1.-abs(2.*l-1.)));
+ float3 d=(float3(g)+cg*.25)*amp;
+ float dl=g*amp;
+ // Source-over toward white (or black) by a, plus the chroma part, adds d to a ground near l.
+ float a=clamp(abs(dl)/max(dl>=0.?1.-l:l,.05),0.,1.);
+ float3 pm=clamp(float3(l*a)+d,0.,a);
+ return half4(half3(pm),half(a));
+}
+"""
+}

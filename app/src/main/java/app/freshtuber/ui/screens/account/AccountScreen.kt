@@ -239,7 +239,7 @@ private fun IdentityRow(
         } else {
             null
         },
-        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
         modifier = Modifier.clickable(enabled = !selected, onClick = onClick),
     )
 }

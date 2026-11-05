@@ -26,6 +26,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
@@ -106,16 +107,27 @@ fun VideoCard(
             .clickable(onClick = onClick)
             .padding(top = 4.dp, bottom = 20.dp),
     ) {
+        val light = app.freshtuber.ui.liquid.LocalLiquidLight.current
+        val lightKey = remember { Any() }
+        val thumbnail = effectiveBranding?.thumbnailUrl ?: video.thumbnailUrl
+        DisposableEffect(light, lightKey) { onDispose { light?.removeCard(lightKey) } }
         Box(
             Modifier
                 .padding(horizontal = 12.dp)
                 .fillMaxWidth()
                 .aspectRatio(16f / 9f)
-                .clip(RoundedCornerShape(12.dp))
+                // The card's thumbnail lights the background while it is in focus.
+                .onGloballyPositioned { c ->
+                    if (light != null) {
+                        val p = c.positionInRoot()
+                        light.reportCard(lightKey, thumbnail, androidx.compose.ui.geometry.Rect(p.x, p.y, p.x + c.size.width, p.y + c.size.height))
+                    }
+                }
+                .clip(RoundedCornerShape(20.dp))
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh),
         ) {
             AsyncImage(
-                model = effectiveBranding?.thumbnailUrl ?: video.thumbnailUrl,
+                model = thumbnail,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
@@ -154,7 +166,7 @@ fun VideoCard(
             Column(Modifier.weight(1f)) {
                 Text(
                     effectiveBranding?.title ?: video.title,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Normal),
+                    style = app.freshtuber.ui.theme.AppType.cardTitle,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -192,11 +204,11 @@ private fun ThumbnailBadge(video: VideoSummary, modifier: Modifier) {
     }
     Text(
         text = text,
-        style = MaterialTheme.typography.labelMedium,
+        style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = app.freshtuber.ui.theme.TabularNumbers),
         color = BrandColors.BadgeText,
         modifier = modifier
-            .background(background, RoundedCornerShape(4.dp))
-            .padding(horizontal = 4.dp, vertical = 1.dp),
+            .background(background, RoundedCornerShape(6.dp))
+            .padding(horizontal = 5.dp, vertical = 1.dp),
     )
 }
 
@@ -214,7 +226,7 @@ private fun MetaLine(video: VideoSummary, showChannel: Boolean, modifier: Modifi
     if (parts.isEmpty()) return
     Text(
         parts.joinToString(" · "),
-        style = MaterialTheme.typography.bodySmall,
+        style = app.freshtuber.ui.theme.AppType.meta,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         maxLines = 2,
         overflow = TextOverflow.Ellipsis,

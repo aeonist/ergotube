@@ -25,7 +25,10 @@ val LocalInPictureInPicture = compositionLocalOf { false }
 /** The video picture with subtitles; controls are drawn in Compose on top of it. */
 @OptIn(UnstableApi::class)
 @Composable
-fun VideoSurface(player: Player, modifier: Modifier = Modifier, zoomToFill: Boolean = false, texture: Boolean = false) {
+fun VideoSurface(player: Player, modifier: Modifier = Modifier, zoomToFill: Boolean = false, texture: Boolean = false,
+    onFrame: ((android.graphics.Bitmap) -> Unit)? = null) {
+    val viewRef = remember { arrayOfNulls<PlayerView>(1) }
+    if (onFrame != null) FrameGrabber(player, viewRef, onFrame)
     AndroidView(
         modifier = modifier,
         factory = { context ->
@@ -42,11 +45,45 @@ fun VideoSurface(player: Player, modifier: Modifier = Modifier, zoomToFill: Bool
             }
         },
         update = { view ->
+            viewRef[0] = view
             if (view.player !== player) view.player = player
             view.resizeMode = if (zoomToFill) AspectRatioFrameLayout.RESIZE_MODE_ZOOM else AspectRatioFrameLayout.RESIZE_MODE_FIT
         },
-        onRelease = { view -> view.player = null },
+        onRelease = { view -> view.player = null; if (viewRef[0] === view) viewRef[0] = null },
     )
+}
+
+/**
+ * Copies a tiny frame (64×36) of the playing video every 300 ms for the background light:
+ * PixelCopy from the surface view, or the texture view's bitmap. Paused video is read less often.
+ */
+@Composable
+@OptIn(UnstableApi::class)
+private fun FrameGrabber(player: Player, viewRef: Array<PlayerView?>, onFrame: (android.graphics.Bitmap) -> Unit) {
+    val callback = androidx.compose.runtime.rememberUpdatedState(onFrame)
+    LaunchedEffect(player) {
+        val target = android.graphics.Bitmap.createBitmap(64, 36, android.graphics.Bitmap.Config.ARGB_8888)
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        var lastWasPlaying = true
+        while (true) {
+            delay(if (player.isPlaying || lastWasPlaying) 300L else 1_000L)
+            lastWasPlaying = player.isPlaying
+            if (player.videoSize.width <= 0) continue
+            val ok = when (val surface = viewRef[0]?.videoSurfaceView) {
+                is android.view.SurfaceView -> {
+                    if (surface.holder.surface?.isValid != true || surface.width <= 0) false
+                    else kotlinx.coroutines.suspendCancellableCoroutine { cont ->
+                        runCatching {
+                            android.view.PixelCopy.request(surface, target, { result -> if (cont.isActive) cont.resumeWith(Result.success(result == android.view.PixelCopy.SUCCESS)) }, handler)
+                        }.onFailure { if (cont.isActive) cont.resumeWith(Result.success(false)) }
+                    }
+                }
+                is android.view.TextureView -> surface.isAvailable && runCatching { surface.getBitmap(target) }.getOrNull() != null
+                else -> false
+            }
+            if (ok) callback.value(target)
+        }
+    }
 }
 
 data class Progress(

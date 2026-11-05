@@ -32,6 +32,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -47,6 +49,20 @@ import coil3.compose.AsyncImage
 
 /** Clearance is scrollable content padding, never a permanent empty footer. */
 val LocalFeedBottomClearance = androidx.compose.runtime.staticCompositionLocalOf { 88.dp }
+
+/** The list fades out over its last 28 dp instead of ending at a hard edge. */
+fun Modifier.bottomFade(height: androidx.compose.ui.unit.Dp = 28.dp): Modifier =
+    graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+        .drawWithContent {
+            drawContent()
+            val fade = height.toPx()
+            drawRect(
+                androidx.compose.ui.graphics.Brush.verticalGradient(listOf(androidx.compose.ui.graphics.Color.Transparent, androidx.compose.ui.graphics.Color.Black),
+                    startY = size.height - fade, endY = size.height),
+                topLeft = androidx.compose.ui.geometry.Offset(0f, size.height - fade),
+                blendMode = androidx.compose.ui.graphics.BlendMode.DstOut,
+            )
+        }
 
 /** What a tap on a list item opens. */
 interface FeedNavigation {
@@ -85,7 +101,7 @@ fun FeedList(
         if (nearEnd && state.items.isNotEmpty()) onLoadMore()
     }
 
-    LazyColumn(modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = LocalFeedBottomClearance.current)) {
+    LazyColumn(modifier.fillMaxSize().bottomFade(), state = listState, contentPadding = PaddingValues(bottom = LocalFeedBottomClearance.current)) {
         header?.invoke(this)
         if (state.error != null && state.items.isNotEmpty()) item(key = "refresh-error") {
             LoadErrorState(state.error, onRetry, onSignInAgain, Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
@@ -178,7 +194,7 @@ private fun PlaylistRow(playlist: PlaylistSummary, onClick: () -> Unit) {
             Modifier
                 .width(160.dp)
                 .aspectRatio(16f / 9f)
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(14.dp))
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh),
         ) {
             AsyncImage(
