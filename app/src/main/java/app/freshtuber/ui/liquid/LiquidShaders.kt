@@ -7,9 +7,6 @@ package app.freshtuber.ui.liquid
  */
 internal object LiquidShaders {
     private const val COMMON = """
-float h21(float2 p){p=fract(p*float2(123.34,456.21));p+=dot(p,p+45.32);return fract(p.x*p.y);}
-float vn(float2 p){float2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
- return mix(mix(h21(i),h21(i+float2(1.,0.)),f.x),mix(h21(i+float2(0.,1.)),h21(i+float2(1.,1.)),f.x),f.y);}
 float sdBox(float2 p,float2 b,float r){float2 q=abs(p)-b+r;return length(max(q,0.))+min(max(q.x,q.y),0.)-r;}
 float sdR(float2 p,float4 R,float r){return sdBox(p-(R.xy+R.zw*.5),R.zw*.5,r);}
 """
@@ -51,14 +48,20 @@ uniform shader a0; uniform shader a1; uniform shader a2;
 uniform shader b0; uniform shader b1; uniform shader b2;
 uniform shader c0; uniform shader c1; uniform shader c2;
 uniform shader d0; uniform shader d1; uniform shader d2;
+uniform shader uNoise;
 ${COMMON}
 ${BILINEAR}
+// Value noise from a random texture, read at texel centres. A float hash breaks on mobile GPUs:
+// neighbouring cells hash the same corner slightly differently and the warp tears into tiles.
+float nz(float2 i){return uNoise.eval(i+.5).r;}
+float vn(float2 p){float2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);
+ return mix(mix(nz(i),nz(i+float2(1.,0.)),f.x),mix(nz(i+float2(0.,1.)),nz(i+float2(1.,1.)),f.x),f.y);}
 float fbm(float2 p){float s=0.,a=.5;for(int i=0;i<${octaves};i++){s+=a*vn(p);p=p*2.03+17.1;a*=.5;}return s;}
 float3 lin(float3 c){return pow(max(c,0.),float3(2.2));}
 float3 srgb(float3 c){return pow(max(c,0.),float3(1./2.2));}
-// Caustics repeat every 2π; constant numerators (the mean of the wrapped position) keep the
-// tiles seamless where the reference left a visible join.
-float caus(float2 uv,float t){float2 p=mod(uv*6.2831,6.2831)-250.;float2 i=p;float c=1.;
+// Continuous caustics: no mod() wrap of the domain, and constant numerators (the reference's
+// mean value) instead of the position, which jumped at every wrap.
+float caus(float2 uv,float t){float2 p=uv*6.2831-250.;float2 i=p;float c=1.;
  for(int n=0;n<4;n++){float tt=t*(1.-(3.5/float(n+1)));i=p+float2(cos(tt-i.x)+sin(tt+i.y),sin(tt-i.y)+cos(tt+i.x));
   c+=1./length(float2(-246.86/(sin(i.x+tt)/.005),-246.86/(cos(i.y+tt)/.005)));}
  c/=4.;c=1.17-pow(c,1.4);return pow(abs(c),8.);}
@@ -78,7 +81,7 @@ float3 frame(float2 uv,float lod){float t=clamp((lod-4.5)*.5,0.,2.);float3 c;
 float3 throwLight(float2 p,out float k){
  if(uMode<.5){
   float2 c=uRect.xy+uRect.zw*.5;float2 q=(p-c)/uRect.zw+.5;
-  float d=max(sdR(p,uRect,20.*uPx),0.)/uRes.y; if(p.y<uRect.y)d*=mix(1.9,3.6,uDark);
+  float d=max(sdR(p,uRect,20.*uPx),0.)/uRes.y; d*=mix(1.,mix(1.9,3.6,uDark),smoothstep(0.,uRes.y*.12,uRect.y-p.y));
   float lod=4.5+3.*clamp(d*3.,0.,1.)+uBlur; float2 uv=clamp(.5+(q-.5)/(1.+d*1.6),.03,.97);
   k=exp(-d*3.4); return frame(uv,lod);
  }

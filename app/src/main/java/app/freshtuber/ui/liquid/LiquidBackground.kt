@@ -73,25 +73,30 @@ private fun ShaderLight(light: LiquidLight) {
     val drop = remember { RuntimeShader(LiquidShaders.DROP) }
     val fieldBrush = remember(field) { ShaderBrush(field) }
     val dropBrush = remember(drop) { ShaderBrush(drop) }
+    val noise = remember { NoiseTile.shader() }
     val empty = remember {
         BitmapShader(Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.GRAY) },
             Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
     }
     // 1. The field: about a quarter of the screen width (a sixth with battery saver), scaled up.
     val divisor = if (light.lowRes) 6f else 4f
-    Canvas(Modifier.scaledDown(divisor).graphicsLayer {
-        scaleX = divisor; scaleY = divisor
-        transformOrigin = TransformOrigin(0f, 0f)
-        compositingStrategy = CompositingStrategy.Offscreen
-    }) {
-        light.redraw
-        field.bind(light, px, scale = light.viewWidth / size.width.coerceAtLeast(1f), empty)
-        drawRect(fieldBrush)
+    // Scaled layers are drawn with nearest filtering on some GPUs (Pixel 7: visible pixel
+    // steps), so a light blur at full resolution smooths the upscale.
+    Box(Modifier.fillMaxSize().blur((divisor * 0.9f).dp, BlurredEdgeTreatment.Rectangle)) {
+        Canvas(Modifier.scaledDown(divisor).graphicsLayer {
+            scaleX = divisor; scaleY = divisor
+            transformOrigin = TransformOrigin(0f, 0f)
+            compositingStrategy = CompositingStrategy.Offscreen
+        }) {
+            light.redraw
+            field.bind(light, px, scale = light.viewWidth / size.width.coerceAtLeast(1f), empty, noise)
+            drawRect(fieldBrush)
+        }
     }
     // 2. Grain: a baked tile, drawn under the drops and the content.
     if (light.grain) GrainLayer(light, px)
     // 3. Drops at half resolution, shaded only inside their rounded rects.
-    if (light.drops.any { it.width >= 1f }) Canvas(Modifier.scaledDown(2f).graphicsLayer {
+    if (light.drops.any { it.width >= 1f }) Canvas(Modifier.blur(0.8.dp, BlurredEdgeTreatment.Unbounded).scaledDown(2f).graphicsLayer {
         scaleX = 2f; scaleY = 2f
         transformOrigin = TransformOrigin(0f, 0f)
         compositingStrategy = CompositingStrategy.Offscreen
@@ -99,7 +104,7 @@ private fun ShaderLight(light: LiquidLight) {
         light.redraw
         light.geometry
         val scale = light.viewWidth / size.width.coerceAtLeast(1f)
-        drop.bind(light, px, scale, empty)
+        drop.bind(light, px, scale, empty, noise)
         for (i in 0..1) {
             val r = light.drops[i]
             if (r.width < 1f || r.height < 1f) continue
@@ -112,7 +117,8 @@ private fun ShaderLight(light: LiquidLight) {
 }
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-private fun RuntimeShader.bind(light: LiquidLight, px: Float, scale: Float, empty: Shader) {
+private fun RuntimeShader.bind(light: LiquidLight, px: Float, scale: Float, empty: Shader, noise: Shader) {
+    setInputShader("uNoise", noise)
     setFloatUniform("uRes", light.viewWidth, light.viewHeight)
     // Small, wrapped time: large values lose float precision on mobile GPUs.
     setFloatUniform("uT", light.t % 600f)
