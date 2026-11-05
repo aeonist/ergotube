@@ -12,6 +12,8 @@ The cinema chair is the recommended direction for further development: it ties t
 
 [Full generation prompts](PROMPTS.md).
 
+Further studies: [four warm colorways of the cinema sofa logo](../sofa-warm-colorways/README.md).
+
 ## Scope and validation
 
 All three are exploratory raster presentations, pending the user's selection. Visually reviewed the three outputs for distinct concepts, correct ErgoTube wordmarks and coherent monochrome samples. Production vector geometry, launcher masking and small-size optical correction remain part of a future implementation of the selected direction. Android source and resources are outside this proposal, so application builds, tests and emulator checks do not apply.
