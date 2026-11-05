@@ -1,0 +1,11 @@
+# Hand-written baseline profile: compile the app's UI, player and liquid-light code ahead of
+# time so the first scrolls are not interpreted. Libraries (Compose, Media3, Coil) ship their own.
+HSPLapp/freshtuber/ui/**->**(**)**
+Lapp/freshtuber/ui/**;
+HSPLapp/freshtuber/player/**->**(**)**
+Lapp/freshtuber/player/**;
+HSPLapp/freshtuber/data/**->**(**)**
+Lapp/freshtuber/data/**;
+HSPLapp/freshtuber/domain/**->**(**)**
+HSPLapp/freshtuber/innertube/**->**(**)**
+HSPLapp/freshtuber/MainActivity;->**(**)**

@@ -90,6 +90,9 @@ class LiquidLight(context: Context, private val scope: CoroutineScope) {
         private set
     var grain by mutableStateOf(true)
         private set
+    /** Battery saver: the field is rendered even smaller. */
+    var lowRes by mutableStateOf(false)
+        private set
 
     /** Accent hue in degrees, taken from the frame in focus. */
     var hue by mutableFloatStateOf(DefaultHue)
@@ -137,6 +140,12 @@ class LiquidLight(context: Context, private val scope: CoroutineScope) {
     private val sources = ArrayList<Source>()
     private var focusKey: Any? = null
     private var calm = 0f
+    private var framing = false
+    /** Feed hue waiting for the list to come to rest. */
+    private var pendingHue: Float? = null
+    private var stillFor = 0f
+    private var videoHueSet = false
+    private var videoHueAt = -100f
     private var focusTop = 0f
     private var videoCurrent: LightFrame? = null
     private var videoPrevious: LightFrame? = null
@@ -155,6 +164,7 @@ class LiquidLight(context: Context, private val scope: CoroutineScope) {
         }
         val nextRefraction = refraction && !saving
         val nextGrain = grain && !saving
+        lowRes = saving
         if (nextMotion != this.motion || nextRefraction != this.refraction || nextGrain != this.grain) {
             this.motion = nextMotion
             this.refraction = nextRefraction
@@ -205,20 +215,39 @@ class LiquidLight(context: Context, private val scope: CoroutineScope) {
     /** The video's thumbnail lights the page until the first real frame arrives. */
     fun setVideoThumbnail(url: String?) {
         videoGrabbed = false
+        videoHueSet = false
         if (url == null) return
         cache.get(url)?.let { pushVideo(it, grabbed = false); return }
         load(url) { frame -> if (!videoGrabbed) pushVideo(frame, grabbed = false) }
     }
 
     /** A low-resolution frame grabbed from the playing video. */
-    fun pushVideoFrame(bitmap: Bitmap) = pushVideo(LightFrame.of(bitmap), grabbed = true)
+    fun pushVideoFrame(bitmap: Bitmap) {
+        if (framing) return
+        framing = true
+        val copy = bitmap.copy(Bitmap.Config.ARGB_8888, false)
+        scope.launch {
+            try {
+                val frame = withContext(Dispatchers.Default) { LightFrame.of(copy) }
+                if (playerMode) pushVideo(frame, grabbed = true)
+            } finally { framing = false }
+        }
+    }
 
     private fun pushVideo(frame: LightFrame, grabbed: Boolean) {
         if (grabbed) videoGrabbed = true
         videoPrevious = videoCurrent ?: frame
         videoCurrent = frame
         videoFade = 0f
-        if (playerMode) frame.hue?.let { updateHue(it, threshold = 15f) }
+        // Recoloring the app recomposes every screen, so the player changes its accent only for
+        // the first real frame of a video and afterwards at most every 10 s for a big change.
+        if (playerMode) frame.hue?.let { h ->
+            val first = grabbed && !videoHueSet
+            if (first || (grabbed && t - videoHueAt > 10f)) {
+                if (updateHue(h, threshold = if (first) 3f else 30f)) videoHueAt = t
+                if (first) { videoHueSet = true; videoHueAt = t }
+            } else if (!grabbed && !videoHueSet) updateHue(h, threshold = 3f)
+        }
         poke()
     }
 
@@ -235,9 +264,10 @@ class LiquidLight(context: Context, private val scope: CoroutineScope) {
 
     fun poke() { wake.trySend(Unit) }
 
-    private fun updateHue(value: Float, threshold: Float) {
+    private fun updateHue(value: Float, threshold: Float): Boolean {
         val diff = abs(((value - hue + 540f) % 360f) - 180f)
-        if (diff >= threshold) hue = value
+        if (diff >= threshold) { hue = value; return true }
+        return false
     }
 
     private fun load(url: String, then: (LightFrame) -> Unit = {}) {
@@ -269,9 +299,10 @@ class LiquidLight(context: Context, private val scope: CoroutineScope) {
             val dt = if (last == 0L) 1f / 60f else ((now - last) / 1e9f).coerceIn(0f, 0.1f)
             last = now
             when (step(dt)) {
-                LightActivity.Busy -> { redraw++; lastDraw = now }
+                // The light is soft: 60 fps is plenty even on 120 Hz screens.
+                LightActivity.Busy -> if (now - lastDraw >= 15_000_000L) { redraw++; lastDraw = now }
                 // Slow drifting light is drawn at 30 fps.
-                LightActivity.Idle -> if (now - lastDraw >= 33_000_000L) { redraw++; lastDraw = now }
+                LightActivity.Idle -> if (now - lastDraw >= 32_000_000L) { redraw++; lastDraw = now }
                 LightActivity.Static -> { redraw++; wake.receive(); last = 0L }
             }
         }
@@ -306,7 +337,7 @@ class LiquidLight(context: Context, private val scope: CoroutineScope) {
         if (surge > 0f || wob > 0.01f) busy = true
         return when {
             busy -> LightActivity.Busy
-            speed > 0f -> LightActivity.Idle
+            speed > 0f || pendingHue != null -> LightActivity.Idle
             else -> LightActivity.Static
         }
     }
@@ -339,8 +370,11 @@ class LiquidLight(context: Context, private val scope: CoroutineScope) {
         for ((key, card) in cards) {
             val url = card.url ?: continue
             val r = card.rect
-            if (r.bottom < 0f || r.top > viewHeight || r.width < 1f) continue
-            if (cache.get(url) == null) { load(url); continue }
+            if (r.width < 1f) continue
+            val cached = cache.get(url)
+            // Prefetch the cards a screen above and below, so focus never waits for a picture.
+            if (cached == null) { if (r.bottom > -viewHeight && r.top < 2f * viewHeight) load(url); continue }
+            if (r.bottom < 0f || r.top > viewHeight) continue
             val d = abs(r.center.y - line)
             if (d < bestDistance) { bestDistance = d; best = card; bestKey = key }
         }
@@ -367,7 +401,7 @@ class LiquidLight(context: Context, private val scope: CoroutineScope) {
                 if (s.url == url) s.rect = best.rect
                 else cards.values.firstOrNull { it.url == s.url }?.let { s.rect = it.rect }
             }
-            cache.get(url)?.hue?.let { updateHue(it, threshold = 3f) }
+            cache.get(url)?.hue?.let { h -> pendingHue = if (abs(((h - hue + 540f) % 360f) - 180f) >= 3f) h else null }
         }
         var moving = false
         val om = Omega
@@ -397,6 +431,10 @@ class LiquidLight(context: Context, private val scope: CoroutineScope) {
         }
         if (maxW > 0f && rt - l >= 1f && bt - tp >= 1f) lightRect = Rect(l, tp, rt, bt)
         blur = (if (maxW > 0f) (minOf(1f, (1f - maxW) * 2f) * 2.6f) else 0f) + calm
+        // The accent follows the focused frame only once the list rests: recoloring while
+        // scrolling would recompose the whole app on every frame.
+        stillFor = if (moving || scrolled) 0f else stillFor + dt
+        pendingHue?.let { if (stillFor > 0.35f) { updateHue(it, threshold = 3f); pendingHue = null } }
         return moving || scrolled
     }
 

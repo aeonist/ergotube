@@ -69,62 +69,95 @@ fun LiquidBackground(light: LiquidLight, modifier: Modifier = Modifier) {
 @Composable
 private fun ShaderLight(light: LiquidLight) {
     val px = LocalDensity.current.density
-    val scene = remember { RuntimeShader(LiquidShaders.SCENE) }
-    val grain = remember { RuntimeShader(LiquidShaders.GRAIN) }
-    val sceneBrush = remember(scene) { ShaderBrush(scene) }
-    val grainBrush = remember(grain) { ShaderBrush(grain) }
+    val field = remember { RuntimeShader(LiquidShaders.FIELD) }
+    val drop = remember { RuntimeShader(LiquidShaders.DROP) }
+    val fieldBrush = remember(field) { ShaderBrush(field) }
+    val dropBrush = remember(drop) { ShaderBrush(drop) }
     val empty = remember {
         BitmapShader(Bitmap.createBitmap(1, 1, Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.GRAY) },
             Shader.TileMode.CLAMP, Shader.TileMode.CLAMP)
     }
-    // Half resolution: the layer is drawn at half size and scaled up by two.
-    Canvas(Modifier.halfSize().graphicsLayer {
+    // 1. The field: about a quarter of the screen width (a sixth with battery saver), scaled up.
+    val divisor = if (light.lowRes) 6f else 4f
+    Canvas(Modifier.scaledDown(divisor).graphicsLayer {
+        scaleX = divisor; scaleY = divisor
+        transformOrigin = TransformOrigin(0f, 0f)
+        compositingStrategy = CompositingStrategy.Offscreen
+    }) {
+        light.redraw
+        field.bind(light, px, scale = light.viewWidth / size.width.coerceAtLeast(1f), empty)
+        drawRect(fieldBrush)
+    }
+    // 2. Grain: a baked tile, drawn under the drops and the content.
+    if (light.grain) GrainLayer(light, px)
+    // 3. Drops at half resolution, shaded only inside their rounded rects.
+    if (light.drops.any { it.width >= 1f }) Canvas(Modifier.scaledDown(2f).graphicsLayer {
         scaleX = 2f; scaleY = 2f
         transformOrigin = TransformOrigin(0f, 0f)
         compositingStrategy = CompositingStrategy.Offscreen
     }) {
         light.redraw
-        val scale = light.viewWidth / size.width.coerceAtLeast(1f)
-        scene.setFloatUniform("uRes", light.viewWidth, light.viewHeight)
-        scene.setFloatUniform("uT", light.t)
-        scene.setFloatUniform("uFlow", light.flow)
-        scene.setFloatUniform("uDark", light.dark)
-        scene.setFloatUniform("uMode", if (light.playerMode) 1f else 0f)
-        scene.setFloatUniform("uBlur", light.blur)
-        scene.setFloatUniform("uSurge", light.surge)
-        scene.setFloatUniform("uWob", light.wob)
-        scene.setFloatUniform("uPx", px)
-        scene.setFloatUniform("uRefr", if (light.refraction) 1f else 0f)
-        scene.setFloatUniform("uScale", scale)
-        val w = light.slotWeights
-        scene.setFloatUniform("uW", w[0], w[1], w[2], w[3])
-        scene.setRect("uRect", light.lightRect)
-        scene.setRect("uVid", light.videoRect)
-        scene.setRect("uP0", light.drops[0])
-        scene.setRect("uP1", light.drops[1])
-        scene.setFloatUniform("uR0", light.dropRadii[0])
-        scene.setFloatUniform("uR1", light.dropRadii[1])
-        val sizes = LightFrame.Sizes
-        scene.setFloatUniform("uS0", sizes[0].first.toFloat(), sizes[0].second.toFloat())
-        scene.setFloatUniform("uS1", sizes[1].first.toFloat(), sizes[1].second.toFloat())
-        scene.setFloatUniform("uS2", sizes[2].first.toFloat(), sizes[2].second.toFloat())
-        Slots.forEachIndexed { slot, names ->
-            val shaders = light.slotFrames[slot]?.shaders()
-            names.forEachIndexed { level, name -> scene.setInputShader(name, shaders?.get(level) ?: empty) }
-        }
-        drawRect(sceneBrush)
-    }
-    if (light.grain) Canvas(Modifier.fillMaxSize()) {
         light.geometry
-        grain.setFloatUniform("uPx", px)
-        grain.setFloatUniform("uDark", light.dark)
-        grain.setFloatUniform("uMode", if (light.playerMode) 1f else 0f)
-        grain.setRect("uVid", light.videoRect)
-        grain.setRect("uP0", light.drops[0])
-        grain.setRect("uP1", light.drops[1])
-        grain.setFloatUniform("uR0", light.dropRadii[0])
-        grain.setFloatUniform("uR1", light.dropRadii[1])
-        drawRect(grainBrush)
+        val scale = light.viewWidth / size.width.coerceAtLeast(1f)
+        drop.bind(light, px, scale, empty)
+        for (i in 0..1) {
+            val r = light.drops[i]
+            if (r.width < 1f || r.height < 1f) continue
+            drop.setRect("uD", r)
+            drop.setFloatUniform("uRd", light.dropRadii[i])
+            drawRoundRect(dropBrush, Offset(r.left / scale, r.top / scale), Size(r.width / scale, r.height / scale),
+                CornerRadius(light.dropRadii[i] / scale))
+        }
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+private fun RuntimeShader.bind(light: LiquidLight, px: Float, scale: Float, empty: Shader) {
+    setFloatUniform("uRes", light.viewWidth, light.viewHeight)
+    // Small, wrapped time: large values lose float precision on mobile GPUs.
+    setFloatUniform("uT", light.t % 600f)
+    setFloatUniform("uFlow", light.flow)
+    setFloatUniform("uDark", light.dark)
+    setFloatUniform("uMode", if (light.playerMode) 1f else 0f)
+    setFloatUniform("uBlur", light.blur)
+    setFloatUniform("uSurge", light.surge)
+    setFloatUniform("uWob", light.wob)
+    setFloatUniform("uPx", px)
+    setFloatUniform("uRefr", if (light.refraction) 1f else 0f)
+    setFloatUniform("uScale", scale)
+    val w = light.slotWeights
+    setFloatUniform("uW", w[0], w[1], w[2], w[3])
+    setRect("uRect", light.lightRect)
+    setRect("uVid", light.videoRect)
+    setRect("uP0", light.drops[0])
+    setRect("uP1", light.drops[1])
+    setFloatUniform("uR0", light.dropRadii[0])
+    setFloatUniform("uR1", light.dropRadii[1])
+    val sizes = LightFrame.Sizes
+    setFloatUniform("uS0", sizes[0].first.toFloat(), sizes[0].second.toFloat())
+    setFloatUniform("uS1", sizes[1].first.toFloat(), sizes[1].second.toFloat())
+    setFloatUniform("uS2", sizes[2].first.toFloat(), sizes[2].second.toFloat())
+    Slots.forEachIndexed { slot, names ->
+        val shaders = light.slotFrames[slot]?.shaders()
+        names.forEachIndexed { level, name -> setInputShader(name, shaders?.get(level) ?: empty) }
+    }
+}
+
+/** The two grain tiles (day and night), baked off the main thread, crossfaded with the theme. */
+@Composable
+private fun GrainLayer(light: LiquidLight, px: Float) {
+    val tiles by androidx.compose.runtime.produceState<Pair<Bitmap, Bitmap>?>(null, px) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { GrainTile.make(px, dark = false) to GrainTile.make(px, dark = true) }
+    }
+    val pair = tiles ?: return
+    val brushes = remember(pair) {
+        pair.toList().map { ShaderBrush(BitmapShader(it, Shader.TileMode.REPEAT, Shader.TileMode.REPEAT)) }
+    }
+    Canvas(Modifier.fillMaxSize()) {
+        light.geometry
+        val d = light.dark
+        if (d < 1f) drawRect(brushes[0], alpha = 1f - d)
+        if (d > 0f) drawRect(brushes[1], alpha = d)
     }
 }
 
@@ -133,11 +166,13 @@ private val Slots = arrayOf(arrayOf("a0", "a1", "a2"), arrayOf("b0", "b1", "b2")
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 private fun RuntimeShader.setRect(name: String, r: Rect) = setFloatUniform(name, r.left, r.top, r.width, r.height)
 
-/** Measures the content at half the size it gets; it is drawn scaled by two. */
-private fun Modifier.halfSize() = layout { measurable, constraints ->
+/** Measures the content at 1/[divisor] of the size it gets; it is drawn scaled back up. */
+private fun Modifier.scaledDown(divisor: Float) = layout { measurable, constraints ->
     val width = if (constraints.hasBoundedWidth) constraints.maxWidth else 1
     val height = if (constraints.hasBoundedHeight) constraints.maxHeight else 1
-    val placeable = measurable.measure(Constraints.fixed(((width + 1) / 2).coerceAtLeast(1), ((height + 1) / 2).coerceAtLeast(1)))
+    val w = kotlin.math.ceil(width / divisor).toInt().coerceAtLeast(1)
+    val h = kotlin.math.ceil(height / divisor).toInt().coerceAtLeast(1)
+    val placeable = measurable.measure(Constraints.fixed(w, h))
     layout(width, height) { placeable.place(0, 0) }
 }
 

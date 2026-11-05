@@ -32,6 +32,8 @@ android {
             applicationIdSuffix = ".debug"
         }
         release {
+            // Signed with the local debug key so the user can sideload the fast build.
+            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
@@ -96,6 +98,8 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.androidx.webkit)
+    // Installs the app's and Compose's baseline profiles on sideloaded builds (ahead-of-time code).
+    implementation(libs.androidx.profileinstaller)
 
     // Compose
     implementation(platform(libs.androidx.compose.bom))
