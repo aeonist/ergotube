@@ -56,9 +56,11 @@ ${BILINEAR}
 float fbm(float2 p){float s=0.,a=.5;for(int i=0;i<${octaves};i++){s+=a*vn(p);p=p*2.03+17.1;a*=.5;}return s;}
 float3 lin(float3 c){return pow(max(c,0.),float3(2.2));}
 float3 srgb(float3 c){return pow(max(c,0.),float3(1./2.2));}
+// Caustics repeat every 2π; constant numerators (the mean of the wrapped position) keep the
+// tiles seamless where the reference left a visible join.
 float caus(float2 uv,float t){float2 p=mod(uv*6.2831,6.2831)-250.;float2 i=p;float c=1.;
  for(int n=0;n<4;n++){float tt=t*(1.-(3.5/float(n+1)));i=p+float2(cos(tt-i.x)+sin(tt+i.y),sin(tt-i.y)+cos(tt+i.x));
-  c+=1./length(float2(p.x/(sin(i.x+tt)/.005),p.y/(cos(i.y+tt)/.005)));}
+  c+=1./length(float2(-246.86/(sin(i.x+tt)/.005),-246.86/(cos(i.y+tt)/.005)));}
  c/=4.;c=1.17-pow(c,1.4);return pow(abs(c),8.);}
 float3 lv0(float2 uv){float2 q=uv*uS0;float3 s=float3(0.);
  if(uW.x>.0005)s+=uW.x*bl_a0(q); if(uW.y>.0005)s+=uW.y*bl_b0(q);
