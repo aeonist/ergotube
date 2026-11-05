@@ -1,80 +1,100 @@
 # ErgoTube
 
-Клиент YouTube для Android, которым удобно пользоваться одной рукой: все частые действия раскладываются дугой под большим пальцем. Вход в свой аккаунт Google без Google Play Services и microG, без рекламы, с фоновым воспроизведением.
+English · [Русский](README.ru.md)
 
-> Название ErgoTube выбрано 2 ноября 2026 года.
+ErgoTube is an Android YouTube client built for one-handed use. Everything you tap often sits in the lower part of the screen, next to your thumb, on the side of the hand you hold the phone with. You can sign in with your Google account without Google Play Services or microG, or use the app with no account at all. There are no ads, and playback continues in the background.
 
-Последняя сборка: **ErgoTube 1.0.0, этап 8**, [APK для установки](apk/ErgoTube-stage8-debug.apk).
+Current build: **1.2 "liquid 10"** (versionCode 13), branch `liquid-light-ui`.
 
-## Статус
+> ErgoTube is an independent project. It is not affiliated with, endorsed by or connected to YouTube or Google. YouTube is a trademark of Google LLC.
 
-4 ноября 2026 подготовлено отдельное [исследование визуального стиля](docs/design/heavenly-2026-11-04/proposal.md). После отклонения первых плоских HTML-макетов сделаны [три статичных визуальных эскиза](docs/design/heavenly-2026-11-04/visual-v2/index.html): «Засвеченная плёнка», «Жидкий опал», «Солнечная керамика», каждый в обеих темах. Это предложения для выбора; код приложения не менялся.
+## Features
 
-Основной план из восьми этапов выполнен. Приложение работает с аккаунтом Google и без него. Сборка, 114 обычных тестов, 12 Android-проверок (включая проверку «все кнопки внизу» для обеих рук) и Android lint проходят. На эмуляторе API 37 проверены настоящие скачивания, докачка, офлайн и фоновое воспроизведение; личный аккаунт для проверки не использовался.
+**Made for one hand**
+- A bottom dock on the side of your working hand: Home, Subscriptions, Shorts, Search and "Mine" (Watch later, Downloads, History, Playlists, Settings).
+- Every fixed control sits below 55% of the screen height. A test (`ReachRuleTest`) checks this for both hands.
+- No on-screen Back buttons. The system Back gesture and the dock are enough.
+- Hold a video card and flick it: up for Watch later, right to download, left for Not interested (with undo), down to share.
+- An optional classic layout that places buttons the way the official YouTube app does. Colours, effects and fonts stay configurable in both layouts.
 
-- Рекомендации, поиск у нижнего края, каналы, джемы, история и плейлисты аккаунта, комментарии, реакции и сохранение в плейлисты.
-- Видеоплеер с фоном, картинкой в картинке, мини-плеером, качеством, скоростью, субтитрами, жестами, повтором и таймером сна. В портретном режиме управление постоянно видно; настройки открываются у шестерёнки.
-- Shorts с постоянными действиями, двойным нажатием для лайка и видимым состоянием паузы. Вкладка и Shorts в обычных лентах настраиваются отдельно.
-- Подписки на устройстве без входа: сохранённая лента, анонимные RSS-проверки и уведомления новых видео с выбранных каналов. Android может откладывать фоновые проверки.
-- Скачивание из меню рекомендации, обычного видео и Shorts. Очередь, прогресс, пауза, продолжение, повтор и удаление; качество и загрузка по Wi-Fi — в настройках. Скачанные видео, обложки и доступные субтитры хранятся на устройстве и воспроизводятся без сети.
-- Светлая, тёмная, системная и AMOLED-темы; полный экран настроек, управление локальными каналами и уведомлениями, очистка кеша изображений и скрытых рекомендаций. SponsorBlock, DeArrow и Return YouTube Dislike можно отключать.
+**Watching**
+- The portrait player keeps the video at the top and a control pad under your thumb: play/pause, ±10 seconds (taps add up), hold for 2×, and seeking with a frame preview that gets more precise as you move your finger up.
+- Fullscreen opens when you turn the phone, swipe up on the pad or tap a button. The controls gather in a fan in the bottom corner.
+- Background playback, picture-in-picture, and a floating mini-player you can drag to any corner or drop on a cross to close.
+- Quality (including Auto, which adapts to your connection), speed, subtitles, loop and a sleep timer.
+- Fast start: one short request to YouTube before playback, and the next Short starts loading as soon as you lift your finger.
+- SponsorBlock with segments highlighted on the timeline, DeArrow titles and thumbnails, and Return YouTube Dislike. Each can be turned off.
 
-Версия 1.1 (вариант A, ветка `variant-a-ui`): радиальное меню заменено нижней панелью, прижатой к рабочей руке — Главная, Подписки, Shorts, Поиск и «Моё» (Позже, Скачанное, История, Плейлисты, Настройки). Всё, что нажимают, находится в нижней части экрана: фильтры, полоска каналов, поле поиска с подсказками. Кнопок «Назад» на экранах нет: для этого есть системная кнопка и панель разделов. Ролик в ленте можно зажать и махнуть: вверх — «Позже», вправо — «Скачать», влево — «Не интересует» (с отменой), вниз — «Поделиться». В плеере видео сверху, а снизу пульт: пауза, ±10 секунд (нажатия складываются), удержание для 2×, перемотка с кадром из видео, выше пальцем — точнее. Полный экран открывается поворотом телефона, взмахом вверх по пульту или кнопкой; управление собирается дугой в нижнем углу под пальцем. APK: `apk/ErgoTube-1.1-variantA-debug.apk`.
+**Your account, or none**
+- With an account: recommendations, subscriptions, channels, history, playlists, comments, likes and saving to playlists.
+- Without an account: local subscriptions on the device, RSS checks in the background and notifications about new videos from channels you choose.
+- Careful mode protects your main account from accidental actions.
 
-Версия 1.1.1: тонкие заголовки, категории и полоска каналов уезжают при прокрутке, подписки сами выбираются по аккаунту, свёрнутое видео плавает и перетаскивается в любой угол, пульт плеера компактнее и уезжает при чтении списка, вернулась кнопка «Закрепить» видео, в Shorts появилась перемотка. APK: `apk/ErgoTube-1.1.1-variantA-debug.apk`.
+**Downloads and offline**
+- Download any video or Short. A persistent queue with progress, pause, resume, retry and delete.
+- Artwork, captions and metadata are stored on the device, so downloaded videos play with no network.
 
-Тестовая сборка 1.2 liquid 08 (ветка `liquid-light-ui`): на таймлайне подсвечиваются отрезки SponsorBlock (спонсор, самореклама, просьба подписаться — пропускаются; заставка и концовка — только подсветка). В «Рука и вид» появились классическая тёмная тема YouTube и классический вид, где расположение кнопок повторяет YouTube: верхняя панель с поиском, обычное нижнее меню и кнопки на самом видео. Вид меняет только расположение кнопок; фон, эффекты, шрифт и цвета настраиваются отдельно в обоих видах (liquid 09). Для складных телефонов: лента в 2–3 колонки на развёрнутом экране, страница видео в две колонки, полноэкранный режим только по кнопке, а в полураскрытом положении видео сверху, кнопки снизу.
+**Look**
+- Light, dark, system and AMOLED themes, plus a classic YouTube dark theme.
+- Foldables: a 2–3 column feed when unfolded, a two-column video page, and video on top with controls below in tabletop posture.
 
-Тестовая сборка 1.2 liquid 10: видео и Shorts запускаются заметно быстрее. Перед роликом приложение теперь делает один короткий запрос к YouTube вместо семи подряд (поиск потоков занимает около 0,3 секунды вместо 2–3), качество выбирается по скорости интернета и плавно растёт во время просмотра, как в официальном приложении (в «Ещё» → «Качество» появился пункт «Авто»), на телефонах с аппаратным VP9 видео весит примерно на треть меньше, следующий Shorts начинает грузиться, как только палец отпущен. «Моё» открывается плитками в стиле Настроек, История растёт снизу вверх, как остальные списки, а свёрнутое видео можно закрыть, перетащив его на крестик внизу экрана.
+## Account warning
 
-Подробности реализации и проверки: [docs/DECISIONS.md](docs/DECISIONS.md). Импорт Takeout/NewPipe остаётся необязательным расширением вне выполненного основного плана.
+Signing in through an unofficial client **breaks YouTube's Terms of Service**. Google may show captchas, limit access for a while or suspend the account. The risk is small, but it is real. **Use a spare account, not your main one.** You can also use ErgoTube without signing in.
 
-## ⚠️ Важно про аккаунт
+ErgoTube collects no data. Account cookies are stored on the phone encrypted with a key in the Android Keystore and are sent only to youtube.com and googlevideo.com. Cloud backup of app data is turned off.
 
-Вход в аккаунт через неофициальный клиент **нарушает условия использования YouTube**. Google может показывать капчи, временно ограничить доступ или заблокировать аккаунт. Риск небольшой, но он есть. **Рекомендуем входить отдельным, запасным аккаунтом**, а не основным. Пользоваться приложением можно и вовсе без входа.
+## Install
 
-Приложение не собирает никаких данных. Cookies аккаунта хранятся на телефоне в зашифрованном виде (ключ в Android Keystore) и отправляются только на youtube.com и googlevideo.com. Резервное копирование приложения в облако выключено.
+1. Download the APK from the [Releases](../../releases) page of this repository.
+2. Open the file on your phone. Android will ask you to allow installs from this source; allow it.
+3. Android 8.0 (API 26) or newer is required.
 
-## Установка
+Debug builds install as `app.freshtuber.debug` and can live next to a release build.
 
-Открой [готовый APK](apk/ErgoTube-stage8-debug.apk) на телефоне. Android попросит разрешить установку из этого источника. Нужен Android 8.0 или новее.
+## Build from source
 
-## Сборка из исходников
+You need:
 
-Нужны:
+- JDK 21 (for example `brew install openjdk@21` on macOS);
+- Android SDK with platform `android-37.0` and build-tools 37 (through Android Studio or `sdkmanager`).
 
-- JDK 21 (например, `brew install openjdk@21` на macOS);
-- Android SDK с платформой `android-37.0` и build-tools 37 (через Android Studio или `sdkmanager`).
+Point Gradle at the SDK with `sdk.dir=...` in `local.properties` or the `ANDROID_HOME` variable. Then:
 
 ```bash
 export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
-```
-
-Путь к SDK укажи в `local.properties` (`sdk.dir=...`) или в переменной `ANDROID_HOME`. Затем:
-
-```bash
 ./gradlew assembleDebug
 ```
 
-Готовый файл: `app/build/outputs/apk/debug/app-debug.apk`.
+The APK appears at `app/build/outputs/apk/debug/app-debug.apk`. Install it with `adb install -r app/build/outputs/apk/debug/app-debug.apk` or copy it to the phone.
 
-Тесты:
+A minified release build: `./gradlew assembleRelease`. Without your own signing config it is signed with the debug key, which is fine for personal use but not for distribution.
+
+### Tests
 
 ```bash
 ./gradlew testDebugUnitTest lintDebug
+./gradlew connectedDebugAndroidTest   # needs an emulator or a device
 ```
 
-Android-проверки запускаются на эмуляторе командой `./gradlew connectedDebugAndroidTest`. Два сценария скачивания обращаются к настоящим общедоступным видео YouTube и требуют сети. Проверки аккаунта используют структурные тестовые ответы; вход в личный аккаунт при автоматической проверке не выполняется.
+InnerTube parsers are tested against saved responses in `app/src/test/resources/innertube`. Two download scenarios in the instrumentation tests use real public YouTube videos and need a network. Account checks use structural fixtures; automated tests never sign in to a personal account.
 
-## На чём построено
+## Project layout
 
-- [NewPipeExtractor](https://github.com/TeamNewPipe/NewPipeExtractor): получение видеопотоков и данных без авторизации.
-- Jetpack Compose и Material 3, Media3 (ExoPlayer), Room, DataStore, Hilt, OkHttp, Coil.
+- `app/` — the single Android module, package `app.freshtuber` (the project's working name before ErgoTube).
+- `app/src/main/java/app/freshtuber/innertube/` — ErgoTube's own InnerTube layer; parsers live in `innertube/parse`.
+- `docs/DECISIONS.md` — every product and technical decision and the stage plan.
+- `docs/BACKLOG.md` — open issues.
+- `PRODUCT.md` — who the app is for and its principles.
 
-Идеи и форматы данных сверяются с открытыми проектами [NewPipe](https://github.com/TeamNewPipe/NewPipe), [LibreTube](https://github.com/libre-tube/LibreTube), [Metrolist](https://github.com/mostafaalagamy/Metrolist) и InnerTune.
+## Built with
 
-## Лицензия
+- Kotlin, Jetpack Compose and Material 3
+- Media3 (ExoPlayer), Room, DataStore, WorkManager, Hilt, OkHttp, Coil
+- [NewPipeExtractor](https://github.com/TeamNewPipe/NewPipeExtractor) for streams and anonymous data
 
-[GNU GPL v3.0](LICENSE). Проект использует NewPipeExtractor, который распространяется под GPLv3, поэтому ErgoTube тоже распространяется под GPLv3.
+Data formats were checked against open projects: [NewPipe](https://github.com/TeamNewPipe/NewPipe), [LibreTube](https://github.com/libre-tube/LibreTube), [Metrolist](https://github.com/mostafaalagamy/Metrolist), [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [YouTube.js](https://github.com/LuanRT/YouTube.js).
 
-ErgoTube не связан с YouTube и Google. YouTube является товарным знаком Google LLC.
+## License
+
+[GNU GPL v3.0](LICENSE). ErgoTube uses NewPipeExtractor, which is GPLv3, so ErgoTube is GPLv3 too.
