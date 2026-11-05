@@ -12,8 +12,10 @@ enum class AppFeature(val key: String, val default: Boolean) {
     LiquidRefraction("liquid_refraction", true),
     /** Fine static grain over the background light. */
     LiquidGrain("liquid_grain", true),
-    /** With the system battery saver on, motion only during transitions, no refraction, no grain. */
+    /** With the system battery saver on, the background switches to one flat color. */
     LiquidPowerSaver("liquid_power_saver", true),
+    /** Energy saving: one flat color averaged from the video instead of the liquid light. */
+    LiquidFlat("liquid_flat", false),
 }
 
 /** How the background light moves. */

@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
@@ -56,13 +57,33 @@ fun LiquidBackground(light: LiquidLight, modifier: Modifier = Modifier) {
     val powerSave = rememberPowerSave()
     SideEffect {
         light.configure(preferences.motion, preferences.enabled(AppFeature.LiquidRefraction), preferences.enabled(AppFeature.LiquidGrain),
-            powerSave, preferences.enabled(AppFeature.LiquidPowerSaver))
+            powerSave, preferences.enabled(AppFeature.LiquidPowerSaver), preferences.enabled(AppFeature.LiquidFlat))
     }
     if (light.covered) return
     LaunchedEffect(light) { light.run() }
     Box(modifier.fillMaxSize().onSizeChanged { light.viewWidth = it.width.toFloat(); light.viewHeight = it.height.toFloat(); light.poke() }) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) ShaderLight(light) else FallbackLight(light)
+        when {
+            light.flat -> FlatLight(light)
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> ShaderLight(light)
+            else -> FallbackLight(light)
+        }
     }
+}
+
+/**
+ * Energy saving: one color, the mean of the picture in focus, and plain drops. Nothing moves;
+ * the color only fades when the picture changes.
+ */
+@Composable
+private fun FlatLight(light: LiquidLight) {
+    val dropArgb = androidx.compose.material3.MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f).toArgb()
+    Canvas(Modifier.fillMaxSize()) { drawFlatLight(light, dropArgb) }
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFlatLight(light: LiquidLight, dropArgb: Int) {
+    light.redraw
+    drawRect(androidx.compose.ui.graphics.Color(light.flatColor()))
+    drawFlatDrops(light, dropArgb)
 }
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -201,13 +222,21 @@ private fun FallbackLight(light: LiquidLight) {
                 alpha = (weight * strength).coerceIn(0f, 1f), filterQuality = FilterQuality.Low)
         }
     }
-    Canvas(Modifier.fillMaxSize()) {
-        light.geometry
-        for (i in 0..1) {
-            val r = light.drops[i]
-            if (r.width < 1f || r.height < 1f) continue
-            drawRoundRect(drop.copy(alpha = 0.86f), Offset(r.left, r.top), Size(r.width, r.height), CornerRadius(light.dropRadii[i]))
-        }
+    // The color goes in as an Int: R8 once merged a lambda capturing (light, Color) with a
+    // Material lambda capturing (Color, State) and emitted code the verifier rejects, which
+    // crashed every bottom sheet in release builds. Drawing in a plain function avoids it.
+    val dropArgb = drop.copy(alpha = 0.86f).toArgb()
+    Canvas(Modifier.fillMaxSize()) { drawFlatDrops(light, dropArgb) }
+}
+
+/** The navigation and remote drops as plain rounded rects. */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFlatDrops(light: LiquidLight, argb: Int) {
+    light.geometry
+    val color = androidx.compose.ui.graphics.Color(argb)
+    for (i in 0..1) {
+        val r = light.drops[i]
+        if (r.width < 1f || r.height < 1f) continue
+        drawRoundRect(color, Offset(r.left, r.top), Size(r.width, r.height), CornerRadius(light.dropRadii[i]))
     }
 }
 

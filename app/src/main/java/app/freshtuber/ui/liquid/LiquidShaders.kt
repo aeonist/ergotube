@@ -85,8 +85,10 @@ float3 throwLight(float2 p,out float k){
   float lod=4.5+3.*clamp(d*3.,0.,1.)+uBlur; float2 uv=clamp(.5+(q-.5)/(1.+d*1.6),.03,.97);
   k=exp(-d*3.4); return frame(uv,lod);
  }
- float d=max(p.y-(uVid.y+uVid.w),0.)/uRes.y;
- float2 pe=float2(p.x,mix(p.y,uVid.y+uVid.w*.94,clamp(d*1.2,0.,.97)));
+ // The video lights the space below it and, for a square Short, above it as well.
+ float below=max(p.y-(uVid.y+uVid.w),0.);float above=max(uVid.y-p.y,0.);
+ float d=max(below,above)/uRes.y;float ey=below>0.?uVid.y+uVid.w*.94:uVid.y+uVid.w*.06;
+ float2 pe=float2(p.x,mix(p.y,ey,clamp(d*1.2,0.,.97)));
  pe.x=mix(pe.x,uVid.x+uVid.z*.5,clamp(d*.6,0.,.6));
  k=exp(-d*2.4);
  float2 uv=clamp((pe-uVid.xy)/uVid.zw,.03,.97);

@@ -36,6 +36,9 @@ object Reach {
 
     /** Height of the floating navigation drop. */
     val DockHeight: Dp = 68.dp
+
+    /** The slim dock drawn over a Short: icons only. */
+    val CompactDockHeight: Dp = 50.dp
 }
 
 /** The working hand from settings; controls press to this side. */

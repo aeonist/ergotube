@@ -118,6 +118,8 @@
     <string name="player_fullscreen">Во весь экран</string>
     <string name="player_exit_fullscreen">Выйти из полноэкранного режима</string>
     <string name="player_close">Закрыть плеер</string>
+    <string name="player_open">Открыть видео</string>
+    <string name="player_resize">Изменить размер окна</string>
     <string name="player_seconds">%1$s с</string>
     <string name="player_sponsor_skipped">Пропущена реклама от автора</string>
     <string name="player_quality">Качество</string>
@@ -227,6 +229,8 @@
     <string name="settings_font_serif">С засечками</string>
     <string name="settings_font_sans">Без засечек</string>
     <string name="settings_energy">Энергосбережение</string>
+    <string name="settings_flat">Экономный фон</string>
+    <string name="settings_flat_hint">Один спокойный цвет, усреднённый из видео, вместо живого света. Почти не тратит батарею.</string>
     <string name="settings_motion">Движение фона</string>
     <string name="settings_motion_always">Всегда</string>
     <string name="settings_motion_transition">При перетекании</string>
@@ -236,5 +240,5 @@
     <string name="settings_grain">Зерно</string>
     <string name="settings_grain_hint">Мелкое плёночное зерно на фоне.</string>
     <string name="settings_power_saver">Включать вместе с системным энергосбережением</string>
-    <string name="settings_power_saver_hint">Когда включено энергосбережение: движение только при перетекании, без преломления и зерна.</string>
+    <string name="settings_power_saver_hint">Когда включено системное энергосбережение, фон становится одним цветом.</string>
 </resources>

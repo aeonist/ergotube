@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.toArgb
 import app.freshtuber.data.settings.BackgroundMotion
 import app.freshtuber.ui.theme.Oklab
 import coil3.SingletonImageLoader
@@ -37,7 +38,7 @@ import kotlin.math.pow
  * One picture as the background light sees it: three pre-blurred sizes stand in for mipmap
  * levels, because AGSL has no textureLod. Bilinear sampling between them gives the blur.
  */
-class LightFrame(val levels: Array<Bitmap>, val hue: Float?) {
+class LightFrame(val levels: Array<Bitmap>, val hue: Float?, val average: FloatArray = floatArrayOf(0.5f, 0.5f, 0.5f)) {
     private var shaders: Array<Shader>? = null
 
     @RequiresApi(Build.VERSION_CODES.TIRAMISU)
@@ -57,7 +58,19 @@ class LightFrame(val levels: Array<Bitmap>, val hue: Float?) {
             val l2 = Bitmap.createScaledBitmap(Bitmap.createScaledBitmap(l1, 6, 4, true), 3, 2, true)
             val pixels = IntArray(48 * 27)
             l0.getPixels(pixels, 0, 48, 0, 0, 48, 27)
-            return LightFrame(arrayOf(l0, l1, l2), Oklab.dominantHue(pixels))
+            return LightFrame(arrayOf(l0, l1, l2), Oklab.dominantHue(pixels), averageLinear(pixels))
+        }
+
+        /** Mean color in linear light, for the flat battery-saving background. */
+        fun averageLinear(pixels: IntArray): FloatArray {
+            var r = 0f; var g = 0f; var b = 0f
+            for (p in pixels) {
+                r += Oklab.toLinear(((p shr 16) and 0xFF) / 255f)
+                g += Oklab.toLinear(((p shr 8) and 0xFF) / 255f)
+                b += Oklab.toLinear((p and 0xFF) / 255f)
+            }
+            val n = pixels.size.coerceAtLeast(1).toFloat()
+            return floatArrayOf(r / n, g / n, b / n)
         }
     }
 }
@@ -92,6 +105,9 @@ class LiquidLight(context: Context, private val scope: CoroutineScope) {
         private set
     /** Battery saver: the field is rendered even smaller. */
     var lowRes by mutableStateOf(false)
+        private set
+    /** Energy saving: one flat color averaged from the picture in focus, no shader at all. */
+    var flat by mutableStateOf(false)
         private set
 
     /** Accent hue in degrees, taken from the frame in focus. */
@@ -155,34 +171,75 @@ class LiquidLight(context: Context, private val scope: CoroutineScope) {
     private var animatorsOn = true
     private val wake = Channel<Unit>(Channel.CONFLATED)
 
-    fun configure(motion: BackgroundMotion, refraction: Boolean, grain: Boolean, powerSave: Boolean, followPowerSave: Boolean) {
-        val saving = powerSave && followPowerSave
+    fun configure(motion: BackgroundMotion, refraction: Boolean, grain: Boolean, powerSave: Boolean, followPowerSave: Boolean, flat: Boolean = false) {
+        val nextFlat = flat || (powerSave && followPowerSave)
         val nextMotion = when {
-            !animatorsOn -> BackgroundMotion.Off
-            saving && motion == BackgroundMotion.Always -> BackgroundMotion.OnTransition
+            !animatorsOn || nextFlat -> BackgroundMotion.Off
             else -> motion
         }
-        val nextRefraction = refraction && !saving
-        val nextGrain = grain && !saving
-        lowRes = saving
-        if (nextMotion != this.motion || nextRefraction != this.refraction || nextGrain != this.grain) {
+        val nextRefraction = refraction && !nextFlat
+        val nextGrain = grain && !nextFlat
+        lowRes = false
+        if (nextMotion != this.motion || nextRefraction != this.refraction || nextGrain != this.grain || nextFlat != this.flat) {
             this.motion = nextMotion
             this.refraction = nextRefraction
             this.grain = nextGrain
+            this.flat = nextFlat
             geometry++
             poke()
         }
     }
 
+    private var themeDark = false
+    private var immersive = false
+
     /** Dark theme target; switching sends a surge through the light. */
     fun setDark(isDark: Boolean) {
-        val target = if (isDark) 1f else 0f
+        themeDark = isDark
+        applyDark()
+    }
+
+    /** Shorts are always lit as at night, whatever the theme. */
+    fun setImmersive(value: Boolean) {
+        if (immersive == value) return
+        immersive = value
+        applyDark()
+    }
+
+    private fun applyDark() {
+        val target = if (themeDark || immersive) 1f else 0f
         if (darkTarget < 0f) { darkTarget = target; dark = target; return }
         if (target != darkTarget) {
             darkTarget = target
-            if (motion != BackgroundMotion.Off) surge = 1f
+            if (motion != BackgroundMotion.Off && !immersive) surge = 1f
             poke()
         }
+    }
+
+    private val flatRgb = floatArrayOf(-1f, 0f, 0f)
+
+    /**
+     * The flat background color: the weighted mean of the pictures in focus, laid over the
+     * day or night ground. Returns ARGB.
+     */
+    fun flatColor(): Int {
+        var r = 0f; var g = 0f; var b = 0f; var sum = 0f
+        for (i in 0 until 4) {
+            val frame = slotFrames[i] ?: continue
+            val w = slotWeights[i]
+            if (w <= 0f) continue
+            r += frame.average[0] * w; g += frame.average[1] * w; b += frame.average[2] * w; sum += w
+        }
+        if (sum > 0f) { flatRgb[0] = r / sum; flatRgb[1] = g / sum; flatRgb[2] = b / sum }
+        else if (flatRgb[0] < 0f) { flatRgb[0] = 0.4f; flatRgb[1] = 0.36f; flatRgb[2] = 0.3f }
+        // The mean of a busy picture is greyish: keep its hue, lift the chroma a little and fix
+        // the lightness, so the color is calm but clearly the video's.
+        val lab = Oklab.fromLinear(flatRgb[0], flatRgb[1], flatRgb[2])
+        val chroma = (kotlin.math.hypot(lab[1], lab[2]) * 1.8f).coerceAtMost(0.075f)
+        val hueDegrees = Math.toDegrees(kotlin.math.atan2(lab[2], lab[1]).toDouble()).toFloat()
+        val day = Oklab.lch(0.88f, chroma, hueDegrees)
+        val night = Oklab.lch(0.22f, chroma * 0.9f, hueDegrees)
+        return androidx.compose.ui.graphics.lerp(day, night, dark).toArgb()
     }
 
     fun setRouteCovered(value: Boolean) { routeCovered = value; covered = routeCovered || playerCovered }

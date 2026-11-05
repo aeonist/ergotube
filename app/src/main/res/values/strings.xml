@@ -120,6 +120,8 @@
     <string name="player_fullscreen">Full screen</string>
     <string name="player_exit_fullscreen">Exit full screen</string>
     <string name="player_close">Close player</string>
+    <string name="player_open">Open video</string>
+    <string name="player_resize">Resize window</string>
     <string name="player_seconds">%1$s s</string>
     <string name="player_sponsor_skipped">Skipped a sponsor segment</string>
     <string name="player_quality">Quality</string>
@@ -229,6 +231,8 @@
     <string name="settings_font_serif">Serif</string>
     <string name="settings_font_sans">Sans serif</string>
     <string name="settings_energy">Energy saving</string>
+    <string name="settings_flat">Battery-friendly background</string>
+    <string name="settings_flat_hint">One calm color averaged from the video instead of the moving light. Uses almost no battery.</string>
     <string name="settings_motion">Background motion</string>
     <string name="settings_motion_always">Always</string>
     <string name="settings_motion_transition">While flowing between videos</string>
@@ -238,5 +242,5 @@
     <string name="settings_grain">Grain</string>
     <string name="settings_grain_hint">Fine film grain over the background light.</string>
     <string name="settings_power_saver">Follow system battery saver</string>
-    <string name="settings_power_saver_hint">With battery saver on: motion only while flowing, no refraction, no grain.</string>
+    <string name="settings_power_saver_hint">With battery saver on, the background becomes one flat color.</string>
 </resources>

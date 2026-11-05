@@ -3,6 +3,7 @@ package app.freshtuber.ui.navigation
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -95,6 +96,39 @@ fun AppDock(selected: DockTab?, mineOpen: Boolean, left: Boolean, shorts: Boolea
     }
 }
 
+/**
+ * The dock over a Short: a slim row of icons on a soft shade, so the video keeps the screen.
+ * Same order and buttons as [AppDock]; labels go to TalkBack only.
+ */
+@Composable
+fun CompactDock(selected: DockTab?, mineOpen: Boolean, left: Boolean, shorts: Boolean, onSelect: (DockTab) -> Unit, modifier: Modifier = Modifier) {
+    Column(modifier.fillMaxWidth().background(androidx.compose.ui.graphics.Brush.verticalGradient(
+        listOf(androidx.compose.ui.graphics.Color.Transparent, androidx.compose.ui.graphics.Color(0x8C000000))))) {
+        Row(
+            Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+                .padding(horizontal = 14.dp).fillMaxWidth().height(Reach.CompactDockHeight),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            DockLayout.order(left, shorts).forEach { tab ->
+                val active = if (tab == DockTab.Mine) mineOpen || (selected == DockTab.Mine) else selected == tab && !mineOpen
+                val label = stringResource(tab.labelRes)
+                val description = if (tab == DockTab.Mine) stringResource(R.string.nav_mine_description) else label
+                Box(Modifier.weight(1f).fillMaxHeight().testTag("dock:${tab.name}")
+                    .semantics { this.selected = active; contentDescription = description }
+                    .clickable(interactionSource = remember { MutableInteractionSource() }, indication = ripple(bounded = false, radius = 24.dp),
+                        role = Role.Tab) { onSelect(tab) },
+                    contentAlignment = Alignment.Center) {
+                    Icon(if (active) tab.selectedIcon else tab.icon, null, Modifier.size(24.dp),
+                        tint = if (active) androidx.compose.ui.graphics.Color.White else androidx.compose.ui.graphics.Color.White.copy(alpha = 0.72f))
+                    if (active) Box(Modifier.align(Alignment.BottomCenter).padding(bottom = 6.dp).size(4.dp)
+                        .background(androidx.compose.ui.graphics.Color.White, androidx.compose.foundation.shape.CircleShape))
+                }
+            }
+        }
+        Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
+    }
+}
+
 @Composable
 private fun DockButton(tab: DockTab, active: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val label = stringResource(tab.labelRes)
@@ -117,17 +151,22 @@ private fun DockButton(tab: DockTab, active: Boolean, modifier: Modifier, onClic
     }
 }
 
-/** «Моё»: a short plain list right above the dock. The dock stays visible and usable. */
+/**
+ * «Моё»: a short list right above the dock, a frosted pane over the blurred screen (the
+ * blur is applied to the content by the caller). The dock stays visible and usable.
+ */
 @Composable
-fun MineList(downloads: Int, onPick: (MineItem) -> Unit, onDismiss: () -> Unit) {
+fun MineList(downloads: Int, onPick: (MineItem) -> Unit, onDismiss: () -> Unit, bottomInset: androidx.compose.ui.unit.Dp = 0.dp) {
     BackHandler(onBack = onDismiss)
     Box(Modifier.fillMaxSize()) {
         // Tap outside closes; not a control of its own (Back does the same for TalkBack).
-        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.5f))
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.18f))
             .pointerInput(onDismiss) { detectTapGestures { onDismiss() } })
-        Surface(Modifier.align(Alignment.BottomCenter).fillMaxWidth(), color = MaterialTheme.colorScheme.surfaceContainer,
-            shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)) {
-            Column(Modifier.padding(top = 12.dp, bottom = 8.dp)) {
+        val glass = MaterialTheme.colorScheme.surfaceContainer
+        Surface(Modifier.align(Alignment.BottomCenter).padding(start = 14.dp, end = 14.dp, bottom = 8.dp + bottomInset).fillMaxWidth()
+            .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f), RoundedCornerShape(26.dp)),
+            color = glass.copy(alpha = 0.62f), shape = RoundedCornerShape(26.dp)) {
+            Column(Modifier.padding(vertical = 8.dp)) {
                 DockLayout.mineRows().forEach { item ->
                     Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("mine:${item.name}").clickable { onPick(item) }.padding(horizontal = 20.dp),
                         verticalAlignment = Alignment.CenterVertically) {

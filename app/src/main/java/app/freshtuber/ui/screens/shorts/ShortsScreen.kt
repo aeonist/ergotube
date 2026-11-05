@@ -55,6 +55,9 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -163,11 +166,26 @@ class ShortsViewModel @Inject constructor(
     }
 }
 
+/** Pictures wider than this (width / height) are shown whole, with the light above and below. */
+private const val FitAspect = 0.65f
+
 @Composable
 fun ShortsScreen(navigation: FeedNavigation, onSignIn: () -> Unit, viewModel: ShortsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val playerState by viewModel.controller.state.collectAsStateWithLifecycle()
-    DisposableEffect(Unit) { onDispose { viewModel.leave() } }
+    val inPip = LocalInPictureInPicture.current
+    val light = app.freshtuber.ui.liquid.LocalLiquidLight.current
+    DisposableEffect(Unit) {
+        // Leaving the app from a Short also turns it into a floating window.
+        viewModel.controller.setVideoScreen(true)
+        onDispose { viewModel.controller.setVideoScreen(false); viewModel.leave() }
+    }
+    // The Short lights the page like the player does, always in night tones.
+    DisposableEffect(light) {
+        light?.enterPlayer()
+        light?.setImmersive(true)
+        onDispose { light?.setPlayerCovered(false); light?.setImmersive(false); light?.exitPlayer() }
+    }
     when {
         state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -179,6 +197,18 @@ fun ShortsScreen(navigation: FeedNavigation, onSignIn: () -> Unit, viewModel: Sh
                 viewModel.playAt(pagerState.settledPage)
                 if (pagerState.settledPage >= state.items.size - 5) viewModel.loadMore()
             }
+            val settledItem = state.items.getOrNull(pagerState.settledPage)
+            LaunchedEffect(light, settledItem?.videoId) { light?.setVideoThumbnail(settledItem?.thumbnailUrl) }
+            // Next / previous from the floating window's buttons.
+            val count by rememberUpdatedState(state.items.size)
+            LaunchedEffect(pagerState) {
+                viewModel.controller.shortSteps.collect { step ->
+                    val target = (pagerState.settledPage + step).coerceIn(0, (count - 1).coerceAtLeast(0))
+                    if (target != pagerState.settledPage) pagerState.scrollToPage(target)
+                }
+            }
+            val dockSpace = app.freshtuber.ui.components.Reach.CompactDockHeight +
+                with(androidx.compose.ui.platform.LocalDensity.current) { WindowInsets.navigationBars.getBottom(this).toDp() }
             var doubleTapLike by remember { mutableStateOf<(() -> Unit)?>(null) }
             Box(Modifier.fillMaxSize()) {
                 VerticalPager(state = pagerState, modifier = Modifier.fillMaxSize(), key = { state.items[it].videoId }) { page ->
@@ -187,16 +217,19 @@ fun ShortsScreen(navigation: FeedNavigation, onSignIn: () -> Unit, viewModel: Sh
                     ShortPage(item = item,
                         player = if (now != null && page == pagerState.settledPage) viewModel.controller.player else null,
                         loading = playerState.loadingId == item.videoId,
+                        active = page == pagerState.settledPage,
+                        inPip = inPip,
+                        bottomSpace = if (inPip) 0.dp else dockSpace,
                         onTap = viewModel.controller::togglePlayPause,
                         onDoubleTap = { if (page == pagerState.settledPage) doubleTapLike?.invoke() })
                 }
-                state.items.getOrNull(pagerState.settledPage)?.let { item ->
+                if (!inPip) state.items.getOrNull(pagerState.settledPage)?.let { item ->
                     key(item.videoId) {
                         val owner = remember { object : ViewModelStoreOwner { override val viewModelStore = ViewModelStore() } }
                         DisposableEffect(owner) { onDispose { owner.viewModelStore.clear() } }
                         val actions: VideoViewModel = viewModel(viewModelStoreOwner = owner, factory = viewModel.actionsFactory(item.videoId))
                         DisposableEffect(actions) { doubleTapLike = actions::like; onDispose { doubleTapLike = null } }
-                        ShortActions(item.videoId, actions, navigation, onSignIn)
+                        ShortActions(item.videoId, actions, navigation, onSignIn, dockSpace)
                     }
                 }
                 playerState.error?.let { error ->
@@ -207,25 +240,42 @@ fun ShortsScreen(navigation: FeedNavigation, onSignIn: () -> Unit, viewModel: Sh
     }
 }
 
+/**
+ * One Short. A tall picture fills the screen (cropped a little at the sides, as on YouTube);
+ * a square or wide one is shown whole and the background light fills the space around it.
+ */
 @Composable
 private fun ShortPage(
     item: ShortItem,
     player: Player?,
     loading: Boolean,
+    active: Boolean,
+    inPip: Boolean,
+    bottomSpace: androidx.compose.ui.unit.Dp,
     onTap: () -> Unit,
     onDoubleTap: () -> Unit,
 ) {
     val progress = player?.let { rememberProgress(it) }
     val tapLabel = stringResource(if (progress?.isPlaying == true) R.string.player_pause else R.string.player_play)
+    val light = app.freshtuber.ui.liquid.LocalLiquidLight.current
+    val aspect = player?.let { rememberVideoAspect(it, item.videoId) }
+    val fit = !inPip && aspect != null && aspect > FitAspect
+    // A full-screen picture hides the light anyway, so it is not drawn at all.
+    if (active) SideEffect { light?.setPlayerCovered(!fit) }
+    val grab: ((android.graphics.Bitmap) -> Unit)? = if (active) light?.let { l -> { bitmap -> l.pushVideoFrame(bitmap) } } else null
     Box(
         Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(if (fit) Color.Transparent else Color.Black)
             .semantics { contentDescription = tapLabel; role = Role.Button; onClick(label = tapLabel) { onTap(); true } }
             .pointerInput(onTap, onDoubleTap) { detectTapGestures(onTap = { onTap() }, onDoubleTap = { onDoubleTap() }) },
     ) {
         if (player != null) {
-            VideoSurface(player, Modifier.fillMaxSize(), zoomToFill = true)
+            // One surface in both shapes, so switching never recreates it.
+            Box((if (fit && aspect != null) Modifier.align(Alignment.Center).fillMaxWidth().aspectRatio(aspect) else Modifier.fillMaxSize())
+                .onGloballyPositioned { if (active && fit) light?.setVideoRect(it.boundsInRoot()) }) {
+                VideoSurface(player, Modifier.fillMaxSize(), zoomToFill = !fit, onFrame = grab)
+            }
         } else {
             AsyncImage(
                 model = item.thumbnailUrl,
@@ -234,9 +284,10 @@ private fun ShortPage(
                 modifier = Modifier.fillMaxSize(),
             )
         }
-        if (player != null && progress != null && progress.durationMs > 0) ShortsTimeline(player, progress, Modifier.align(Alignment.BottomCenter))
+        if (!inPip && player != null && progress != null && progress.durationMs > 0)
+            ShortsTimeline(player, progress, Modifier.align(Alignment.BottomCenter).padding(bottom = bottomSpace))
         if (loading || progress?.buffering == true) CircularProgressIndicator(Modifier.align(Alignment.Center), color = Color.White)
-        else if (player != null && progress != null && !progress.isPlaying && !player.playWhenReady && progress.durationMs > 0) {
+        else if (!inPip && player != null && progress != null && !progress.isPlaying && !player.playWhenReady && progress.durationMs > 0) {
             Icon(Icons.Rounded.PlayArrow, null, tint = Color.White,
                 modifier = Modifier.align(Alignment.Center).size(72.dp).background(Color(0xAA000000), CircleShape).padding(16.dp))
         }
@@ -247,7 +298,7 @@ private fun ShortPage(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ShortActions(id: String, viewModel: VideoViewModel, navigation: FeedNavigation, onSignIn: () -> Unit) {
+private fun ShortActions(id: String, viewModel: VideoViewModel, navigation: FeedNavigation, onSignIn: () -> Unit, bottomSpace: androidx.compose.ui.unit.Dp) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val comments by viewModel.comments.collectAsStateWithLifecycle()
     val picker by viewModel.picker.collectAsStateWithLifecycle()
@@ -270,18 +321,25 @@ private fun ShortActions(id: String, viewModel: VideoViewModel, navigation: Feed
     val disliked = state.likeStatus == app.freshtuber.domain.model.LikeStatus.Dislike
     val likeCount = (if (liked) details?.likeCountTextLiked ?: details?.likeCountText else details?.likeCountText)?.takeIf { it.any(Char::isDigit) }
     val side = WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)
+    // Buttons take the Short's own color: a deep tint of the hue the light took from the video.
+    val hue = app.freshtuber.ui.liquid.LocalLiquidLight.current?.hue ?: app.freshtuber.ui.liquid.LiquidLight.DefaultHue
+    val glass = remember(hue) { app.freshtuber.ui.theme.Oklab.lch(0.30f, 0.07f, hue, 0.62f) }
     Box(Modifier.fillMaxSize().windowInsetsPadding(side)) {
         // Caption card: channel with Subscribe, then the title; tap opens the description.
         details?.let { d ->
             Column(Modifier.align(Alignment.BottomStart).fillMaxWidth()
-                .padding(start = if (left) 80.dp else 12.dp, end = if (left) 12.dp else 80.dp, bottom = 30.dp)
-                .background(Color(0x6B000000), androidx.compose.foundation.shape.RoundedCornerShape(14.dp))
+                .padding(start = if (left) 80.dp else 12.dp, end = if (left) 12.dp else 80.dp, bottom = bottomSpace + 14.dp)
+                .background(glass, androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
                 .clickable { descriptionOpen = true }
-                .padding(horizontal = 12.dp, vertical = 9.dp)) {
+                .padding(horizontal = 12.dp, vertical = 8.dp)) {
                 d.channel?.let { channel ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        AsyncImage(channel.avatarUrl, stringResource(R.string.channel_group), contentScale = ContentScale.Crop,
+                            modifier = Modifier.size(32.dp).clip(CircleShape).background(Color(0x33FFFFFF))
+                                .clickable { navigation.openChannel(channel.id) })
+                        Spacer(Modifier.width(8.dp))
                         Text(channel.name, color = Color.White, style = MaterialTheme.typography.labelLarge, maxLines = 1,
-                            overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                            overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false).clickable { navigation.openChannel(channel.id) })
                         Spacer(Modifier.width(8.dp))
                         val subscribed = state.subscribed == true
                         Surface(onClick = viewModel::toggleSubscription, shape = CircleShape, modifier = Modifier.heightIn(min = 48.dp),
@@ -299,13 +357,13 @@ private fun ShortActions(id: String, viewModel: VideoViewModel, navigation: Feed
             }
         }
         // Action column on the working-hand side; the most used sits lowest.
-        Column(Modifier.align(if (left) Alignment.BottomStart else Alignment.BottomEnd).padding(start = 10.dp, end = 10.dp, top = 14.dp, bottom = 30.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            ShortButton(Icons.Rounded.ChatBubbleOutline, stringResource(R.string.video_comments), null, false, details != null, viewModel::openComments)
+        Column(Modifier.align(if (left) Alignment.BottomStart else Alignment.BottomEnd).padding(start = 10.dp, end = 10.dp, top = 14.dp, bottom = bottomSpace + 14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            ShortButton(Icons.Rounded.ChatBubbleOutline, stringResource(R.string.video_comments), null, false, details != null, glass, viewModel::openComments)
             ShortButton(if (disliked) Icons.Rounded.ThumbDown else Icons.Rounded.ThumbDownOffAlt, stringResource(R.string.video_dislike),
-                state.dislikes?.let { app.freshtuber.ui.components.compactNumber(it, locale) }, disliked, details != null, viewModel::toggleDislike)
-            ShortButton(if (liked) Icons.Rounded.ThumbUp else Icons.Rounded.ThumbUpOffAlt, stringResource(R.string.video_like), likeCount, liked, details != null, viewModel::toggleLike)
-            ShortButton(Icons.Rounded.MoreHoriz, stringResource(R.string.video_more), null, false, true) { more = true }
+                state.dislikes?.let { app.freshtuber.ui.components.compactNumber(it, locale) }, disliked, details != null, glass, viewModel::toggleDislike)
+            ShortButton(if (liked) Icons.Rounded.ThumbUp else Icons.Rounded.ThumbUpOffAlt, stringResource(R.string.video_like), likeCount, liked, details != null, glass, viewModel::toggleLike)
+            ShortButton(Icons.Rounded.MoreHoriz, stringResource(R.string.video_more), null, false, true, glass) { more = true }
         }
     }
     if (descriptionOpen) ModalBottomSheet(onDismissRequest = { descriptionOpen = false }) {
@@ -336,8 +394,9 @@ private fun ShortActions(id: String, viewModel: VideoViewModel, navigation: Feed
 }
 
 @Composable
-private fun ShortButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, count: String?, selected: Boolean, enabled: Boolean, onClick: () -> Unit) {
-    Surface(onClick = onClick, enabled = enabled, shape = CircleShape, color = if (selected) Color.White else Color(0x6B000000),
+private fun ShortButton(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, count: String?, selected: Boolean, enabled: Boolean,
+    glass: Color, onClick: () -> Unit) {
+    Surface(onClick = onClick, enabled = enabled, shape = CircleShape, color = if (selected) Color.White else glass,
         contentColor = if (selected) Color(0xFF0F0F0F) else Color.White,
         modifier = Modifier.size(56.dp).semantics { contentDescription = listOfNotNull(label, count).joinToString(", ") }) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {

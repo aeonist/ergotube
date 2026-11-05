@@ -11,6 +11,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import app.freshtuber.ui.components.Reach
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
@@ -81,11 +83,14 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     val inFlow = destination == null || destination.hasRoute<WelcomeRoute>() || destination.hasRoute<LoginRoute>()
     val keyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     val dockVisible = !inPictureInPicture && !onPlayer && !inFlow && !keyboardVisible
-    val miniVisible = dockVisible && destination?.hasRoute<ShortsRoute>() != true && playerState.nowPlaying?.isShort == false
+    val onShorts = destination?.hasRoute<ShortsRoute>() == true
+    val miniVisible = dockVisible && !onShorts && playerState.nowPlaying?.isShort == false
 
     var mineOpen by rememberSaveable { mutableStateOf(false) }
     // The floating video remembers its corner while it is hidden on the watch page.
     var miniCorner by rememberSaveable(leftHanded) { mutableIntStateOf(app.freshtuber.ui.player.MiniCorners.default(leftHanded)) }
+    // Its width in dp; pinching or dragging the grip changes it, like YouTube's floating window.
+    var miniWidth by rememberSaveable { mutableFloatStateOf(0f) }
     var currentTab by rememberSaveable { mutableStateOf(DockTab.Home) }
     LaunchedEffect(destination) { destination?.dockTab()?.let { currentTab = it } }
     LaunchedEffect(dockVisible) { if (!dockVisible) mineOpen = false }
@@ -100,9 +105,21 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
         }
     }
     val openSection: (Any) -> Unit = { route -> navController.navigateToTopLevel(route) }
+    val selectTab: (DockTab) -> Unit = { tab ->
+        if (tab == DockTab.Mine) mineOpen = !mineOpen
+        else {
+            mineOpen = false
+            openSection(when (tab) {
+                DockTab.Home -> HomeRoute
+                DockTab.Subscriptions -> SubscriptionsRoute
+                DockTab.Shorts -> ShortsRoute
+                else -> SearchRoute
+            })
+        }
+    }
 
     val activity = androidx.activity.compose.LocalActivity.current
-    val lightBars = MaterialTheme.colorScheme.surface.let { it.red + it.green + it.blue > 1.5f } && !onPlayer
+    val lightBars = MaterialTheme.colorScheme.surface.let { it.red + it.green + it.blue > 1.5f } && !onPlayer && !onShorts
     SideEffect {
         activity?.window?.let { window -> androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).apply {
             isAppearanceLightStatusBars = lightBars
@@ -119,8 +136,11 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     CompositionLocalProvider(LocalInPictureInPicture provides inPictureInPicture, LocalAppMessages provides messages,
         LocalBottomBarSpace provides barSpace, app.freshtuber.ui.components.LocalLeftHanded provides leftHanded, app.freshtuber.ui.feed.LocalFanHost provides fanHost, app.freshtuber.ui.feed.LocalFeedBottomClearance provides 16.dp) {
     val light = app.freshtuber.ui.liquid.LocalLiquidLight.current
-    val onShorts = destination?.hasRoute<ShortsRoute>() == true
-    SideEffect { light?.setRouteCovered(inPictureInPicture || onShorts) }
+    // Shorts decide themselves: a full-screen video covers the light, a square one is lit around.
+    SideEffect { light?.setRouteCovered(inPictureInPicture) }
+    // «Моё» is a frosted pane: the screen behind it blurs while it is open (Android 12+).
+    val behindBlur by androidx.compose.animation.core.animateDpAsState(if (mineOpen && dockVisible) 18.dp else 0.dp, label = "mineBlur")
+    val compactDockSpace = Reach.CompactDockHeight + with(LocalDensity.current) { WindowInsets.navigationBars.getBottom(this).toDp() }
     androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
     Box(Modifier.fillMaxSize()) {
     if (light != null) app.freshtuber.ui.liquid.LiquidBackground(light)
@@ -131,8 +151,8 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
                 NavHost(
                     navController = navController,
                     startDestination = start,
-                    modifier = Modifier.weight(1f).fillMaxWidth().then(when {
-                        onPlayer || inPictureInPicture -> Modifier
+                    modifier = Modifier.weight(1f).fillMaxWidth().then(if (behindBlur > 0.dp) Modifier.blur(behindBlur) else Modifier).then(when {
+                        onPlayer || inPictureInPicture || onShorts -> Modifier
                         dockVisible -> Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
                         else -> Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
                             .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom).exclude(WindowInsets.ime))
@@ -187,10 +207,13 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
             if (miniVisible && nowPlaying != null) {
                 FloatingMiniPlayer(player = viewModel.player.player, nowPlaying = nowPlaying, left = leftHanded,
                     bottomClearance = barSpace.height + belowContent, corner = miniCorner, onCorner = { miniCorner = it },
+                    widthDp = miniWidth, onWidth = { miniWidth = it },
+                    hasNext = playerState.queue.isNotEmpty(), hasPrevious = playerState.history.isNotEmpty(),
+                    onNext = viewModel.player::playNext, onPrevious = viewModel.player::playPrevious,
                     onOpen = { navController.navigate(PlayerRoute(nowPlaying.videoId)) }, onClose = viewModel.player::stop,
                     modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)))
             }
-            if (mineOpen && dockVisible) MineList(downloads, onPick = { item ->
+            if (mineOpen && dockVisible) MineList(downloads, bottomInset = if (onShorts) compactDockSpace else 0.dp, onPick = { item ->
                 mineOpen = false
                 openSection(when (item) {
                     MineItem.WatchLater -> LibraryListRoute(LibrarySection.WatchLater.name)
@@ -200,22 +223,15 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
                     MineItem.Settings -> SettingsRoute
                 })
             }, onDismiss = { mineOpen = false })
-            SnackbarHost(snackbarHost, Modifier.align(Alignment.BottomCenter).padding(bottom = barSpace.height + belowContent + 8.dp)
+            SnackbarHost(snackbarHost, Modifier.align(Alignment.BottomCenter)
+                .padding(bottom = barSpace.height + belowContent + 8.dp + if (onShorts && dockVisible) compactDockSpace else 0.dp)
                 .then(if (onPlayer) Modifier.navigationBarsPadding() else Modifier))
         }
-        if (dockVisible) AppDock(selected = currentTab, mineOpen = mineOpen, left = leftHanded, shorts = shortsEnabled, onSelect = { tab ->
-            if (tab == DockTab.Mine) mineOpen = !mineOpen
-            else {
-                mineOpen = false
-                openSection(when (tab) {
-                    DockTab.Home -> HomeRoute
-                    DockTab.Subscriptions -> SubscriptionsRoute
-                    DockTab.Shorts -> ShortsRoute
-                    else -> SearchRoute
-                })
-            }
-        })
+        if (dockVisible && !onShorts) AppDock(selected = currentTab, mineOpen = mineOpen, left = leftHanded, shorts = shortsEnabled, onSelect = selectTab)
     }
+    // Over a Short the dock is a slim row of icons drawn on the video itself.
+    if (dockVisible && onShorts) CompactDock(selected = currentTab, mineOpen = mineOpen, left = leftHanded, shorts = shortsEnabled,
+        onSelect = selectTab, modifier = Modifier.align(Alignment.BottomCenter))
     app.freshtuber.ui.feed.FanOverlay(fanHost)
     }
     }

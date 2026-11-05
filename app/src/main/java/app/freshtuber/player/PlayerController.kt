@@ -177,9 +177,33 @@ class PlayerController @Inject constructor(
     private val _events = MutableSharedFlow<PlayerEvent>(extraBufferCapacity = 4)
     val events: SharedFlow<PlayerEvent> = _events.asSharedFlow()
 
-    /** Set by the screen that shows the video, so leaving the app can open a floating window. */
-    @Volatile
-    var videoOnScreen: Boolean = false
+    /**
+     * Screens showing the video right now, so leaving the app can open a floating window. A
+     * count, not a flag: the next page appears before the previous one is gone.
+     */
+    private val screensShowingVideo = java.util.concurrent.atomic.AtomicInteger(0)
+    val videoOnScreen: Boolean get() = screensShowingVideo.get() > 0
+    fun setVideoScreen(shown: Boolean) {
+        if (shown) screensShowingVideo.incrementAndGet() else screensShowingVideo.updateAndGet { (it - 1).coerceAtLeast(0) }
+    }
+
+    /** Next or previous Short asked for from outside the pager (the floating window's buttons). */
+    private val _shortSteps = MutableSharedFlow<Int>(extraBufferCapacity = 2)
+    val shortSteps: SharedFlow<Int> = _shortSteps.asSharedFlow()
+
+    /** Next in whatever is playing: the next Short, or the next suggested video. */
+    fun skipForward() {
+        if (_state.value.nowPlaying?.isShort == true) _shortSteps.tryEmit(1) else playNext()
+    }
+
+    /** Back in whatever is playing: the previous Short or video, else the start of this one. */
+    fun skipBack() {
+        when {
+            _state.value.nowPlaying?.isShort == true -> _shortSteps.tryEmit(-1)
+            _state.value.history.isNotEmpty() -> playPrevious()
+            else -> player.seekTo(0)
+        }
+    }
 
     private var resolved: ResolvedVideo? = null
     private var segments: List<SkipSegment> = emptyList()

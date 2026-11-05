@@ -55,18 +55,21 @@ fun VideoSurface(player: Player, modifier: Modifier = Modifier, zoomToFill: Bool
 
 /**
  * Copies a tiny frame (64×36) of the playing video every 300 ms for the background light:
- * PixelCopy from the surface view, or the texture view's bitmap. Paused video is read less often.
+ * PixelCopy from the surface view, or the texture view's bitmap. Paused video is read less often,
+ * and the flat battery-saving background reads one frame every 2 s.
  */
 @Composable
 @OptIn(UnstableApi::class)
 private fun FrameGrabber(player: Player, viewRef: Array<PlayerView?>, onFrame: (android.graphics.Bitmap) -> Unit) {
     val callback = androidx.compose.runtime.rememberUpdatedState(onFrame)
+    val light = app.freshtuber.ui.liquid.LocalLiquidLight.current
     LaunchedEffect(player) {
         val target = android.graphics.Bitmap.createBitmap(64, 36, android.graphics.Bitmap.Config.ARGB_8888)
         val handler = android.os.Handler(android.os.Looper.getMainLooper())
         var lastWasPlaying = true
         while (true) {
-            delay(if (player.isPlaying || lastWasPlaying) 300L else 1_000L)
+            // The flat battery-saving background needs a new color only now and then.
+            delay(if (light?.flat == true) 2_000L else if (player.isPlaying || lastWasPlaying) 300L else 1_000L)
             lastWasPlaying = player.isPlaying
             if (player.videoSize.width <= 0) continue
             val ok = when (val surface = viewRef[0]?.videoSurfaceView) {
@@ -84,6 +87,29 @@ private fun FrameGrabber(player: Player, viewRef: Array<PlayerView?>, onFrame: (
             if (ok) callback.value(target)
         }
     }
+}
+
+/**
+ * Width / height of [player]'s picture, or null while unknown. With [mediaId], only the size of
+ * that video counts, so a page never takes the previous video's shape.
+ */
+@Composable
+fun rememberVideoAspect(player: Player, mediaId: String? = null): Float? {
+    fun read(): Float? {
+        if (mediaId != null && player.currentMediaItem?.mediaId != mediaId) return null
+        val size = player.videoSize
+        return if (size.width > 0 && size.height > 0) size.width * size.pixelWidthHeightRatio / size.height else null
+    }
+    var aspect by remember(player, mediaId) { mutableStateOf(read()) }
+    androidx.compose.runtime.DisposableEffect(player, mediaId) {
+        val listener = object : Player.Listener {
+            override fun onEvents(player: Player, events: Player.Events) { aspect = read() }
+        }
+        player.addListener(listener)
+        aspect = read()
+        onDispose { player.removeListener(listener) }
+    }
+    return aspect
 }
 
 data class Progress(

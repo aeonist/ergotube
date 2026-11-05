@@ -119,7 +119,7 @@ class VideoViewModel @Inject constructor(
     }
 
     fun setVideoOnScreen(onScreen: Boolean) {
-        controller.videoOnScreen = onScreen
+        controller.setVideoScreen(onScreen)
     }
 
     fun playNext() = controller.playNext()

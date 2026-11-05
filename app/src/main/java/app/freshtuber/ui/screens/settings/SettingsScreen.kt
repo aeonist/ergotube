@@ -140,6 +140,7 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
             item { SettingsChoice(stringResource(R.string.settings_font), listOf(stringResource(R.string.settings_font_serif), stringResource(R.string.settings_font_sans)),
                 if (preferences.enabled(app.freshtuber.data.settings.AppFeature.SerifFont)) 0 else 1) { viewModel.feature(app.freshtuber.data.settings.AppFeature.SerifFont, it == 0) } }
             item { SettingsSection(R.string.settings_energy) }
+            item { SettingsToggle(stringResource(R.string.settings_flat), stringResource(R.string.settings_flat_hint), preferences.enabled(app.freshtuber.data.settings.AppFeature.LiquidFlat)) { viewModel.feature(app.freshtuber.data.settings.AppFeature.LiquidFlat, it) } }
             item { SettingsChoice(stringResource(R.string.settings_motion), listOf(R.string.settings_motion_always, R.string.settings_motion_transition, R.string.settings_motion_off).map { stringResource(it) },
                 preferences.motion.ordinal) { viewModel.motion(app.freshtuber.data.settings.BackgroundMotion.entries[it]) } }
             listOf(
