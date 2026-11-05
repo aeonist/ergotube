@@ -31,6 +31,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import kotlinx.coroutines.flow.first
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.platform.LocalDensity
@@ -98,11 +102,34 @@ fun FloatingMiniPlayer(
     hasPrevious: Boolean,
     onNext: () -> Unit,
     onPrevious: () -> Unit,
+    /** Faded away (and not touchable) while «Моё» covers the screen. */
+    hidden: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val progress = rememberProgress(player)
+    val hide by androidx.compose.animation.core.animateFloatAsState(if (hidden) 0f else 1f,
+        androidx.compose.animation.core.tween(240, easing = app.freshtuber.ui.motion.Motion.Emphasized), label = "miniHide")
     val openLabel = stringResource(R.string.player_open_video, nowPlaying.title)
-    BoxWithConstraints(modifier.fillMaxSize()) {
+    val handoff = LocalVideoHandoff.current
+    val videoId = nowPlaying.videoId
+    // Coming from the watch page, the window stays hidden while the picture flies into it.
+    var arriving by remember { mutableStateOf(handoff != null && handoff.pageVideoId == videoId) }
+    val appear = remember { Animatable(if (arriving) 1f else 0f) }
+    val miniHandle = remember { VideoSurfaceHandle() }
+    var origin by remember { mutableStateOf(Offset.Zero) }
+    LaunchedEffect(Unit) {
+        if (arriving && handoff != null) {
+            val flight = kotlinx.coroutines.withTimeoutOrNull(400) {
+                snapshotFlow { handoff.flight }.first { it?.videoId == videoId && it.target == FlightTarget.Mini }
+            }
+            if (flight != null) kotlinx.coroutines.withTimeoutOrNull(1_400) { snapshotFlow { flight.landed }.first { it } }
+            arriving = false
+            handoff.arrived(videoId, FlightTarget.Mini)
+            if (flight == null) { appear.snapTo(0f); appear.animateTo(1f, androidx.compose.animation.core.tween(320, easing = app.freshtuber.ui.motion.Motion.Decelerate)) }
+        } else appear.animateTo(1f, androidx.compose.animation.core.tween(320, easing = app.freshtuber.ui.motion.Motion.Decelerate))
+    }
+    val scope = rememberCoroutineScope()
+    BoxWithConstraints(modifier.fillMaxSize().onGloballyPositioned { origin = it.positionInRoot() }) {
         val density = LocalDensity.current
         val screenWidth = maxWidth.value
         val width = (if (widthDp > 0f) MiniSize.clamp(widthDp, screenWidth) else MiniSize.default(screenWidth)).dp
@@ -119,7 +146,19 @@ fun FloatingMiniPlayer(
             // While resizing the anchored corner stays put; otherwise the window glides there.
             if (resizing) offset.snapTo(target) else if (!dragging) offset.animateTo(target, spring(stiffness = Spring.StiffnessMediumLow))
         }
-        val scope = rememberCoroutineScope()
+        val cornerRadius = with(density) { 12.dp.toPx() }
+        LaunchedEffect(handoff?.flight, target, origin) {
+            handoff?.land(videoId, FlightTarget.Mini, androidx.compose.ui.geometry.Rect(origin + target, androidx.compose.ui.geometry.Size(window.x, window.y)), cornerRadius)
+        }
+        // Opening sends the current picture flying up into the watch page.
+        val open: () -> Unit = {
+            scope.launch {
+                val frame = miniHandle.capture()
+                handoff?.launch(videoId, frame ?: handoff.poster(videoId) ?: nowPlaying.thumbnailUrl,
+                    androidx.compose.ui.geometry.Rect(origin + offset.value, androidx.compose.ui.geometry.Size(window.x, window.y)), cornerRadius, FlightTarget.Page)
+                onOpen()
+            }
+        }
         var controls by remember { mutableStateOf(false) }
         var controlsPoke by remember { mutableIntStateOf(0) }
         LaunchedEffect(controls, controlsPoke) { if (controls) { delay(3_500); controls = false } }
@@ -129,12 +168,17 @@ fun FloatingMiniPlayer(
         Surface(
             Modifier.offset { IntOffset(offset.value.x.roundToInt(), offset.value.y.roundToInt()) }
                 .size(width, height).testTag("mini")
-                .semantics { contentDescription = openLabel; role = Role.Button; onClick { onOpen(); true } },
+                .graphicsLayer {
+                    alpha = if (arriving) 0f else appear.value * hide
+                    val s = 0.88f + 0.12f * appear.value
+                    scaleX = s; scaleY = s
+                }
+                .semantics { contentDescription = openLabel; role = Role.Button; onClick { open(); true } },
             shape = RoundedCornerShape(12.dp), color = Color.Black, shadowElevation = 8.dp,
         ) {
             Box(Modifier.fillMaxSize()
                 .pointerInput(Unit) {
-                    detectTapGestures(onTap = { controls = !controls; controlsPoke++ }, onDoubleTap = { onOpen() })
+                    detectTapGestures(onTap = { controls = !controls; controlsPoke++ }, onDoubleTap = { open() })
                 }
                 .pointerInput(screenWidth) {
                     // Two fingers: pinch to resize, like YouTube's floating window.
@@ -177,7 +221,9 @@ fun FloatingMiniPlayer(
                         scope.launch { offset.snapTo(Offset(next.x.coerceIn(0f, area.x - window.x), next.y.coerceIn(0f, area.y - window.y))) }
                     }
                 }) {
-                VideoSurface(player, Modifier.fillMaxSize(), texture = true)
+                // The page keeps the video until it has copied its picture; only then does the window take it.
+                VideoSurface(player, Modifier.fillMaxSize(), texture = true, mediaId = videoId, handle = miniHandle, active = !arriving,
+                    poster = handoff?.poster(videoId) ?: nowPlaying.thumbnailUrl)
                 val playing = progress.isPlaying || (progress.buffering && player.playWhenReady)
                 val big = width >= 200.dp
                 androidx.compose.animation.AnimatedVisibility(controls, Modifier.fillMaxSize(),
@@ -188,7 +234,7 @@ fun FloatingMiniPlayer(
                         MiniButton(Icons.Rounded.Close, stringResource(R.string.player_close), small = !big,
                             modifier = Modifier.align(if (right) Alignment.TopEnd else Alignment.TopStart), onClick = onClose)
                         MiniButton(Icons.Rounded.OpenInFull, stringResource(R.string.player_open), small = !big,
-                            modifier = Modifier.align(if (right) Alignment.BottomEnd else Alignment.BottomStart).padding(bottom = 3.dp), onClick = onOpen)
+                            modifier = Modifier.align(if (right) Alignment.BottomEnd else Alignment.BottomStart).padding(bottom = 3.dp), onClick = open)
                         Row(Modifier.align(Alignment.Center), verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(if (big) 10.dp else 2.dp)) {
                             MiniButton(Icons.Rounded.SkipPrevious, stringResource(R.string.player_previous), small = !big, enabled = hasPrevious) {

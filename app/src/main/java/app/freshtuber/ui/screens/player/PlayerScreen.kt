@@ -50,6 +50,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.semantics.contentDescription
@@ -63,6 +64,10 @@ fun PlayerScreen(
     onBack: () -> Unit,
     onSignIn: () -> Unit,
     onAdvanced: (String) -> Unit,
+    /** The page has fully arrived (the video surface can appear). */
+    settled: Boolean = true,
+    /** The page is on its way out. */
+    leaving: Boolean = false,
     viewModel: VideoViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -129,18 +134,14 @@ fun PlayerScreen(
 
     // The portrait page is lit by the video itself.
     val light = app.freshtuber.ui.liquid.LocalLiquidLight.current
+    var lightLeft by remember { mutableStateOf(false) }
     DisposableEffect(light) {
         light?.enterPlayer()
-        onDispose { light?.setPlayerCovered(false); light?.exitPlayer() }
+        onDispose { light?.setPlayerCovered(false); if (!lightLeft) light?.exitPlayer() }
     }
-    LaunchedEffect(light, playerState.nowPlaying?.videoId) { light?.setVideoThumbnail(playerState.nowPlaying?.thumbnailUrl) }
     val grab: ((android.graphics.Bitmap) -> Unit)? = light?.let { l -> { bitmap -> l.pushVideoFrame(bitmap) } }
 
-    if (LocalInPictureInPicture.current) {
-        VideoSurface(viewModel.player, Modifier.fillMaxSize().background(Color.Black))
-        return
-    }
-
+    val inPip = LocalInPictureInPicture.current
     val controller = viewModel.controller
     val now = playerState.nowPlaying
     val captionsOn = (now?.subtitleIndex ?: -1) >= 0
@@ -159,116 +160,191 @@ fun PlayerScreen(
     val onBoost: (Boolean) -> Unit = { on -> viewModel.player.setPlaybackSpeed(if (on) 2f else playerState.speed) }
     val onNext: () -> Unit = { if (playerState.queue.isNotEmpty()) viewModel.playNext() }
     val onPrevious: () -> Unit = { if (playerState.history.isNotEmpty()) viewModel.playPrevious() }
-    SideEffect { light?.setPlayerCovered(fullscreen) }
+    SideEffect { light?.setPlayerCovered(fullscreen && !inPip) }
 
-    if (fullscreen) {
-        Box(Modifier.fillMaxSize().background(Color.Black)) {
-            VideoSurface(viewModel.player, Modifier.fillMaxSize())
-            FullscreenPlayer(
-                player = viewModel.player,
-                state = playerState,
-                ui = padUi,
-                pages = pages,
-                left = left,
-                gesturesEnabled = gestures,
-                captionsOn = captionsOn,
-                captionsAvailable = !now?.subtitles.isNullOrEmpty(),
-                hasNext = playerState.queue.isNotEmpty(),
-                showRotateHint = rotateHint,
-                onExit = exitFullscreen,
-                onNext = onNext,
-                onSpeed = onSpeed,
-                onCaptions = onCaptions,
-                onBoost = onBoost,
-                onRetry = viewModel::retryPlayback,
-            )
+    // The picture shown until this page's surface has the video: the frame or thumbnail it flew
+    // in with, else the video's thumbnail.
+    val handoff = LocalVideoHandoff.current
+    val videoId = viewModel.videoId
+    DisposableEffect(handoff, videoId) {
+        handoff?.pageVideoId = videoId
+        onDispose { if (handoff?.pageVideoId == videoId) handoff.pageVideoId = null }
+    }
+    val poster = handoff?.poster(videoId) ?: now?.thumbnailUrl?.takeIf { now.videoId == videoId } ?: "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
+    // The page is lit by its video's thumbnail from the first frame, not only once the stream is known.
+    val lightThumbnail = handoff?.thumbnail(videoId) ?: now?.thumbnailUrl?.takeIf { now.videoId == videoId } ?: "https://i.ytimg.com/vi/$videoId/mqdefault.jpg"
+    LaunchedEffect(light, lightThumbnail) { light?.setVideoThumbnail(lightThumbnail) }
+    val surface = remember { VideoSurfaceHandle() }
+    var surfaceOff by remember { mutableStateOf(false) }
+    val density = LocalDensity.current
+    val statusTop = WindowInsets.statusBars.getTop(density)
+
+    BoxWithConstraints(Modifier.fillMaxSize().then(if (fullscreen || inPip) Modifier.background(Color.Black) else Modifier)) {
+        val details = state.details
+        val pageHeight = maxHeight - with(density) { statusTop.toDp() }
+        val videoHeight = minOf(maxWidth / videoAspect, pageHeight * 0.4f)
+        val videoHeightPx = with(density) { videoHeight.roundToPx() }
+        val widthPx = with(density) { maxWidth.toPx() }
+        val heightPx = with(density) { maxHeight.toPx() }
+        // Unpinned, the video is the list's first row: it scrolls away and returns at the top.
+        // The surface itself never moves in the composition, only its offset, so it never goes black.
+        val scrolls = !pinned && details != null
+        // Adding or removing the video row keeps the old first row in place; start from the top instead.
+        LaunchedEffect(scrolls) { listState.scrollToItem(0) }
+        val videoOffset by remember(scrolls, videoHeightPx) { derivedStateOf {
+            if (!scrolls) 0 else if (listState.firstVisibleItemIndex == 0) -listState.firstVisibleItemScrollOffset else -videoHeightPx
+        } }
+        val big = fullscreen || inPip
+        // Where the picture sits on screen, for pictures flying in and out.
+        val videoRect = if (big) {
+            val fitW = minOf(widthPx, heightPx * videoAspect)
+            val fitH = fitW / videoAspect
+            androidx.compose.ui.geometry.Rect((widthPx - fitW) / 2f, (heightPx - fitH) / 2f, (widthPx + fitW) / 2f, (heightPx + fitH) / 2f)
+        } else androidx.compose.ui.geometry.Rect(0f, statusTop.toFloat(), widthPx, statusTop.toFloat() + videoHeightPx)
+        val currentRect by rememberUpdatedState(videoRect.translate(0f, if (big) 0f else videoOffset.toFloat()))
+        LaunchedEffect(handoff, videoRect, handoff?.flight) { handoff?.land(videoId, FlightTarget.Page, videoRect, 0f) }
+        LaunchedEffect(settled) { if (settled) handoff?.arrived(videoId, FlightTarget.Page) }
+        // Leaving: keep a copy of the picture, drop the surface (it cannot fade) and, when the
+        // floating window takes over, send the picture flying into it.
+        LaunchedEffect(leaving) {
+            if (!leaving) return@LaunchedEffect
+            if (light != null && !lightLeft) { lightLeft = true; light.setPlayerCovered(false); light.exitPlayer() }
+            val toMini = handoff?.miniExpected == true && viewModel.player.currentMediaItem?.mediaId == videoId
+            val from = currentRect
+            val frame = surface.capture()
+            frame?.let { handoff?.setPoster(videoId, it) }
+            surfaceOff = true
+            val visible = from.bottom > statusTop + 1f
+            if (toMini && visible) handoff?.launch(videoId, frame ?: poster, from, 0f, FlightTarget.Mini)
         }
-    } else {
-        val statusBar = WindowInsets.statusBars
-        BoxWithConstraints(Modifier.fillMaxSize()
-            // Black under the status bar only; below it the background light shows through.
-            .drawBehind { drawRect(Color.Black, size = androidx.compose.ui.geometry.Size(size.width, statusBar.getTop(this).toFloat())) }
-            .statusBarsPadding().clipToBounds()) {
-            val details = state.details
-            val videoHeight = minOf(maxWidth / videoAspect, maxHeight * 0.4f)
-            val density = LocalDensity.current
-            val videoHeightPx = with(density) { videoHeight.roundToPx() }
-            var zoneHeight by remember { mutableStateOf(0.dp) }
-            // Unpinned, the video is the list's first row: it scrolls away and returns at the top.
-            // The surface itself never moves in the composition, only its offset, so it never goes black.
-            val scrolls = !pinned && details != null
-            // Adding or removing the video row keeps the old first row in place; start from the top instead.
-            LaunchedEffect(scrolls) { listState.scrollToItem(0) }
-            val videoOffset by remember(scrolls, videoHeightPx) { derivedStateOf {
-                if (!scrolls) 0 else if (listState.firstVisibleItemIndex == 0) -listState.firstVisibleItemScrollOffset else -videoHeightPx
-            } }
-            Column(Modifier.fillMaxSize()) {
-                if (!scrolls) Spacer(Modifier.fillMaxWidth().height(videoHeight))
-                Box(Modifier.weight(1f)) {
-                    when {
-                        state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        details == null -> LoadErrorState(state.error ?: LoadError.Unknown, viewModel::load, onSignIn)
-                        else -> VideoBody(details, state, navigation, listState, offline = now?.isOffline == true,
-                            videoSpace = if (scrolls) videoHeight else null, modifier = Modifier.nestedScroll(padHide.connection))
-                    }
-                }
-                // Everything pressed sits here, under the thumb.
-                Column(Modifier.fillMaxWidth()
-                    .onSizeChanged { zoneHeight = with(density) { it.height.toDp() } }
-                    .navigationBarsPadding().padding(bottom = 14.dp)) {
-                    val padShown = padHide.visible || padUi.active || padUi.scrubMs != null
-                    if (!padShown) MiniProgress(viewModel.player)
-                    PlayerActions(state, viewModel, left, pinned = pinned, onPin = { viewModel.setVideoPinned(!pinned) }, onMore = { moreOpen = true })
-                    androidx.compose.animation.AnimatedVisibility(padShown,
-                        enter = androidx.compose.animation.expandVertically(), exit = androidx.compose.animation.shrinkVertically()) {
-                        PlayerPad(
-                            player = viewModel.player,
-                            ui = padUi,
-                            speed = playerState.speed,
-                            captionsOn = captionsOn,
-                            captionsAvailable = !now?.subtitles.isNullOrEmpty(),
-                            chapters = now?.chapters.orEmpty(),
-                            live = now?.isLive == true,
-                            left = left,
-                            hasNext = playerState.queue.isNotEmpty(),
-                            onNext = onNext,
-                            hasPrevious = playerState.history.isNotEmpty(),
-                            onPrevious = onPrevious,
-                            onMinimize = onBack,
-                            onFullscreen = enterFullscreen,
-                            onSpeed = onSpeed,
-                            onCaptions = onCaptions,
-                            onBoost = onBoost,
-                        )
-                    }
-                }
-            }
-            // Watch at the top; nothing here needs reaching.
-            Box(Modifier.fillMaxWidth().height(videoHeight).offset { androidx.compose.ui.unit.IntOffset(0, videoOffset) }
-                .onGloballyPositioned { c ->
+
+        if (!big) PortraitPage(details, state, navigation, listState, padHide, padUi, playerState, viewModel, now, left, pinned, scrolls, videoHeight,
+            captionsOn, onSignIn, onBack, onNext, onPrevious, enterFullscreen, onSpeed, onCaptions, onBoost, { moreOpen = true }, pages)
+
+        // The one video surface of this page: portrait, fullscreen and the system's floating
+        // window all use it, so turning the phone never recreates it.
+        Box((if (big) Modifier.fillMaxSize() else Modifier.fillMaxWidth().padding(top = with(density) { statusTop.toDp() }).height(videoHeight)
+            .offset { androidx.compose.ui.unit.IntOffset(0, videoOffset) }.clipToBounds())
+            // Hidden while its picture is still flying in, or once it has flown off to the floating window.
+            .graphicsLayer { alpha = if (handoff != null && (handoff.awaiting(videoId, FlightTarget.Page) || handoff.departed(videoId, FlightTarget.Mini))) 0f else 1f }
+            .background(Color.Black)
+            .onGloballyPositioned { c ->
+                if (!big) {
                     val p = c.positionInRoot()
                     light?.setVideoRect(androidx.compose.ui.geometry.Rect(p.x, p.y, p.x + c.size.width, p.y + c.size.height))
                 }
-                .background(Color.Black)) {
-                VideoSurface(viewModel.player, Modifier.fillMaxSize(), onFrame = grab)
-                PortraitVideoLayer(viewModel.player, playerState, onMinimize = onBack, onRetry = viewModel::retryPlayback)
+            }) {
+            VideoSurface(viewModel.player, Modifier.fillMaxSize(), onFrame = if (big) null else grab,
+                active = (settled || leaving || inPip) && !surfaceOff, poster = poster, mediaId = videoId, handle = surface,
+                posterScale = if (big) ContentScale.Fit else ContentScale.Crop)
+            when {
+                inPip -> Unit
+                fullscreen -> FullscreenPlayer(
+                    player = viewModel.player,
+                    state = playerState,
+                    ui = padUi,
+                    pages = pages,
+                    left = left,
+                    gesturesEnabled = gestures,
+                    captionsOn = captionsOn,
+                    captionsAvailable = !now?.subtitles.isNullOrEmpty(),
+                    hasNext = playerState.queue.isNotEmpty(),
+                    showRotateHint = rotateHint,
+                    onExit = exitFullscreen,
+                    onNext = onNext,
+                    onSpeed = onSpeed,
+                    onCaptions = onCaptions,
+                    onBoost = onBoost,
+                    onRetry = viewModel::retryPlayback,
+                )
+                else -> PortraitVideoLayer(viewModel.player, playerState, onMinimize = onBack, onRetry = viewModel::retryPlayback)
             }
-            val scrub = padUi.scrubMs
-            if (scrub != null) {
-                val duration = viewModel.player.duration.coerceAtLeast(1)
-                val fraction = (scrub.toFloat() / duration).coerceIn(0f, 1f)
-                val x = (18.dp + (maxWidth - 36.dp) * fraction - 76.dp).coerceIn(8.dp, maxWidth - 160.dp)
-                ScrubPreview(now?.storyboard, scrub, now?.chapters.orEmpty(), padUi.fine, fanHint = false, pages = pages,
-                    modifier = Modifier.align(Alignment.BottomStart).padding(bottom = zoneHeight + 8.dp).offset(x = x))
-            }
+        }
+        val scrub = padUi.scrubMs
+        if (scrub != null && !big) {
+            val duration = viewModel.player.duration.coerceAtLeast(1)
+            val fraction = (scrub.toFloat() / duration).coerceIn(0f, 1f)
+            val x = (18.dp + (maxWidth - 36.dp) * fraction - 76.dp).coerceIn(8.dp, maxWidth - 160.dp)
+            ScrubPreview(now?.storyboard, scrub, now?.chapters.orEmpty(), padUi.fine, fanHint = false, pages = pages,
+                modifier = Modifier.align(Alignment.BottomStart).padding(bottom = padUi.zoneHeight + 8.dp).offset(x = x))
         }
     }
 
+    if (inPip) return
     if (moreOpen) PlayerMoreSheet(playerState, state, controller, viewModel, navigation::openChannel) { moreOpen = false }
     if (comments.opened) CommentsSheet(comments, viewModel, navigation::openChannel)
     if (picker.opened) PlaylistPickerSheet(picker, viewModel)
+}
+
+/** Everything of the portrait page around the video: title, list, actions and the pad. */
+@Composable
+private fun PortraitPage(
+    details: VideoDetails?, state: VideoUiState, navigation: FeedNavigation, listState: androidx.compose.foundation.lazy.LazyListState,
+    padHide: ScrollHide, padUi: PadUi, playerState: app.freshtuber.player.PlayerState, viewModel: VideoViewModel,
+    now: app.freshtuber.player.NowPlaying?, left: Boolean, pinned: Boolean, scrolls: Boolean, videoHeight: androidx.compose.ui.unit.Dp,
+    captionsOn: Boolean, onSignIn: () -> Unit, onBack: () -> Unit, onNext: () -> Unit, onPrevious: () -> Unit, onFullscreen: () -> Unit,
+    onSpeed: () -> Unit, onCaptions: () -> Unit, onBoost: (Boolean) -> Unit, onMore: () -> Unit, pages: StoryboardPages,
+) {
+    val statusBar = WindowInsets.statusBars
+    val density = LocalDensity.current
+    Column(Modifier.fillMaxSize()
+        // Black under the status bar only; below it the background light shows through.
+        .drawBehind { drawRect(Color.Black, size = androidx.compose.ui.geometry.Size(size.width, statusBar.getTop(this).toFloat())) }
+        .statusBarsPadding().clipToBounds()) {
+        if (!scrolls) Spacer(Modifier.fillMaxWidth().height(videoHeight))
+        Box(Modifier.weight(1f)) {
+            // Loading and errors fade into the page instead of swapping in.
+            androidx.compose.animation.Crossfade(when {
+                state.loading -> 0
+                details == null -> 1
+                else -> 2
+            }, animationSpec = androidx.compose.animation.core.tween(320), label = "pageBody") { phase ->
+                when {
+                    phase == 0 -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    phase == 1 || details == null -> LoadErrorState(state.error ?: LoadError.Unknown, viewModel::load, onSignIn)
+                    else -> VideoBody(details, state, navigation, listState, offline = now?.isOffline == true,
+                        videoSpace = if (scrolls) videoHeight else null, modifier = Modifier.nestedScroll(padHide.connection))
+                }
+            }
+        }
+        // Everything pressed sits here, under the thumb.
+        Column(Modifier.fillMaxWidth()
+            .onSizeChanged { padUi.zoneHeight = with(density) { it.height.toDp() } }
+            .navigationBarsPadding().padding(bottom = 14.dp)) {
+            val padShown = padHide.visible || padUi.active || padUi.scrubMs != null
+            androidx.compose.animation.AnimatedVisibility(!padShown, enter = androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut()) {
+                MiniProgress(viewModel.player)
+            }
+            PlayerActions(state, viewModel, left, pinned = pinned, onPin = { viewModel.setVideoPinned(!pinned) }, onMore = onMore)
+            androidx.compose.animation.AnimatedVisibility(padShown,
+                enter = androidx.compose.animation.expandVertically(androidx.compose.animation.core.tween(320, easing = app.freshtuber.ui.motion.Motion.Decelerate)) +
+                    androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(240)),
+                exit = androidx.compose.animation.shrinkVertically(androidx.compose.animation.core.tween(260, easing = app.freshtuber.ui.motion.Motion.Emphasized)) +
+                    androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(160))) {
+                PlayerPad(
+                    player = viewModel.player,
+                    ui = padUi,
+                    speed = playerState.speed,
+                    captionsOn = captionsOn,
+                    captionsAvailable = !now?.subtitles.isNullOrEmpty(),
+                    chapters = now?.chapters.orEmpty(),
+                    live = now?.isLive == true,
+                    left = left,
+                    hasNext = playerState.queue.isNotEmpty(),
+                    onNext = onNext,
+                    hasPrevious = playerState.history.isNotEmpty(),
+                    onPrevious = onPrevious,
+                    onMinimize = onBack,
+                    onFullscreen = onFullscreen,
+                    onSpeed = onSpeed,
+                    onCaptions = onCaptions,
+                    onBoost = onBoost,
+                )
+            }
+        }
+    }
 }
 
 /** Like, dislike, comments, subscribe, pin, more; the first one sits under the thumb. */

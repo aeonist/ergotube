@@ -12,6 +12,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.ViewModelStoreOwner
 import androidx.lifecycle.SavedStateHandle
+import androidx.navigation.toRoute
 import androidx.lifecycle.viewmodel.compose.viewModel
 import app.freshtuber.R
 import app.freshtuber.data.video.VideoRepository
@@ -53,6 +54,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.clip
@@ -92,6 +94,7 @@ data class ShortsUiState(
 
 @HiltViewModel
 class ShortsViewModel @Inject constructor(
+    savedState: SavedStateHandle,
     private val shorts: ShortsRepository,
     private val accounts: AccountRepository,
     private val videos: VideoRepository,
@@ -100,12 +103,18 @@ class ShortsViewModel @Inject constructor(
     val controller: PlayerController,
     private val downloads: app.freshtuber.data.downloads.Downloads, private val localSubscriptions: app.freshtuber.data.subscriptions.LocalSubscriptions,
 ) : ViewModel() {
-    private val _state = MutableStateFlow(ShortsUiState())
+    /** Shorts opened from a shelf play just those, starting at the one tapped. */
+    private val seed = runCatching { savedState.toRoute<app.freshtuber.ui.navigation.ShortsViewerRoute>() }.getOrNull()
+    val startIndex: Int = seed?.start?.coerceIn(0, (seed.videoIds.size - 1).coerceAtLeast(0)) ?: 0
+
+    private fun seeded() = ShortsUiState(items = seed!!.videoIds.mapIndexed { i, id -> ShortItem(id, seed.thumbnails.getOrNull(i)) }, loading = false)
+
+    private val _state = MutableStateFlow(if (seed != null) seeded() else ShortsUiState())
     val state: StateFlow<ShortsUiState> = _state.asStateFlow()
 
     init {
         // Start over when the account changes: signed in, the sequence follows the account.
-        viewModelScope.launch {
+        if (seed == null) viewModelScope.launch {
             accounts.state
                 .filterNot { it is AccountState.Loading }
                 .map { (it as? AccountState.SignedIn)?.active?.id }
@@ -115,6 +124,7 @@ class ShortsViewModel @Inject constructor(
     }
 
     fun refresh() {
+        if (seed != null) { _state.value = seeded(); return }
         _state.value = ShortsUiState()
         viewModelScope.launch {
             try {
@@ -166,11 +176,8 @@ class ShortsViewModel @Inject constructor(
     }
 }
 
-/** Pictures wider than this (width / height) are shown whole, with the light above and below. */
-private const val FitAspect = 0.65f
-
 @Composable
-fun ShortsScreen(navigation: FeedNavigation, onSignIn: () -> Unit, viewModel: ShortsViewModel = hiltViewModel()) {
+fun ShortsScreen(navigation: FeedNavigation, onSignIn: () -> Unit, settled: Boolean = true, viewModel: ShortsViewModel = hiltViewModel()) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val playerState by viewModel.controller.state.collectAsStateWithLifecycle()
     val inPip = LocalInPictureInPicture.current
@@ -188,11 +195,11 @@ fun ShortsScreen(navigation: FeedNavigation, onSignIn: () -> Unit, viewModel: Sh
     }
     when {
         state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurfaceVariant)
+            CircularProgressIndicator(color = Color.White.copy(alpha = 0.8f))
         }
         state.error != null -> LoadErrorState(state.error!!, viewModel::refresh, null)
         else -> {
-            val pagerState = rememberPagerState { state.items.size }
+            val pagerState = rememberPagerState(initialPage = viewModel.startIndex) { state.items.size }
             LaunchedEffect(pagerState.settledPage, state.items.size) {
                 viewModel.playAt(pagerState.settledPage)
                 if (pagerState.settledPage >= state.items.size - 5) viewModel.loadMore()
@@ -219,6 +226,7 @@ fun ShortsScreen(navigation: FeedNavigation, onSignIn: () -> Unit, viewModel: Sh
                         loading = playerState.loadingId == item.videoId,
                         active = page == pagerState.settledPage,
                         inPip = inPip,
+                        settled = settled,
                         bottomSpace = if (inPip) 0.dp else dockSpace,
                         onTap = viewModel.controller::togglePlayPause,
                         onDoubleTap = { if (page == pagerState.settledPage) doubleTapLike?.invoke() })
@@ -241,8 +249,9 @@ fun ShortsScreen(navigation: FeedNavigation, onSignIn: () -> Unit, viewModel: Sh
 }
 
 /**
- * One Short. A tall picture fills the screen (cropped a little at the sides, as on YouTube);
- * a square or wide one is shown whole and the background light fills the space around it.
+ * One Short, shown whole: as wide as the screen and centred between the status bar and the
+ * dock, so a 9:16 picture is never cut at the sides; the background light fills what is left.
+ * Only a picture taller than the whole screen is trimmed, at the top and bottom.
  */
 @Composable
 private fun ShortPage(
@@ -251,6 +260,7 @@ private fun ShortPage(
     loading: Boolean,
     active: Boolean,
     inPip: Boolean,
+    settled: Boolean,
     bottomSpace: androidx.compose.ui.unit.Dp,
     onTap: () -> Unit,
     onDoubleTap: () -> Unit,
@@ -258,43 +268,63 @@ private fun ShortPage(
     val progress = player?.let { rememberProgress(it) }
     val tapLabel = stringResource(if (progress?.isPlaying == true) R.string.player_pause else R.string.player_play)
     val light = app.freshtuber.ui.liquid.LocalLiquidLight.current
-    val aspect = player?.let { rememberVideoAspect(it, item.videoId) }
-    val fit = !inPip && aspect != null && aspect > FitAspect
-    // A full-screen picture hides the light anyway, so it is not drawn at all.
-    if (active) SideEffect { light?.setPlayerCovered(!fit) }
+    val handoff = LocalVideoHandoff.current
+    val aspect = (player?.let { rememberVideoAspect(it, item.videoId) } ?: ShortAspect).coerceIn(0.3f, 3f)
     val grab: ((android.graphics.Bitmap) -> Unit)? = if (active) light?.let { l -> { bitmap -> l.pushVideoFrame(bitmap) } } else null
-    Box(
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val statusTop = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
+    val surface = remember { VideoSurfaceHandle() }
+    BoxWithConstraints(
         Modifier
             .fillMaxSize()
-            .background(if (fit) Color.Transparent else Color.Black)
             .semantics { contentDescription = tapLabel; role = Role.Button; onClick(label = tapLabel) { onTap(); true } }
             .pointerInput(onTap, onDoubleTap) { detectTapGestures(onTap = { onTap() }, onDoubleTap = { onDoubleTap() }) },
     ) {
-        if (player != null) {
-            // One surface in both shapes, so switching never recreates it.
-            Box((if (fit && aspect != null) Modifier.align(Alignment.Center).fillMaxWidth().aspectRatio(aspect) else Modifier.fillMaxSize())
-                .onGloballyPositioned { if (active && fit) light?.setVideoRect(it.boundsInRoot()) }) {
-                VideoSurface(player, Modifier.fillMaxSize(), zoomToFill = !fit, onFrame = grab)
-            }
-        } else {
-            AsyncImage(
-                model = item.thumbnailUrl,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-            )
+        val area = (maxHeight - statusTop - bottomSpace).coerceAtLeast(1.dp)
+        val natural = maxWidth / aspect
+        val (top, height) = when {
+            inPip -> 0.dp to maxHeight
+            natural <= area -> statusTop + (area - natural) / 2 to natural
+            natural <= maxHeight -> (maxHeight - natural) / 2 to natural
+            else -> 0.dp to maxHeight
+        }
+        val fills = top <= 0.5.dp && height >= maxHeight - 0.5.dp
+        val trimmed = natural > maxHeight
+        // A picture that covers everything hides the light, so it is not drawn at all.
+        if (active) SideEffect { light?.setPlayerCovered(fills) }
+        val rect = with(density) { androidx.compose.ui.geometry.Rect(0f, top.toPx(), maxWidth.toPx(), (top + height).toPx()) }
+        if (active) {
+            LaunchedEffect(rect) { if (!fills) light?.setVideoRect(rect) }
+            LaunchedEffect(handoff, rect, handoff?.flight) { handoff?.land(item.videoId, FlightTarget.Short, rect, 0f) }
+            LaunchedEffect(settled) { if (settled) handoff?.arrived(item.videoId, FlightTarget.Short) }
+        }
+        Box(Modifier.offset(y = top).fillMaxWidth().height(height)
+            .graphicsLayer { alpha = if (handoff?.awaiting(item.videoId, FlightTarget.Short) == true) 0f else 1f }
+            .background(Color.Black)) {
+            if (player != null) VideoSurface(player, Modifier.fillMaxSize(), zoomToFill = trimmed, onFrame = grab,
+                active = settled || inPip, mediaId = item.videoId, handle = surface)
+            // The thumbnail stays in one place above the surface until the video's first frame,
+            // so swiping to a Short never flashes black.
+            val showsVideo = player != null && surface.firstFrame
+            val cover by androidx.compose.animation.core.animateFloatAsState(if (showsVideo) 0f else 1f,
+                if (showsVideo) androidx.compose.animation.core.tween(280, 40) else androidx.compose.animation.core.snap(), label = "shortCover")
+            VideoPicture(item.thumbnailUrl, Modifier.fillMaxSize().graphicsLayer { alpha = cover })
         }
         if (!inPip && player != null && progress != null && progress.durationMs > 0)
             ShortsTimeline(player, progress, Modifier.align(Alignment.BottomCenter).padding(bottom = bottomSpace))
         if (loading || progress?.buffering == true) CircularProgressIndicator(Modifier.align(Alignment.Center), color = Color.White)
-        else if (!inPip && player != null && progress != null && !progress.isPlaying && !player.playWhenReady && progress.durationMs > 0) {
+        else androidx.compose.animation.AnimatedVisibility(!inPip && player != null && progress != null && !progress.isPlaying && !player.playWhenReady && progress.durationMs > 0,
+            Modifier.align(Alignment.Center),
+            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.scaleIn(initialScale = 0.8f),
+            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.scaleOut(targetScale = 1.15f)) {
             Icon(Icons.Rounded.PlayArrow, null, tint = Color.White,
-                modifier = Modifier.align(Alignment.Center).size(72.dp).background(Color(0xAA000000), CircleShape).padding(16.dp))
+                modifier = Modifier.size(72.dp).background(Color(0x8C000000), CircleShape).padding(16.dp))
         }
-
     }
 }
 
+/** Shape assumed for a Short until its picture arrives. */
+private const val ShortAspect = 9f / 16f
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -317,6 +347,8 @@ private fun ShortActions(id: String, viewModel: VideoViewModel, navigation: Feed
     }
     val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
     val details = state.details
+    val lastDetails = remember { arrayOfNulls<app.freshtuber.domain.model.VideoDetails>(1) }
+    if (details != null) lastDetails[0] = details
     val liked = state.likeStatus == app.freshtuber.domain.model.LikeStatus.Like
     val disliked = state.likeStatus == app.freshtuber.domain.model.LikeStatus.Dislike
     val likeCount = (if (liked) details?.likeCountTextLiked ?: details?.likeCountText else details?.likeCountText)?.takeIf { it.any(Char::isDigit) }
@@ -326,8 +358,13 @@ private fun ShortActions(id: String, viewModel: VideoViewModel, navigation: Feed
     val glass = remember(hue) { app.freshtuber.ui.theme.Oklab.lch(0.30f, 0.07f, hue, 0.62f) }
     Box(Modifier.fillMaxSize().windowInsetsPadding(side)) {
         // Caption card: channel with Subscribe, then the title; tap opens the description.
-        details?.let { d ->
-            Column(Modifier.align(Alignment.BottomStart).fillMaxWidth()
+        // It rises into place once the Short's details arrive instead of popping in.
+        androidx.compose.animation.AnimatedVisibility(details != null, Modifier.align(Alignment.BottomStart),
+            enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(260)) +
+                androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(340, easing = app.freshtuber.ui.motion.Motion.Decelerate)) { it / 3 },
+            exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(160))) {
+        (details ?: lastDetails[0])?.let { d ->
+            Column(Modifier.fillMaxWidth()
                 .padding(start = if (left) 80.dp else 12.dp, end = if (left) 12.dp else 80.dp, bottom = bottomSpace + 14.dp)
                 .background(glass, androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
                 .clickable { descriptionOpen = true }
@@ -355,6 +392,7 @@ private fun ShortActions(id: String, viewModel: VideoViewModel, navigation: Feed
                 }
                 Text(d.title, color = Color(0xFFDDDDDD), style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+        }
         }
         // Action column on the working-hand side; the most used sits lowest.
         Column(Modifier.align(if (left) Alignment.BottomStart else Alignment.BottomEnd).padding(start = 10.dp, end = 10.dp, top = 14.dp, bottom = bottomSpace + 14.dp),

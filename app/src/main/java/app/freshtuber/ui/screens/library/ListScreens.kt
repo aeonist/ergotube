@@ -110,6 +110,7 @@ class ListViewModel @Inject constructor(
 
     val sectionTitleRes: Int? = section?.titleRes
     val isWatchLater = section == LibrarySection.WatchLater
+    val isHistory = section == LibrarySection.History
     val isPlaylists = section == LibrarySection.Playlists
     val isChannel = channelId != null
     val isPlaylist = playlist != null
@@ -179,11 +180,13 @@ fun ListScreen(
 
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
-            // Library lists and playlists grow upward from the thumb; channels read like a feed.
-            val fromBottom = !viewModel.isChannel
+            // Library lists and playlists grow upward from the thumb; channels and history read
+            // like a feed, newest at the top.
+            val fromBottom = !viewModel.isChannel && !viewModel.isHistory
             if (needsAccount) Column(Modifier.fillMaxSize()) {
-                MessageState(stringResource(R.string.action_needs_sign_in), Modifier.weight(1f))
-                ScreenHeader(title)
+                if (!fromBottom) ScreenHeader(title)
+                MessageState(stringResource(R.string.library_needs_account), Modifier.weight(1f))
+                if (fromBottom) ScreenHeader(title)
             } else FeedList(
                 fromBottom = fromBottom,
                 state = state,
@@ -193,6 +196,8 @@ fun ListScreen(
                 emptyMessage = stringResource(R.string.feed_empty),
                 showChannel = header == null,
                 onSignInAgain = onSignIn,
+                // History gathers its Shorts into shelves like YouTube, even a single one.
+                shortsShelf = if (viewModel.isHistory) 1 else 2,
                 header = {
                     val channel = header
                     if (channel != null) item(key = "channel-header") { ChannelHeaderRow(channel, actionError, onSignIn) }

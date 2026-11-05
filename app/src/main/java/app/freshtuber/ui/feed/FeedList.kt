@@ -77,6 +77,8 @@ interface FeedNavigation {
     fun openVideo(videoId: String)
     fun openPlaylist(playlistId: String, title: String, seedVideoId: String? = null)
     fun openChannel(channelId: String)
+    /** Opens [videoIds] as Shorts, swiping between them, starting at [start]. */
+    fun openShorts(videoIds: List<String>, thumbnails: List<String>, start: Int) = openVideo(videoIds[start])
 }
 
 /**
@@ -103,6 +105,8 @@ fun FeedList(
      * right above the bottom bar, older ones are scrolled to upward.
      */
     fromBottom: Boolean = false,
+    /** Runs of at least this many Shorts become a sideways shelf; 0 never. */
+    shortsShelf: Int = 2,
 ) {
     val nearEnd by remember {
         derivedStateOf {
@@ -114,6 +118,7 @@ fun FeedList(
         if (nearEnd && state.items.isNotEmpty()) onLoadMore()
     }
 
+    val rows = remember(state.items, shortsShelf) { FeedRows.of(state.items, shortsShelf) }
     LazyColumn(modifier.fillMaxSize().bottomFade(atTop = fromBottom), state = listState, reverseLayout = fromBottom,
         contentPadding = PaddingValues(bottom = if (fromBottom) 8.dp else LocalFeedBottomClearance.current, top = if (fromBottom) 24.dp else 0.dp)) {
         header?.invoke(this)
@@ -134,9 +139,15 @@ fun FeedList(
                 MessageState(emptyMessage, Modifier.fillParentMaxHeight(0.62f))
             }
             else -> {
-                items(state.items, key = { it.key }, contentType = { it::class }) { item ->
-                    when (item) {
+                items(rows, key = { it.key }, contentType = { (it as? FeedRow.Item)?.item?.let { item -> item::class } ?: FeedRow.Shelf::class }) { row ->
+                    // New rows fade in, hidden ones fade out while the rest glide into place.
+                    val appear = Modifier.animateItem(fadeInSpec = androidx.compose.animation.core.tween(320),
+                        placementSpec = androidx.compose.animation.core.spring(stiffness = 500f, visibilityThreshold = androidx.compose.ui.unit.IntOffset(1, 1)),
+                        fadeOutSpec = androidx.compose.animation.core.tween(200))
+                    if (row is FeedRow.Shelf) { ShortsShelf(row.shorts, navigation, appear); return@items }
+                    when (val item = (row as FeedRow.Item).item) {
                         is FeedItem.Video -> VideoCard(
+                            modifier = appear,
                             video = item.video,
                             branding = state.branding[item.video.id],
                             onClick = { navigation.openVideo(item.video.id) },
@@ -145,10 +156,10 @@ fun FeedList(
                             enableMenu = videoActions,
                             recommendation = videoActions && recommendations,
                         )
-                        is FeedItem.Playlist -> PlaylistRow(item.playlist) {
+                        is FeedItem.Playlist -> PlaylistRow(item.playlist, appear) {
                             navigation.openPlaylist(item.playlist.id, item.playlist.title, item.playlist.seedVideoId)
                         }
-                        is FeedItem.Channel -> ChannelRow(item.channel) { navigation.openChannel(item.channel.id) }
+                        is FeedItem.Channel -> ChannelRow(item.channel, appear) { navigation.openChannel(item.channel.id) }
                     }
                 }
                 item(key = "footer") {
@@ -197,9 +208,9 @@ fun LoadError.messageRes(): Int = when (this) {
 }
 
 @Composable
-private fun PlaylistRow(playlist: PlaylistSummary, onClick: () -> Unit) {
+private fun PlaylistRow(playlist: PlaylistSummary, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Row(
-        Modifier
+        modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -246,9 +257,9 @@ private fun PlaylistRow(playlist: PlaylistSummary, onClick: () -> Unit) {
 }
 
 @Composable
-fun ChannelRow(channel: ChannelSummary, onClick: () -> Unit) {
+fun ChannelRow(channel: ChannelSummary, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Row(
-        Modifier
+        modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 10.dp),

@@ -15,3 +15,5 @@ import kotlinx.serialization.Serializable
 @Serializable data class LibraryListRoute(val section: String)
 @Serializable data class PlaylistRoute(val playlistId: String, val title: String, val seedVideoId: String? = null)
 @Serializable data class ChannelRoute(val channelId: String)
+/** Shorts opened from a shelf: these Shorts in order, starting at [start]. */
+@Serializable data class ShortsViewerRoute(val videoIds: List<String>, val thumbnails: List<String>, val start: Int)

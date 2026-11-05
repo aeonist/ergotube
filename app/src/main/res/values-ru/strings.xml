@@ -86,6 +86,7 @@
     <string name="library_downloads">Скачанные</string>
     <string name="channel_subscribe">Подписаться</string>
     <string name="channel_subscribed">Вы подписаны</string>
+    <string name="library_needs_account">Войди в аккаунт YouTube, и здесь появится этот список.</string>
     <string name="action_needs_sign_in">Войди, чтобы ставить лайки, подписываться и комментировать.</string>
     <string name="action_failed">YouTube не принял действие. Попробуй ещё раз.</string>
     <string name="comment_posted">Комментарий отправлен</string>
@@ -186,10 +187,10 @@
     <string name="settings_feed_shorts_hint">Показывать короткие ролики на главной и в подписках.</string>
     <string name="settings_appearance">Внешний вид</string>
     <string name="settings_theme">Тема</string>
-    <string name="theme_system">Как в системе</string>
+    <string name="theme_system">Авто</string>
     <string name="theme_light">Светлая</string>
     <string name="theme_dark">Тёмная</string>
-    <string name="theme_amoled">Чёрная для OLED</string>
+    <string name="theme_amoled">Чёрная</string>
     <string name="settings_dynamic_color">Цвета обоев</string>
     <string name="settings_dynamic_color_hint">Использовать системные цвета Android для элементов управления.</string>
     <string name="settings_notifications">Уведомлять о новых видео</string>

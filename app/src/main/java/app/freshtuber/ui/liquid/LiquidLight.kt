@@ -140,7 +140,14 @@ class LiquidLight(context: Context, private val scope: CoroutineScope) {
     var blur = 0f; private set
 
     private var playerDepth = 0
+    /** Player pages asked for; the light follows at the bottom of a short dip ([dip]). */
+    private var requestedDepth = 0
     val playerMode get() = playerDepth > 0
+    /**
+     * 0..1: how far the light is dimmed while it changes between the feed and the player. The
+     * change itself happens at the deepest point, so it never jumps in plain sight.
+     */
+    var dip = 0f; private set
     var videoRect = Rect(0f, 0f, 1f, 1f); private set
     val drops = arrayOf(Rect.Zero, Rect.Zero)
     val dropRadii = floatArrayOf(0f, 0f)
@@ -259,8 +266,31 @@ class LiquidLight(context: Context, private val scope: CoroutineScope) {
 
     // Player.
 
-    fun enterPlayer() { playerDepth++; videoGrabbed = false; poke() }
-    fun exitPlayer() { playerDepth = (playerDepth - 1).coerceAtLeast(0); if (playerDepth == 0) { videoRect = Rect(0f, 0f, 1f, 1f); geometry++ }; poke() }
+    fun enterPlayer() { requestedDepth++; videoGrabbed = false; if (covered) applyMode(); poke() }
+    fun exitPlayer() { requestedDepth = (requestedDepth - 1).coerceAtLeast(0); if (covered) applyMode(); poke() }
+
+    /** Under an opaque screen nobody sees the light, so it changes at once. */
+    private fun applyMode() {
+        playerDepth = requestedDepth
+        if (playerDepth == 0) videoRect = Rect(0f, 0f, 1f, 1f)
+        geometry++
+    }
+
+    /** Moves the effective player depth toward the requested one through the dip. */
+    private fun stepMode(dt: Float): Boolean {
+        val wantPlayer = requestedDepth > 0
+        if (wantPlayer != playerMode) {
+            dip = if (motion == BackgroundMotion.Off) 1f else (dip + dt / 0.16f).coerceAtMost(1f)
+            if (dip >= 1f) applyMode()
+            return true
+        }
+        playerDepth = requestedDepth
+        if (dip > 0f) {
+            dip = if (motion == BackgroundMotion.Off) 0f else (dip - dt / 0.34f).coerceAtLeast(0f)
+            return true
+        }
+        return false
+    }
 
     fun setVideoRect(rect: Rect) {
         if (rect.width < 1f || rect.height < 1f || rect == videoRect) return
@@ -383,6 +413,7 @@ class LiquidLight(context: Context, private val scope: CoroutineScope) {
         surge = if (off) 0f else (surge * 0.25f.pow(dt)).let { if (it < 0.003f) 0f else it }
         wob = if (off) 0f else (wob * 0.2f.pow(dt)).let { if (it < 0.003f) 0f else it }
 
+        if (stepMode(dt)) busy = true
         val transitioning = if (playerMode) stepPlayer(dt) else stepFeed(dt)
         if (transitioning) busy = true
         val speed = when (motion) {

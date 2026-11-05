@@ -56,6 +56,8 @@ class PadUi {
         private set
     var boost by mutableStateOf(false)
     var active by mutableStateOf(false)
+    /** Height of the bottom control zone, so the scrub preview floats right above it. */
+    var zoneHeight by mutableStateOf(0.dp)
     val burst = SeekBurst()
 
     fun say(text: String, keep: Boolean = false) { bubble = text; bubbleKeep = keep; bubbleId++ }

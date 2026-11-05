@@ -67,6 +67,9 @@ fun LiquidBackground(light: LiquidLight, modifier: Modifier = Modifier) {
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> ShaderLight(light)
             else -> FallbackLight(light)
         }
+        // The dip between feed and player light: the page colour washes over the light briefly.
+        val washArgb = androidx.compose.material3.MaterialTheme.colorScheme.background.toArgb()
+        Canvas(Modifier.fillMaxSize()) { drawDip(light, washArgb) }
     }
 }
 
@@ -78,6 +81,13 @@ fun LiquidBackground(light: LiquidLight, modifier: Modifier = Modifier) {
 private fun FlatLight(light: LiquidLight) {
     val dropArgb = androidx.compose.material3.MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f).toArgb()
     Canvas(Modifier.fillMaxSize()) { drawFlatLight(light, dropArgb) }
+}
+
+/** Plain function, not a lambda capturing a colour: see the R8 note in DECISIONS (liquid 04). */
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawDip(light: LiquidLight, washArgb: Int) {
+    light.redraw
+    val dip = light.dip
+    if (dip > 0.001f) drawRect(androidx.compose.ui.graphics.Color(washArgb), alpha = dip * 0.62f)
 }
 
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawFlatLight(light: LiquidLight, dropArgb: Int) {

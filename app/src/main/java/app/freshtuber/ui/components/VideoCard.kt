@@ -75,6 +75,18 @@ fun VideoCard(
     if (menuOpen) app.freshtuber.ui.feed.FeedVideoMenu(video, recommendation, act, onChannelClick) { menuOpen = false }
     val fan = app.freshtuber.ui.feed.LocalFanHost.current
     var coordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
+    // Where the thumbnail is on screen, so a tap sends it flying into the player.
+    val thumbRect = remember { arrayOf(androidx.compose.ui.geometry.Rect.Zero) }
+    val handoff = app.freshtuber.ui.player.LocalVideoHandoff.current
+    val thumbRadius = with(androidx.compose.ui.platform.LocalDensity.current) { 20.dp.toPx() }
+    val thumbnailForFlight = effectiveBranding?.thumbnailUrl ?: video.thumbnailUrl
+    val loaded = remember { arrayOfNulls<coil3.Image>(1) }
+    val open = {
+        if (handoff != null && thumbRect[0].width > 1f && !video.isShort)
+            handoff.launch(video.id, app.freshtuber.ui.player.flightPicture(loaded[0], thumbnailForFlight), thumbRect[0], thumbRadius,
+                app.freshtuber.ui.player.FlightTarget.Page, thumbnailForFlight)
+        onClick()
+    }
     val available = remember(recommendation) {
         app.freshtuber.ui.feed.FanAction.entries.filter { recommendation || it != app.freshtuber.ui.feed.FanAction.NotInterested }.toSet()
     }
@@ -104,7 +116,7 @@ fun VideoCard(
                     }
                 }
             } else Modifier)
-            .clickable(onClick = onClick)
+            .clickable(onClick = open)
             .padding(top = 4.dp, bottom = 20.dp),
     ) {
         val light = app.freshtuber.ui.liquid.LocalLiquidLight.current
@@ -118,10 +130,10 @@ fun VideoCard(
                 .aspectRatio(16f / 9f)
                 // The card's thumbnail lights the background while it is in focus.
                 .onGloballyPositioned { c ->
-                    if (light != null) {
-                        val p = c.positionInRoot()
-                        light.reportCard(lightKey, thumbnail, androidx.compose.ui.geometry.Rect(p.x, p.y, p.x + c.size.width, p.y + c.size.height))
-                    }
+                    val p = c.positionInRoot()
+                    val rect = androidx.compose.ui.geometry.Rect(p.x, p.y, p.x + c.size.width, p.y + c.size.height)
+                    thumbRect[0] = rect
+                    light?.reportCard(lightKey, thumbnail, rect)
                 }
                 .clip(RoundedCornerShape(20.dp))
                 .background(MaterialTheme.colorScheme.surfaceContainerHigh),
@@ -131,6 +143,7 @@ fun VideoCard(
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
+                onSuccess = { loaded[0] = it.result.image },
             )
             ThumbnailBadge(video, Modifier.align(Alignment.BottomEnd).padding(8.dp))
             video.watchedPercent?.takeIf { it > 0 }?.let { WatchedBar(it, Modifier.align(Alignment.BottomStart)) }

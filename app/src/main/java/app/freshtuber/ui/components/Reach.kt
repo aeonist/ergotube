@@ -13,6 +13,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -44,9 +46,19 @@ object Reach {
 /** The working hand from settings; controls press to this side. */
 val LocalLeftHanded = compositionLocalOf { false }
 
-/** Height of the current screen's bottom bar, so snackbars appear above it. */
+/**
+ * Height of the current screen's bottom bar, so snackbars and the floating video sit above it.
+ * While two screens cross-fade both have a bar; the one that reported last owns the value, and
+ * the leaving one cannot clear it.
+ */
 class BottomBarSpace {
     var height by mutableStateOf(0.dp)
+        private set
+    private var owner: Any? = null
+
+    fun report(owner: Any, value: androidx.compose.ui.unit.Dp) { this.owner = owner; height = value }
+
+    fun clear(owner: Any) { if (this.owner === owner) { this.owner = null; height = 0.dp } }
 }
 
 val LocalBottomBarSpace = staticCompositionLocalOf { BottomBarSpace() }
@@ -68,10 +80,11 @@ fun ScreenHeader(title: String, subtitle: String? = null, modifier: Modifier = M
 fun BottomBar(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     val space = LocalBottomBarSpace.current
     val density = LocalDensity.current
-    DisposableEffect(space) { onDispose { space.height = 0.dp } }
+    val owner = remember { Any() }
+    DisposableEffect(space) { onDispose { space.clear(owner) } }
     Column(
         modifier.fillMaxWidth()
-            .onSizeChanged { space.height = with(density) { it.height.toDp() } },
+            .onSizeChanged { space.report(owner, with(density) { it.height.toDp() }) },
     ) {
         // Transparent: the background light shows through under the bar.
         content()
@@ -138,8 +151,11 @@ data class ChipItem(val label: String, val selected: Boolean, val onClick: () ->
 @Composable
 fun HandChips(chips: List<ChipItem>, left: Boolean, modifier: Modifier = Modifier, natural: Boolean = false) {
     val chips = if (natural && !left) chips.reversed() else chips
-    // A short row also sits at the hand edge, not across the screen.
-    LazyRow(modifier.fillMaxWidth(), reverseLayout = !left, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+    // A short row also sits at the hand edge, not across the screen. A row too long for the
+    // screen fades out where more chips wait, instead of looking cut off.
+    val state = androidx.compose.foundation.lazy.rememberLazyListState()
+    LazyRow(modifier.fillMaxWidth().edgeFade(state, reversed = !left), state = state, reverseLayout = !left,
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp, if (left) Alignment.Start else Alignment.End)) {
         itemsIndexed(chips, key = { index, chip -> "$index:${chip.label}" }) { _, chip ->
             val bg = if (chip.selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surfaceContainerHigh
@@ -154,6 +170,24 @@ fun HandChips(chips: List<ChipItem>, left: Boolean, modifier: Modifier = Modifie
         }
     }
 }
+
+/** Fades a sideways list's edges where it can still scroll. */
+fun Modifier.edgeFade(state: androidx.compose.foundation.lazy.LazyListState, reversed: Boolean, width: Dp = 28.dp): Modifier =
+    graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
+        .drawWithContent {
+            drawContent()
+            val w = width.toPx()
+            val clear = androidx.compose.ui.graphics.Color.Transparent
+            val black = androidx.compose.ui.graphics.Color.Black
+            // Forward is to the right in a normal row and to the left in a reversed one.
+            val fadeLeft = if (reversed) state.canScrollForward else state.canScrollBackward
+            val fadeRight = if (reversed) state.canScrollBackward else state.canScrollForward
+            if (fadeLeft) drawRect(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(black, clear), startX = 0f, endX = w),
+                size = androidx.compose.ui.geometry.Size(w, size.height), blendMode = androidx.compose.ui.graphics.BlendMode.DstOut)
+            if (fadeRight) drawRect(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(clear, black), startX = size.width - w, endX = size.width),
+                topLeft = androidx.compose.ui.geometry.Offset(size.width - w, 0f), size = androidx.compose.ui.geometry.Size(w, size.height),
+                blendMode = androidx.compose.ui.graphics.BlendMode.DstOut)
+        }
 
 data class TileItem(val icon: ImageVector, val label: String, val value: String? = null, val selected: Boolean = false,
     val enabled: Boolean = true, val onClick: () -> Unit)

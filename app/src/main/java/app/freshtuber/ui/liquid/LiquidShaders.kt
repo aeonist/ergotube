@@ -122,7 +122,6 @@ float3 dropOut(float2 p,float4 R,float r,float3 col){
 }
 half4 main(float2 fc){
  float2 p=fc*uScale;
- if(uMode>.5&&p.x>=uVid.x&&p.x<=uVid.x+uVid.z&&p.y>=uVid.y&&p.y<=uVid.y+uVid.w)return half4(0.,0.,0.,1.);
  float3 col=scene(p);
  col=dropOut(p,uP0,uR0,col);
  col=dropOut(p,uP1,uR1,col);

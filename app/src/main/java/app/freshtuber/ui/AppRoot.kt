@@ -19,7 +19,21 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination
+import app.freshtuber.ui.motion.Motion
+import app.freshtuber.ui.motion.leaving
+import app.freshtuber.ui.motion.settled
+import app.freshtuber.ui.motion.transitionBlur
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -83,8 +97,11 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     val inFlow = destination == null || destination.hasRoute<WelcomeRoute>() || destination.hasRoute<LoginRoute>()
     val keyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     val dockVisible = !inPictureInPicture && !onPlayer && !inFlow && !keyboardVisible
-    val onShorts = destination?.hasRoute<ShortsRoute>() == true
+    val onShorts = destination?.hasRoute<ShortsRoute>() == true || destination?.hasRoute<ShortsViewerRoute>() == true
     val miniVisible = dockVisible && !onShorts && playerState.nowPlaying?.isShort == false
+    val handoff = remember { app.freshtuber.ui.player.VideoHandoff() }
+    // Read by the watch page when it leaves: the video then flies into the floating window.
+    handoff.miniExpected = miniVisible
 
     var mineOpen by rememberSaveable { mutableStateOf(false) }
     // The floating video remembers its corner while it is hidden on the watch page.
@@ -102,6 +119,8 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
             override fun openPlaylist(playlistId: String, title: String, seedVideoId: String?) =
                 navController.navigate(PlaylistRoute(playlistId, title, seedVideoId))
             override fun openChannel(channelId: String) = navController.navigate(ChannelRoute(channelId))
+            override fun openShorts(videoIds: List<String>, thumbnails: List<String>, start: Int) =
+                navController.navigate(ShortsViewerRoute(videoIds, thumbnails, start))
         }
     }
     val openSection: (Any) -> Unit = { route -> navController.navigateToTopLevel(route) }
@@ -120,10 +139,13 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
 
     val activity = androidx.activity.compose.LocalActivity.current
     val lightBars = MaterialTheme.colorScheme.surface.let { it.red + it.green + it.blue > 1.5f } && !onPlayer && !onShorts
+    // The status bar icons change halfway through a screen change, when the screens cross.
+    var barsLight by remember { mutableStateOf(lightBars) }
+    LaunchedEffect(lightBars) { kotlinx.coroutines.delay(150); barsLight = lightBars }
     SideEffect {
         activity?.window?.let { window -> androidx.core.view.WindowCompat.getInsetsController(window, window.decorView).apply {
-            isAppearanceLightStatusBars = lightBars
-            isAppearanceLightNavigationBars = lightBars
+            isAppearanceLightStatusBars = barsLight
+            isAppearanceLightNavigationBars = barsLight
         } }
     }
     val snackbarHost = remember { SnackbarHostState() }
@@ -131,110 +153,183 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     val messages = remember(snackbarHost, scope) { AppMessages(snackbarHost, scope) }
     val barSpace = remember { BottomBarSpace() }
     val fanHost = remember { app.freshtuber.ui.feed.FanHost() }
-    var belowContent by remember { mutableStateOf(0.dp) }
 
     CompositionLocalProvider(LocalInPictureInPicture provides inPictureInPicture, LocalAppMessages provides messages,
-        LocalBottomBarSpace provides barSpace, app.freshtuber.ui.components.LocalLeftHanded provides leftHanded, app.freshtuber.ui.feed.LocalFanHost provides fanHost, app.freshtuber.ui.feed.LocalFeedBottomClearance provides 16.dp) {
+        LocalBottomBarSpace provides barSpace, app.freshtuber.ui.components.LocalLeftHanded provides leftHanded, app.freshtuber.ui.feed.LocalFanHost provides fanHost, app.freshtuber.ui.feed.LocalFeedBottomClearance provides 16.dp,
+        app.freshtuber.ui.player.LocalVideoHandoff provides handoff) {
     val light = app.freshtuber.ui.liquid.LocalLiquidLight.current
     // Shorts decide themselves: a full-screen video covers the light, a square one is lit around.
     SideEffect { light?.setRouteCovered(inPictureInPicture) }
     // «Моё» is a frosted pane: the screen behind it blurs while it is open (Android 12+).
     val behindBlur by androidx.compose.animation.core.animateDpAsState(if (mineOpen && dockVisible) 18.dp else 0.dp, label = "mineBlur")
-    val compactDockSpace = Reach.CompactDockHeight + with(LocalDensity.current) { WindowInsets.navigationBars.getBottom(this).toDp() }
+    val density = LocalDensity.current
+    val navBottom = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() }
+    val compactDockSpace = Reach.CompactDockHeight + navBottom
+    // The dock floats over the screens; each screen keeps room for it, whatever the next screen
+    // is, so nothing jumps while two screens cross-fade.
+    val dockSpace = Reach.DockHeight + 22.dp + navBottom
+    var bannerHeight by remember { mutableStateOf(0.dp) }
+    val screenBottom by androidx.compose.animation.core.animateDpAsState(
+        if (keyboardVisible) 0.dp else dockSpace + bannerHeight, label = "screenBottom")
+    val fullDock = dockVisible && !onShorts
     androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
     Box(Modifier.fillMaxSize()) {
     if (light != null) app.freshtuber.ui.liquid.LiquidBackground(light)
-    Column(Modifier.fillMaxSize()
+    Box(Modifier.fillMaxSize()
         .then(if (onPlayer || inPictureInPicture) Modifier else Modifier.windowInsetsPadding(WindowInsets.ime.only(WindowInsetsSides.Bottom)))) {
-        Box(Modifier.weight(1f).fillMaxWidth()) {
-            Column(Modifier.fillMaxSize()) {
-                NavHost(
-                    navController = navController,
-                    startDestination = start,
-                    modifier = Modifier.weight(1f).fillMaxWidth().then(if (behindBlur > 0.dp) Modifier.blur(behindBlur) else Modifier).then(when {
-                        onPlayer || inPictureInPicture || onShorts -> Modifier
-                        dockVisible -> Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
-                        else -> Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
-                            .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom).exclude(WindowInsets.ime))
-                    }),
-                ) {
-                    composable<WelcomeRoute> {
-                        WelcomeScreen(
-                            onSignIn = { navController.navigate(LoginRoute) },
-                            onSkip = {
-                                viewModel.continueWithoutAccount()
-                                navController.navigate(HomeRoute) { popUpTo<WelcomeRoute> { inclusive = true } }
-                            },
-                        )
-                    }
-                    composable<LoginRoute> {
-                        LoginScreen(
-                            onClose = { navController.popBackStack() },
-                            onDone = {
-                                val cameFromWelcome = navController.previousBackStackEntry?.destination?.hasRoute<WelcomeRoute>() == true
-                                if (cameFromWelcome) navController.navigate(HomeRoute) { popUpTo<WelcomeRoute> { inclusive = true } }
-                                else navController.popBackStack()
-                            },
-                        )
-                    }
-                    composable<HomeRoute> { HomeScreen(navigation, onSignIn = signIn) }
-                    composable<ShortsRoute> { ShortsScreen(navigation, onSignIn = signIn) }
-                    composable<SubscriptionsRoute> { SubscriptionsScreen(navigation, onSignIn = signIn, onSearch = { openSection(SearchRoute) }) }
-                    composable<SearchRoute> { SearchScreen(navigation, onSignIn = signIn) }
-                    composable<DownloadsRoute> { DownloadsScreen(onVideo = { navController.navigate(PlayerRoute(it)) }, onSearch = { openSection(SearchRoute) }) }
-                    composable<LibraryListRoute> { ListScreen(navigation, onSignIn = signIn,
-                        onLiked = { navController.navigate(LibraryListRoute(LibrarySection.Liked.name)) }) }
-                    composable<PlaylistRoute> { ListScreen(navigation, onSignIn = signIn) }
-                    composable<ChannelRoute> { ListScreen(navigation, onSignIn = signIn) }
-                    composable<AccountRoute> { AccountScreen(onSignIn = signIn) }
-                    composable<SettingsRoute> { SettingsScreen(onAccount = { navController.navigate(AccountRoute) }) }
-                    composable<PlayerRoute> {
-                        PlayerScreen(
-                            navigation,
-                            onBack = { navController.popBackStack() },
-                            onSignIn = signIn,
-                            onAdvanced = { next -> navController.navigate(PlayerRoute(next)) { popUpTo<PlayerRoute> { inclusive = true } } },
-                        )
-                    }
-                }
-                val density = LocalDensity.current
-                Column(Modifier.fillMaxWidth().onSizeChanged { belowContent = with(density) { it.height.toDp() } }) {
-                    if (dockVisible && (!online || expired)) StatusBanner(online, expired,
-                        onDownloads = { openSection(DownloadsRoute) }, onSignIn = signIn)
+        val docked = Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+            .padding(bottom = if (inPictureInPicture) 0.dp else screenBottom)
+        val flow = Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+            .windowInsetsPadding(WindowInsets.navigationBars.only(WindowInsetsSides.Bottom).exclude(WindowInsets.ime))
+        NavHost(
+            navController = navController,
+            startDestination = start,
+            modifier = Modifier.fillMaxSize().then(if (behindBlur > 0.dp) Modifier.blur(behindBlur) else Modifier),
+            enterTransition = { ScreenMotion.enter(initialState, targetState) },
+            exitTransition = { ScreenMotion.exit(initialState, targetState) },
+            popEnterTransition = { ScreenMotion.popEnter(initialState, targetState) },
+            popExitTransition = { ScreenMotion.popExit(initialState, targetState) },
+        ) {
+            composable<WelcomeRoute> {
+                Box(flow.then(transitionBlur())) {
+                    WelcomeScreen(
+                        onSignIn = { navController.navigate(LoginRoute) },
+                        onSkip = {
+                            viewModel.continueWithoutAccount()
+                            navController.navigate(HomeRoute) { popUpTo<WelcomeRoute> { inclusive = true } }
+                        },
+                    )
                 }
             }
-            val nowPlaying = playerState.nowPlaying
-            if (miniVisible && nowPlaying != null) {
-                FloatingMiniPlayer(player = viewModel.player.player, nowPlaying = nowPlaying, left = leftHanded,
-                    bottomClearance = barSpace.height + belowContent, corner = miniCorner, onCorner = { miniCorner = it },
-                    widthDp = miniWidth, onWidth = { miniWidth = it },
-                    hasNext = playerState.queue.isNotEmpty(), hasPrevious = playerState.history.isNotEmpty(),
-                    onNext = viewModel.player::playNext, onPrevious = viewModel.player::playPrevious,
-                    onOpen = { navController.navigate(PlayerRoute(nowPlaying.videoId)) }, onClose = viewModel.player::stop,
-                    modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)))
+            composable<LoginRoute> {
+                Box(flow.then(transitionBlur())) {
+                    LoginScreen(
+                        onClose = { navController.popBackStack() },
+                        onDone = {
+                            val cameFromWelcome = navController.previousBackStackEntry?.destination?.hasRoute<WelcomeRoute>() == true
+                            if (cameFromWelcome) navController.navigate(HomeRoute) { popUpTo<WelcomeRoute> { inclusive = true } }
+                            else navController.popBackStack()
+                        },
+                    )
+                }
             }
-            if (mineOpen && dockVisible) MineList(downloads, bottomInset = if (onShorts) compactDockSpace else 0.dp, onPick = { item ->
-                mineOpen = false
-                openSection(when (item) {
-                    MineItem.WatchLater -> LibraryListRoute(LibrarySection.WatchLater.name)
-                    MineItem.Downloads -> DownloadsRoute
-                    MineItem.History -> LibraryListRoute(LibrarySection.History.name)
-                    MineItem.Playlists -> LibraryListRoute(LibrarySection.Playlists.name)
-                    MineItem.Settings -> SettingsRoute
-                })
-            }, onDismiss = { mineOpen = false })
-            SnackbarHost(snackbarHost, Modifier.align(Alignment.BottomCenter)
-                .padding(bottom = barSpace.height + belowContent + 8.dp + if (onShorts && dockVisible) compactDockSpace else 0.dp)
-                .then(if (onPlayer) Modifier.navigationBarsPadding() else Modifier))
+            composable<HomeRoute> { Box(docked.then(transitionBlur())) { HomeScreen(navigation, onSignIn = signIn) } }
+            composable<ShortsRoute> { Box(Modifier.fillMaxSize().then(transitionBlur())) { ShortsScreen(navigation, onSignIn = signIn, settled = settled) } }
+            composable<ShortsViewerRoute> { Box(Modifier.fillMaxSize().then(transitionBlur())) { ShortsScreen(navigation, onSignIn = signIn, settled = settled) } }
+            composable<SubscriptionsRoute> { Box(docked.then(transitionBlur())) { SubscriptionsScreen(navigation, onSignIn = signIn, onSearch = { openSection(SearchRoute) }) } }
+            composable<SearchRoute> { Box(docked.then(transitionBlur())) { SearchScreen(navigation, onSignIn = signIn) } }
+            composable<DownloadsRoute> { Box(docked.then(transitionBlur())) { DownloadsScreen(onVideo = { navController.navigate(PlayerRoute(it)) }, onSearch = { openSection(SearchRoute) }) } }
+            composable<LibraryListRoute> { Box(docked.then(transitionBlur())) { ListScreen(navigation, onSignIn = signIn,
+                onLiked = { navController.navigate(LibraryListRoute(LibrarySection.Liked.name)) }) } }
+            composable<PlaylistRoute> { Box(docked.then(transitionBlur())) { ListScreen(navigation, onSignIn = signIn) } }
+            composable<ChannelRoute> { Box(docked.then(transitionBlur())) { ListScreen(navigation, onSignIn = signIn) } }
+            composable<AccountRoute> { Box(docked.then(transitionBlur())) { AccountScreen(onSignIn = signIn) } }
+            composable<SettingsRoute> { Box(docked.then(transitionBlur())) { SettingsScreen(onAccount = { navController.navigate(AccountRoute) }) } }
+            composable<PlayerRoute> {
+                Box(Modifier.fillMaxSize().then(transitionBlur(28.dp))) {
+                    PlayerScreen(
+                        navigation,
+                        onBack = { navController.popBackStack() },
+                        onSignIn = signIn,
+                        onAdvanced = { next -> navController.navigate(PlayerRoute(next)) { popUpTo<PlayerRoute> { inclusive = true } } },
+                        settled = settled,
+                        leaving = leaving,
+                    )
+                }
+            }
         }
-        if (dockVisible && !onShorts) AppDock(selected = currentTab, mineOpen = mineOpen, left = leftHanded, shorts = shortsEnabled, onSelect = selectTab)
+        // Offline / expired notices sit right above the dock.
+        if (dockVisible && (!online || expired)) Box(Modifier.align(Alignment.BottomCenter).padding(bottom = if (fullDock) dockSpace else compactDockSpace)
+            .onSizeChanged { bannerHeight = with(density) { it.height.toDp() } }) {
+            StatusBanner(online, expired, onDownloads = { openSection(DownloadsRoute) }, onSignIn = signIn)
+        } else if (bannerHeight != 0.dp) SideEffect { bannerHeight = 0.dp }
+        val belowContent = bannerHeight + if (fullDock) dockSpace else 0.dp
+        val nowPlaying = playerState.nowPlaying
+        // Closing the floating video fades it out; it keeps its last picture meanwhile.
+        val lastPlaying = remember { arrayOfNulls<app.freshtuber.player.NowPlaying>(1) }
+        if (nowPlaying != null && !nowPlaying.isShort) lastPlaying[0] = nowPlaying
+        androidx.compose.animation.AnimatedVisibility(miniVisible && nowPlaying != null,
+            enter = EnterTransition.None,
+            exit = if (nowPlaying == null) fadeOut(tween(220, easing = Motion.Accelerate)) else ExitTransition.None) {
+            val playing = lastPlaying[0] ?: return@AnimatedVisibility
+            FloatingMiniPlayer(player = viewModel.player.player, nowPlaying = playing, left = leftHanded,
+                bottomClearance = barSpace.height + belowContent, corner = miniCorner, onCorner = { miniCorner = it },
+                widthDp = miniWidth, onWidth = { miniWidth = it },
+                hasNext = playerState.queue.isNotEmpty(), hasPrevious = playerState.history.isNotEmpty(),
+                onNext = viewModel.player::playNext, onPrevious = viewModel.player::playPrevious,
+                onOpen = { navController.navigate(PlayerRoute(playing.videoId)) }, onClose = viewModel.player::stop,
+                hidden = mineOpen,
+                modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)))
+        }
+        if (mineOpen && dockVisible) MineList(downloads, bottomInset = if (onShorts) compactDockSpace else dockSpace, onPick = { item ->
+            mineOpen = false
+            openSection(when (item) {
+                MineItem.WatchLater -> LibraryListRoute(LibrarySection.WatchLater.name)
+                MineItem.Downloads -> DownloadsRoute
+                MineItem.History -> LibraryListRoute(LibrarySection.History.name)
+                MineItem.Playlists -> LibraryListRoute(LibrarySection.Playlists.name)
+                MineItem.Settings -> SettingsRoute
+            })
+        }, onDismiss = { mineOpen = false })
+        SnackbarHost(snackbarHost, Modifier.align(Alignment.BottomCenter)
+            .padding(bottom = barSpace.height + belowContent + 8.dp + if (onShorts && dockVisible) compactDockSpace else 0.dp)
+            .then(if (onPlayer) Modifier.navigationBarsPadding() else Modifier))
+        // The dock slides away under the player and back when it closes.
+        androidx.compose.animation.AnimatedVisibility(fullDock, Modifier.align(Alignment.BottomCenter),
+            enter = androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(Motion.ENTER_MS, easing = Motion.Decelerate)) { it } +
+                androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(Motion.ENTER_MS)),
+            exit = androidx.compose.animation.slideOutVertically(androidx.compose.animation.core.tween(Motion.EXIT_MS, easing = Motion.Accelerate)) { it } +
+                androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(Motion.EXIT_MS))) {
+            AppDock(selected = currentTab, mineOpen = mineOpen, left = leftHanded, shorts = shortsEnabled, onSelect = selectTab)
+        }
     }
     // Over a Short the dock is a slim row of icons drawn on the video itself.
-    if (dockVisible && onShorts) CompactDock(selected = currentTab, mineOpen = mineOpen, left = leftHanded, shorts = shortsEnabled,
-        onSelect = selectTab, modifier = Modifier.align(Alignment.BottomCenter))
+    androidx.compose.animation.AnimatedVisibility(dockVisible && onShorts, Modifier.align(Alignment.BottomCenter),
+        enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(Motion.ENTER_MS)),
+        exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(Motion.EXIT_MS))) {
+        CompactDock(selected = currentTab, mineOpen = mineOpen, left = leftHanded, shorts = shortsEnabled, onSelect = selectTab)
+    }
     app.freshtuber.ui.feed.FanOverlay(fanHost)
+    app.freshtuber.ui.player.VideoFlightOverlay(handoff)
     }
     }
+    }
+}
+
+/**
+ * How screens replace each other. Everything cross-fades through a soft blur (applied by each
+ * screen); the watch page rises over the feed, which recedes, and sinks back when it closes.
+ * Dock sections swap quickly in place; deeper screens come forward and step back.
+ */
+private object ScreenMotion {
+    private fun NavBackStackEntry.isPlayer() = destination.hasRoute<PlayerRoute>()
+    private fun NavBackStackEntry.isSection() = destination.let {
+        it.hasRoute<HomeRoute>() || it.hasRoute<SubscriptionsRoute>() || it.hasRoute<ShortsRoute>() || it.hasRoute<SearchRoute>() ||
+            it.hasRoute<DownloadsRoute>() || it.hasRoute<LibraryListRoute>() || it.hasRoute<SettingsRoute>()
+    }
+    private fun <T> enterSpec(delay: Int = 0) = tween<T>(Motion.ENTER_MS, delay, Motion.Decelerate)
+    private fun <T> exitSpec() = tween<T>(Motion.EXIT_MS, easing = Motion.Accelerate)
+
+    fun enter(from: NavBackStackEntry, to: NavBackStackEntry): EnterTransition = when {
+        to.isPlayer() -> fadeIn(enterSpec(40)) + slideInVertically(enterSpec()) { (it * 0.06f).toInt() }
+        from.isSection() && to.isSection() -> fadeIn(tween(300, 70, Motion.Decelerate)) + scaleIn(tween(360, easing = Motion.Decelerate), 0.985f)
+        else -> fadeIn(enterSpec(40)) + scaleIn(enterSpec(), 0.95f)
+    }
+
+    fun exit(from: NavBackStackEntry, to: NavBackStackEntry): ExitTransition = when {
+        to.isPlayer() -> fadeOut(exitSpec()) + scaleOut(enterSpec(), 0.94f)
+        from.isSection() && to.isSection() -> fadeOut(tween(170, easing = Motion.Accelerate))
+        else -> fadeOut(exitSpec()) + scaleOut(enterSpec(), 1.04f)
+    }
+
+    fun popEnter(from: NavBackStackEntry, to: NavBackStackEntry): EnterTransition = when {
+        from.isPlayer() -> fadeIn(enterSpec(60)) + scaleIn(enterSpec(), 0.94f)
+        else -> fadeIn(enterSpec(40)) + scaleIn(enterSpec(), 1.04f)
+    }
+
+    fun popExit(from: NavBackStackEntry, to: NavBackStackEntry): ExitTransition = when {
+        from.isPlayer() -> fadeOut(exitSpec()) + slideOutVertically(tween(Motion.EXIT_MS + 60, easing = Motion.Accelerate)) { (it * 0.08f).toInt() }
+        else -> fadeOut(exitSpec()) + scaleOut(exitSpec(), 0.95f)
     }
 }
 
@@ -258,6 +353,7 @@ private fun NavDestination.dockTab(): DockTab? = when {
     hasRoute<HomeRoute>() -> DockTab.Home
     hasRoute<SubscriptionsRoute>() -> DockTab.Subscriptions
     hasRoute<ShortsRoute>() -> DockTab.Shorts
+    hasRoute<ShortsViewerRoute>() -> null
     hasRoute<SearchRoute>() -> DockTab.Search
     hasRoute<LibraryListRoute>() || hasRoute<DownloadsRoute>() || hasRoute<SettingsRoute>() || hasRoute<AccountRoute>() -> DockTab.Mine
     else -> null

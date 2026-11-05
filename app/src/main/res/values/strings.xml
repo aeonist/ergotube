@@ -88,6 +88,7 @@
     <string name="library_downloads">Downloads</string>
     <string name="channel_subscribe">Subscribe</string>
     <string name="channel_subscribed">Subscribed</string>
+    <string name="library_needs_account">Sign in to your YouTube account to see this list.</string>
     <string name="action_needs_sign_in">Sign in to like, subscribe and comment.</string>
     <string name="action_failed">YouTube didn’t accept that. Try again.</string>
     <string name="comment_posted">Comment posted</string>
@@ -188,10 +189,10 @@
     <string name="settings_feed_shorts_hint">Include short videos in Home and subscriptions.</string>
     <string name="settings_appearance">Appearance</string>
     <string name="settings_theme">Theme</string>
-    <string name="theme_system">Follow system</string>
+    <string name="theme_system">Auto</string>
     <string name="theme_light">Light</string>
     <string name="theme_dark">Dark</string>
-    <string name="theme_amoled">Black for OLED</string>
+    <string name="theme_amoled">Black</string>
     <string name="settings_dynamic_color">Wallpaper colors</string>
     <string name="settings_dynamic_color_hint">Use Android system colors for controls.</string>
     <string name="settings_notifications">Notify about new videos</string>

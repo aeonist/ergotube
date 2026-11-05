@@ -19,6 +19,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
@@ -110,7 +111,19 @@ fun FullscreenPlayer(
     }
     LaunchedEffect(ui.bubbleId) { if (ui.bubble != null && !ui.bubbleKeep) { delay(800); ui.hush() } }
     LaunchedEffect(showRotateHint) { if (showRotateHint) { hint = true; delay(2_600); hint = false } }
-    val shown by animateFloatAsState(if (awake) 1f else 0f, label = "fan")
+    // The controls come into focus out of a soft blur, growing from the corner; they leave the same way.
+    val shown by animateFloatAsState(if (awake) 1f else 0f,
+        androidx.compose.animation.core.tween(if (awake) 360 else 520, easing = if (awake) app.freshtuber.ui.motion.Motion.Decelerate else app.freshtuber.ui.motion.Motion.Emphasized),
+        label = "fan")
+    val fanLayer = Modifier.graphicsLayer {
+        alpha = shown
+        val s = 0.9f + 0.1f * shown
+        scaleX = s; scaleY = s
+        transformOrigin = androidx.compose.ui.graphics.TransformOrigin(if (left) 0f else 1f, 1f)
+        val r = (1f - shown) * 16.dp.toPx()
+        renderEffect = if (android.os.Build.VERSION.SDK_INT >= 31 && r > 0.5f && shown > 0f)
+            androidx.compose.ui.graphics.BlurEffect(r, r, androidx.compose.ui.graphics.TileMode.Decal) else null
+    }
 
     Box(Modifier.fillMaxSize()) {
     // While the video just plays, a plain straight timeline along the very bottom edge.
@@ -248,15 +261,19 @@ fun FullscreenPlayer(
                 pending = scope.launch { delay(if (side != 0) 300L else 0L); lastSide = 0; if (awake) awake = false else wake() }
             }
         }) {
-            // Shade under the fan, so white icons read on any picture.
-            Canvas(Modifier.fillMaxSize().alpha(shown)) {
+            // Shade under the fan, so white icons read on any picture; it spreads out of the corner.
+            if (shown > 0f) Canvas(Modifier.fillMaxSize()) {
                 val corner = Offset(if (left) 0f else size.width, size.height)
-                val r = geo.radius.dp.toPx()
-                drawCircle(Brush.radialGradient(0f to Color.Black.copy(alpha = 0.6f), (r / (r + 80.dp.toPx())) to Color.Black.copy(alpha = 0.45f),
-                    1f to Color.Transparent, center = corner, radius = r + 80.dp.toPx()), r + 80.dp.toPx(), corner)
+                val r = geo.radius.dp.toPx() * (0.6f + 0.4f * shown)
+                val outer = r + 80.dp.toPx()
+                drawCircle(Brush.radialGradient(0f to Color.Black.copy(alpha = 0.6f * shown), (r / outer) to Color.Black.copy(alpha = 0.45f * shown),
+                    1f to Color.Transparent, center = corner, radius = outer), outer, corner)
+                // A soft wash along the top keeps the title readable.
+                drawRect(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.42f * shown), Color.Transparent), endY = 96.dp.toPx()),
+                    size = Size(size.width, 96.dp.toPx()))
             }
             // The arc: chapters with gaps, progress in red, a dot. Only while the controls are shown.
-            if (shown > 0f) Canvas(Modifier.fillMaxSize().alpha(shown)) {
+            if (shown > 0f) Canvas(Modifier.fillMaxSize().then(fanLayer)) {
                 val corner = Offset(if (left) 0f else size.width, size.height)
                 val r = geo.track.dp.toPx()
                 val box = Rect(corner - Offset(r, r), Size(2 * r, 2 * r))
@@ -281,7 +298,7 @@ fun FullscreenPlayer(
                 }
             }
             fun Modifier.at(p: Offset, size: Float) = offset { IntOffset(((p.x - size / 2).dp).roundToPx(), ((p.y - size / 2).dp).roundToPx()) }
-            if (awake || shown > 0f) Box(Modifier.fillMaxSize().alpha(shown)) {
+            if (awake || shown > 0f) Box(Modifier.fillMaxSize().then(fanLayer)) {
                 val playing = progress.isPlaying || (progress.buffering && player.playWhenReady)
                 FanIcon(Icons.Rounded.Replay10, stringResource(R.string.player_back_10), Modifier.at(geo.position(geo.main, 0.16f), 60f), enabled = !live) {
                     ui.skip(player, -10) { secondsFormat.format(it) } }
@@ -309,8 +326,6 @@ fun FullscreenPlayer(
                 if (captionsAvailable) chip("cc", geo.position(geo.outer, 0.7f), 44f, {
                     Icon(if (captionsOn) Icons.Rounded.ClosedCaption else Icons.Rounded.ClosedCaptionDisabled, stringResource(R.string.player_subtitles), Modifier.size(22.dp))
                 }, captionsOn, onCaptions)
-                Text(now?.title.orEmpty(), color = Color.White, style = MaterialTheme.typography.titleSmall.merge(Shade), maxLines = 1,
-                    overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 20.dp, top = 14.dp).fillMaxWidth(0.58f))
                 if (!live) Text(buildString {
                     append("${formatDuration(shownMs / 1000)} / ${formatDuration(durationMs / 1000)}")
                     Chapter.at(chapters, shownMs / 1000)?.let { append(" · ${it.title}") }
@@ -318,6 +333,16 @@ fun FullscreenPlayer(
                     modifier = Modifier.align(if (left) Alignment.BottomStart else Alignment.BottomEnd)
                         .padding(bottom = 12.dp, start = if (left) (geo.radius + 12).dp else 0.dp, end = if (left) 0.dp else (geo.radius + 12).dp))
             }
+            // The title drifts down into place, out of the same blur.
+            if (shown > 0f) Text(now?.title.orEmpty(), color = Color.White, style = MaterialTheme.typography.titleSmall.merge(Shade), maxLines = 1,
+                overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 20.dp, top = 14.dp).fillMaxWidth(0.58f)
+                    .offset { IntOffset(0, ((1f - shown) * -10).dp.roundToPx()) }
+                    .graphicsLayer {
+                        alpha = shown
+                        val r = (1f - shown) * 10.dp.toPx()
+                        renderEffect = if (android.os.Build.VERSION.SDK_INT >= 31 && r > 0.5f)
+                            androidx.compose.ui.graphics.BlurEffect(r, r, androidx.compose.ui.graphics.TileMode.Decal) else null
+                    })
             val freeX = geo.freeCenterX.dp
             ui.bubble?.let { Bubble(it, Modifier.offset { IntOffset((freeX - 80.dp).roundToPx(), 58.dp.roundToPx()) }.width(160.dp).wrapContentWidth()) }
             ui.scrubMs?.let { ms ->
