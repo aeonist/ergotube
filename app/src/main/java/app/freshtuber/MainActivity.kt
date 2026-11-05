@@ -80,15 +80,14 @@ class MainActivity : ComponentActivity() {
         setContent {
             val preferences by settings.preferences.collectAsStateWithLifecycle(AppPreferences())
             val dark = when (preferences.theme) { ThemeMode.System -> isSystemInDarkTheme(); ThemeMode.Light -> false; else -> true }
-            val youTube = preferences.flatYouTube
+            val youTube = preferences.youTubeColors
             val lightScope = androidx.compose.runtime.rememberCoroutineScope()
             val light = androidx.compose.runtime.remember { app.freshtuber.ui.liquid.LiquidLight(this, lightScope) }
             androidx.compose.runtime.SideEffect { light.setDark(dark) }
             AppTheme(darkTheme = dark, dynamicColor = preferences.enabled(AppFeature.DynamicColor), amoled = preferences.theme == ThemeMode.Amoled,
-                serif = preferences.enabled(AppFeature.SerifFont) && !preferences.classicLayout, hue = light.hue, youTube = youTube) {
+                serif = preferences.enabled(AppFeature.SerifFont), hue = light.hue, youTube = youTube) {
                 androidx.compose.runtime.CompositionLocalProvider(app.freshtuber.ui.theme.LocalAppPreferences provides preferences,
-                    // The flat YouTube look has no liquid light: nothing draws it or feeds it frames.
-                    app.freshtuber.ui.liquid.LocalLiquidLight provides light.takeUnless { youTube },
+                    app.freshtuber.ui.liquid.LocalLiquidLight provides light,
                     app.freshtuber.ui.components.LocalClassic provides preferences.classicLayout,
                     app.freshtuber.ui.components.LocalFoldPosture provides app.freshtuber.ui.components.rememberFoldPosture(this)) {
                     AppRoot(inPictureInPicture = inPictureInPicture, openVideo = externalVideoId, onVideoOpened = { externalVideoId = null })

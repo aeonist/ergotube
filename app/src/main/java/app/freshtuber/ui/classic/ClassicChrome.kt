@@ -69,7 +69,8 @@ fun ClassicLogo(modifier: Modifier = Modifier) {
  */
 @Composable
 fun ClassicNavBar(selected: DockTab?, mineOpen: Boolean, shorts: Boolean, overVideo: Boolean, onSelect: (DockTab) -> Unit, modifier: Modifier = Modifier) {
-    val background = if (overVideo) Color.Black else MaterialTheme.colorScheme.background
+    // Translucent, so the background light (when it is on) shows through like under the dock.
+    val background = if (overVideo) Color.Black else MaterialTheme.colorScheme.background.copy(alpha = 0.72f)
     val content = if (overVideo) Color.White else MaterialTheme.colorScheme.onSurface
     Column(modifier.fillMaxWidth().background(background)) {
         HorizontalDivider(color = if (overVideo) Color.White.copy(alpha = 0.12f) else MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
