@@ -180,9 +180,9 @@ fun ListScreen(
 
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
-            // Library lists and playlists grow upward from the thumb; channels and history read
-            // like a feed, newest at the top.
-            val fromBottom = !viewModel.isChannel && !viewModel.isHistory
+            // Library lists, history and playlists grow upward from the thumb, newest right above
+            // the bottom bar; channels read like a feed, newest at the top.
+            val fromBottom = !viewModel.isChannel
             if (needsAccount) Column(Modifier.fillMaxSize()) {
                 if (!fromBottom) ScreenHeader(title)
                 MessageState(stringResource(R.string.library_needs_account), Modifier.weight(1f))

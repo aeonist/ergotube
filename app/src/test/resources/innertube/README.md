@@ -21,3 +21,5 @@ signed-in response and contains no account data. It tests Home's container bound
 - `feed_actions.json`: structural menu fixture; matching NOT_INTERESTED feedback and an unrelated feedback action, using dummy tokens. Feedback request verified against YouTube.js FeedbackEndpoint.
 
 - `mix_more.json.gz`: the next anonymous watch-next playlist panel, requested with the last video endpoint from mix_next; 25 entries, additional video IDs (the generated mix changes over time).
+
+- `player_visionos.json.gz`: anonymous `player` response of the VISIONOS client (the request NewPipeExtractor's `YoutubeStreamHelper.getVisionOsPlayerResponse` makes) for dQw4w9WgXcQ, captured 2026-11-05 (hl=ru, gl=RU). Reduced to playabilityStatus, streamingData, videoDetails, captions and storyboards; IP, signatures, server and tracking parameters in URLs are replaced with fixture values, so the URLs do not play.

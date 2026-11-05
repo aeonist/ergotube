@@ -257,3 +257,35 @@ class ScrollHide {
 
 @Composable
 fun rememberScrollHide(): ScrollHide = remember { ScrollHide() }
+
+/**
+ * A section tile, as on the Settings page and in «Моё»: icon, title and one line on what is
+ * inside or set now, on a translucent surface the light shows through.
+ */
+@Composable
+fun SectionTile(icon: ImageVector, title: String, summary: String?, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Surface(onClick = onClick, modifier = modifier.heightIn(min = 92.dp), shape = RoundedCornerShape(22.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))) {
+        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.Center) {
+            Icon(icon, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+            Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 2,
+                overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
+            if (summary != null) Text(summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
+                overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+/** Section tiles two to a row, bottom-up and hand-first: item 0 sits lowest on the working-hand side. */
+@Composable
+fun <T> SectionTiles(items: List<T>, left: Boolean, modifier: Modifier = Modifier, tile: @Composable (T, Modifier) -> Unit) {
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        handGrid(items, 2, left).chunked(2).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                row.forEach { item -> if (item == null) Spacer(Modifier.weight(1f)) else tile(item, Modifier.weight(1f)) }
+            }
+        }
+    }
+}
+

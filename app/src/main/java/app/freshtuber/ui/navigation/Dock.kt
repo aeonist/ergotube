@@ -32,6 +32,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.freshtuber.R
@@ -46,13 +47,13 @@ enum class DockTab(val icon: ImageVector, val selectedIcon: ImageVector, @param:
     Mine(Icons.Outlined.OutlinedVideoLibrary, Icons.Rounded.VideoLibrary, R.string.nav_mine),
 }
 
-/** Rows of «Моё», most used first: the first one sits right above the dock. */
-enum class MineItem(val icon: ImageVector, @param:StringRes val labelRes: Int) {
-    WatchLater(Icons.Rounded.Schedule, R.string.mine_later),
-    Downloads(Icons.Rounded.DownloadDone, R.string.library_downloads),
-    History(Icons.Rounded.History, R.string.library_history),
-    Playlists(Icons.AutoMirrored.Rounded.PlaylistPlay, R.string.library_playlists),
-    Settings(Icons.Rounded.Settings, R.string.nav_settings),
+/** Tiles of «Моё», most used first: the first one sits lowest, on the working-hand side. */
+enum class MineItem(val icon: ImageVector, @param:StringRes val labelRes: Int, @param:StringRes val hintRes: Int) {
+    WatchLater(Icons.Rounded.Schedule, R.string.mine_later, R.string.mine_later_hint),
+    Downloads(Icons.Rounded.DownloadDone, R.string.library_downloads, R.string.mine_downloads_hint),
+    History(Icons.Rounded.History, R.string.library_history, R.string.mine_history_hint),
+    Playlists(Icons.AutoMirrored.Rounded.PlaylistPlay, R.string.library_playlists, R.string.mine_playlists_hint),
+    Settings(Icons.Rounded.Settings, R.string.nav_settings, R.string.mine_settings_hint),
 }
 
 object DockLayout {
@@ -65,8 +66,6 @@ object DockLayout {
         return if (left) handFirst else handFirst.reversed()
     }
 
-    /** Top-to-bottom rows of «Моё»: the most used row is the lowest, nearest the finger. */
-    fun mineRows(): List<MineItem> = MineItem.entries.reversed()
 }
 
 /**
@@ -153,33 +152,37 @@ private fun DockButton(tab: DockTab, active: Boolean, modifier: Modifier, onClic
 }
 
 /**
- * «Моё»: a short list right above the dock, a frosted pane over the blurred screen (the
- * blur is applied to the content by the caller). The dock stays visible and usable.
+ * «Моё»: section tiles right above the dock, in the Settings tiles' style, over the blurred
+ * screen (the blur is applied to the content by the caller). The most used tile sits lowest on
+ * the working-hand side; the dock stays visible and usable.
  */
 @Composable
 fun MineList(downloads: Int, onPick: (MineItem) -> Unit, onDismiss: () -> Unit, bottomInset: androidx.compose.ui.unit.Dp = 0.dp) {
     BackHandler(onBack = onDismiss)
+    val left = app.freshtuber.ui.components.LocalLeftHanded.current
+    // The tiles rise a little out of the dock as the pane opens.
+    val appear = remember { androidx.compose.animation.core.Animatable(0f) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        appear.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.86f, stiffness = 520f))
+    }
+    val resources = androidx.compose.ui.platform.LocalResources.current
     Box(Modifier.fillMaxSize()) {
         // Tap outside closes; not a control of its own (Back does the same for TalkBack).
-        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.18f))
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.22f * appear.value))
             .pointerInput(onDismiss) { detectTapGestures { onDismiss() } })
-        val glass = MaterialTheme.colorScheme.surfaceContainer
-        Surface(Modifier.align(if (app.freshtuber.ui.components.LocalLeftHanded.current) Alignment.BottomStart else Alignment.BottomEnd)
-            .padding(start = 14.dp, end = 14.dp, bottom = 8.dp + bottomInset).widthIn(max = 560.dp).fillMaxWidth()
-            .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f), RoundedCornerShape(26.dp)),
-            color = glass.copy(alpha = 0.62f), shape = RoundedCornerShape(26.dp)) {
-            Column(Modifier.padding(vertical = 8.dp)) {
-                DockLayout.mineRows().forEach { item ->
-                    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).testTag("mine:${item.name}").clickable { onPick(item) }.padding(horizontal = 20.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
-                        Icon(item.icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.width(16.dp))
-                        Text(stringResource(item.labelRes), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                        if (item == MineItem.Downloads && downloads > 0) Text(downloads.toString(), style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
+        app.freshtuber.ui.components.SectionTiles(MineItem.entries, left,
+            Modifier.align(if (left) Alignment.BottomStart else Alignment.BottomEnd)
+                .padding(start = 12.dp, end = 12.dp, bottom = 10.dp + bottomInset).widthIn(max = 560.dp)
+                .graphicsLayer {
+                    alpha = appear.value
+                    translationY = (1f - appear.value) * 24.dp.toPx()
+                }) { item, modifier ->
+            val hint = when (item) {
+                MineItem.Downloads -> if (downloads > 0) resources.getQuantityString(R.plurals.mine_downloads_count, downloads, downloads)
+                    else resources.getString(R.string.mine_downloads_hint)
+                else -> resources.getString(item.hintRes)
             }
+            app.freshtuber.ui.components.SectionTile(item.icon, stringResource(item.labelRes), hint, modifier.testTag("mine:${item.name}")) { onPick(item) }
         }
     }
 }

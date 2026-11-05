@@ -27,8 +27,8 @@ android {
         minSdk = 26
         targetSdk = 37
         // Test build number: bump with every build handed to the user (file name and Settings show it).
-        versionCode = 12
-        versionName = "1.2 liquid 09 · " + gitShortHash()
+        versionCode = 13
+        versionName = "1.2 liquid 10 · " + gitShortHash()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -137,6 +137,8 @@ dependencies {
 
     // Network, extraction, images
     implementation(libs.newpipe.extractor)
+    // The fast player request returns NewPipe's JSON objects.
+    implementation(libs.nanojson)
     implementation(libs.okhttp)
     implementation(libs.okhttp.brotli)
     implementation(libs.coil.compose)

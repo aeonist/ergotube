@@ -10,6 +10,15 @@
     <string name="nav_mine">You</string>
     <string name="nav_mine_description">You: Watch later, Downloads, History, Playlists, Settings</string>
     <string name="mine_later">Later</string>
+    <string name="mine_later_hint">Saved for later</string>
+    <string name="mine_downloads_hint">Watch offline</string>
+    <plurals name="mine_downloads_count">
+        <item quantity="one">%d video</item>
+        <item quantity="other">%d videos</item>
+    </plurals>
+    <string name="mine_history_hint">What you watched</string>
+    <string name="mine_playlists_hint">Yours and saved</string>
+    <string name="mine_settings_hint">Hand, look, player</string>
     <string name="home_subtitle">Recommended for you</string>
     <string name="settings_subtitle">A section opens at the bottom, under your thumb</string>
     <string name="settings_group_look">Hand and look</string>

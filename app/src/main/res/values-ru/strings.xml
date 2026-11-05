@@ -8,6 +8,17 @@
     <string name="nav_mine">Моё</string>
     <string name="nav_mine_description">Моё: Позже, Скачанное, История, Плейлисты, Настройки</string>
     <string name="mine_later">Позже</string>
+    <string name="mine_later_hint">Отложенные видео</string>
+    <string name="mine_downloads_hint">Смотреть без сети</string>
+    <plurals name="mine_downloads_count">
+        <item quantity="one">%d видео</item>
+        <item quantity="few">%d видео</item>
+        <item quantity="many">%d видео</item>
+        <item quantity="other">%d видео</item>
+    </plurals>
+    <string name="mine_history_hint">Что вы смотрели</string>
+    <string name="mine_playlists_hint">Ваши и сохранённые</string>
+    <string name="mine_settings_hint">Рука, вид, плеер</string>
     <string name="home_subtitle">Рекомендации для тебя</string>
     <string name="settings_subtitle">Раздел откроется снизу, под пальцем</string>
     <string name="settings_group_look">Рука и вид</string>

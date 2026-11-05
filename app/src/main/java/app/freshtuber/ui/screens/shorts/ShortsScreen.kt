@@ -1,5 +1,6 @@
 package app.freshtuber.ui.screens.shorts
 
+import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.runtime.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
@@ -142,7 +143,10 @@ class ShortsViewModel @Inject constructor(
         val item = _state.value.items.getOrNull(index) ?: return
         controller.play(item.videoId, isShort = true)
         controller.prefetchShort(_state.value.items.getOrNull(index + 1)?.videoId)
+        // Streams of the two after it are looked up too (two small requests each), so a quick
+        // run of swipes does not wait for YouTube.
         controller.warmShort(_state.value.items.getOrNull(index + 2)?.videoId)
+        controller.warmShort(_state.value.items.getOrNull(index + 3)?.videoId)
     }
 
     fun actionsFactory(id: String) = object : ViewModelProvider.Factory {
@@ -198,9 +202,13 @@ fun ShortsScreen(navigation: FeedNavigation, onSignIn: () -> Unit, settled: Bool
         state.error != null -> LoadErrorState(state.error!!, viewModel::refresh, null)
         else -> {
             val pagerState = rememberPagerState(initialPage = viewModel.startIndex) { state.items.size }
-            LaunchedEffect(pagerState.settledPage, state.items.size) {
-                viewModel.playAt(pagerState.settledPage)
-                if (pagerState.settledPage >= state.items.size - 5) viewModel.loadMore()
+            val dragged by pagerState.interactionSource.collectIsDraggedAsState()
+            // The next Short starts as soon as the finger lifts and its page is more than half in,
+            // not only once the page has settled: about a quarter second sooner.
+            val playingPage by remember(pagerState) { derivedStateOf { if (dragged) pagerState.settledPage else pagerState.currentPage } }
+            LaunchedEffect(playingPage, state.items.size) {
+                viewModel.playAt(playingPage)
+                if (playingPage >= state.items.size - 5) viewModel.loadMore()
             }
             val settledItem = state.items.getOrNull(pagerState.settledPage)
             LaunchedEffect(light, settledItem?.videoId) { light?.setVideoThumbnail(settledItem?.thumbnailUrl) }
@@ -220,9 +228,9 @@ fun ShortsScreen(navigation: FeedNavigation, onSignIn: () -> Unit, settled: Bool
                     val item = state.items[page]
                     val now = playerState.nowPlaying?.takeIf { it.videoId == item.videoId }
                     ShortPage(item = item,
-                        player = if (now != null && page == pagerState.settledPage) viewModel.controller.player else null,
+                        player = if (now != null && page == playingPage) viewModel.controller.player else null,
                         loading = playerState.loadingId == item.videoId,
-                        active = page == pagerState.settledPage,
+                        active = page == playingPage,
                         inPip = inPip,
                         settled = settled,
                         bottomSpace = if (inPip) 0.dp else dockSpace,

@@ -81,6 +81,8 @@ data class NowPlaying(
     val subtitles: List<SubtitleTrack>,
     /** -1 when subtitles are off. */
     val subtitleIndex: Int,
+    /** The player picks the quality from the connection speed; [qualityIndex] is what plays now. */
+    val qualityAuto: Boolean = false,
     val channel: app.freshtuber.domain.model.ChannelSummary? = null,
     val isOffline: Boolean = false,
     val durationSeconds: Long = 0,
@@ -151,6 +153,28 @@ class PlayerController @Inject constructor(
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
     }
 
+    /**
+     * The connection speed the player starts each video's quality from. It is remembered per
+     * network type between launches, so the first video after a launch does not start from
+     * Media3's country-wide guess (usually far too low on fast Wi-Fi).
+     */
+    private val networkMemory by lazy { context.getSharedPreferences("playback_network", Context.MODE_PRIVATE) }
+    private val bandwidthMeter by lazy {
+        val builder = androidx.media3.exoplayer.upstream.DefaultBandwidthMeter.Builder(context)
+        NETWORK_TYPES.forEach { type -> networkMemory.getLong("bps_$type", 0L).takeIf { it > 0 }?.let { builder.setInitialBitrateEstimate(type, it) } }
+        builder.build()
+    }
+    private fun rememberBandwidth() {
+        val estimate = bandwidthMeter.bitrateEstimate
+        if (estimate <= 0) return
+        val type = androidx.media3.common.util.NetworkTypeObserver.getInstance(context).networkType
+        if (type in NETWORK_TYPES) networkMemory.edit().putLong("bps_$type", estimate).apply()
+    }
+
+    /** VP9 at every height when the device decodes it in hardware (most phones since 2016). */
+    private val vp9First by lazy { Decoders.hardware(StreamChoice.VP9) }
+    private fun tracksOf(video: ResolvedVideo) = StreamChoice.videoTracks(video.videoCandidates, blockedCodecs, vp9First)
+
     val player: ExoPlayer by lazy {
         val renderers = DefaultRenderersFactory(context)
             .setEnableDecoderFallback(true)
@@ -159,6 +183,7 @@ class PlayerController @Inject constructor(
                     .filterNot { it.name in failedDecoders }
             }
         ExoPlayer.Builder(context, renderers)
+            .setBandwidthMeter(bandwidthMeter)
             .setAudioAttributes(
                 AudioAttributes.Builder()
                     .setUsage(C.USAGE_MEDIA)
@@ -170,7 +195,10 @@ class PlayerController @Inject constructor(
             .setSeekBackIncrementMs(SEEK_STEP_MS)
             .setSeekForwardIncrementMs(SEEK_STEP_MS)
             .build()
-            .also { it.addListener(listener) }
+            .also {
+                it.addListener(listener)
+                it.addAnalyticsListener(qualityListener)
+            }
     }
 
     private val _state = MutableStateFlow(PlayerState())
@@ -218,6 +246,15 @@ class PlayerController @Inject constructor(
             else resolved?.takeUnless { it.isLive || _state.value.nowPlaying?.isOffline == true }?.let { segments = extras.sponsorSegments(it.videoId) }
         } }
     }
+    /** The current video plays from a DASH manifest, so its quality adapts; [dashFamily] is its codec. */
+    private var dashActive = false
+    private var dashFamily: String? = null
+    /** A quality picked by hand that the manifest does not hold: the video plays that one file. */
+    private var forceProgressive = false
+    /** The preferred quality: the highest the player picks on its own. */
+    private var qualityCap = 1080
+    private var extrasJob: Job? = null
+    private var nextWarmed: String? = null
     private var prefetchId: String? = null
     private var preloadJob: Job? = null
     private var loadJob: Job? = null
@@ -240,7 +277,7 @@ class PlayerController @Inject constructor(
         override fun onRenderedFirstFrame() {
             if (frameReported) return
             frameReported = true
-            if (BuildConfig.DEBUG && requestedShort) Log.d("ShortsTiming", "first_frame_ms=${SystemClock.elapsedRealtime() - startedAt}")
+            if (BuildConfig.DEBUG) Log.d(if (requestedShort) "ShortsTiming" else "PlaybackTiming", "first_frame_ms=${SystemClock.elapsedRealtime() - startedAt}")
         }
 
         override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -260,6 +297,23 @@ class PlayerController @Inject constructor(
             savePosition()
             if (error.errorCode in DECODER_ERRORS && (skipBrokenDecoder(error) || stepDownAfterDecoderError())) return
             _state.update { it.copy(error = (error.cause ?: error).toLoadError()) }
+        }
+    }
+
+    /** In adaptive playback the quality shown is the one the player is rendering now. */
+    private val qualityListener = object : androidx.media3.exoplayer.analytics.AnalyticsListener {
+        override fun onVideoInputFormatChanged(
+            eventTime: androidx.media3.exoplayer.analytics.AnalyticsListener.EventTime,
+            format: androidx.media3.common.Format,
+            decoderReuseEvaluation: androidx.media3.exoplayer.DecoderReuseEvaluation?,
+        ) {
+            if (!dashActive) return
+            val itag = format.id?.toIntOrNull() ?: return
+            _state.update { state ->
+                val now = state.nowPlaying ?: return@update state
+                val index = now.qualities.indexOfFirst { it.itag == itag }
+                if (index < 0 || index == now.qualityIndex) state else state.copy(nowPlaying = now.copy(qualityIndex = index))
+            }
         }
     }
 
@@ -303,16 +357,21 @@ class PlayerController @Inject constructor(
         if (isShort) { player.pause(); segments = emptyList() }
         savePosition()
         loadJob?.cancel()
+        extrasJob?.cancel()
+        forceProgressive = false
         _state.update { it.copy(loadingId = videoId, error = null) }
         loadJob = scope.launch {
             try {
                 val local = downloads.localVideo(videoId)
                 val video = local ?: resolver.resolve(videoId)
-                if (BuildConfig.DEBUG && isShort) Log.d("ShortsTiming", "resolve_ms=${SystemClock.elapsedRealtime() - startedAt}")
+                if (BuildConfig.DEBUG) Log.d(if (isShort) "ShortsTiming" else "PlaybackTiming", "resolve_ms=${SystemClock.elapsedRealtime() - startedAt} quick=${!video.complete}")
                 resolved = video
                 reportedWatch = false
-                val tracks = StreamChoice.videoTracks(video.videoCandidates, blockedCodecs)
-                val qualityIndex = StreamChoice.pick(tracks, settings.preferredQuality.first())
+                nextWarmed = null
+                val tracks = tracksOf(video)
+                val cap = settings.preferredQuality.first()
+                qualityCap = cap
+                val qualityIndex = StreamChoice.pick(tracks, cap)
                 val nowPlaying = NowPlaying(
                     videoId = videoId,
                     isOffline = local != null,
@@ -331,11 +390,14 @@ class PlayerController @Inject constructor(
                     storyboard = if (local == null) video.storyboard else null,
                 )
                 val resumeAt = if (video.isLive || isShort) null else startAt ?: resumePosition(videoId)
-                _state.update { it.copy(nowPlaying = nowPlaying, loadingId = null) }
+                val source = buildSource(video, nowPlaying)
+                limitQuality()
+                _state.update { it.copy(nowPlaying = nowPlaying.copy(qualityAuto = dashActive), loadingId = null) }
                 player.repeatMode = if ((isShort || _state.value.repeat) && _state.value.sleepTimer != SleepTimer.EndOfVideo) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
-                player.setMediaSource(buildSource(video, nowPlaying), resumeAt ?: 0L)
+                player.setMediaSource(source, resumeAt ?: 0L)
                 player.prepare()
                 player.playWhenReady = autoPlay
+                if (local == null && !isShort) completeLater(video)
                 segments = emptyList()
                 if (local == null && !video.isLive && settings.sponsorBlockEnabled.first()) {
                     segments = extras.sponsorSegments(videoId)
@@ -346,6 +408,46 @@ class PlayerController @Inject constructor(
                 if (BuildConfig.DEBUG) Log.w("PlayerController", "load failed: ${e.javaClass.name}: ${e.message?.take(200)}")
                 _state.update { it.copy(loadingId = null, error = e.toLoadError()) }
             }
+        }
+    }
+
+    /**
+     * Chapters and the channel picture come from the full extraction, once the video plays,
+     * so it does not compete with the first bytes.
+     */
+    private fun completeLater(video: ResolvedVideo) {
+        if (video.complete || video.isLive) return
+        extrasJob = scope.launch {
+            kotlinx.coroutines.withTimeoutOrNull(6_000) { while (player.playbackState != Player.STATE_READY) delay(150) }
+            val full = try { resolver.completed(video) } catch (e: CancellationException) { throw e } catch (_: Exception) { return@launch }
+            if (requestedId != video.videoId) return@launch
+            if (BuildConfig.DEBUG) Log.d("PlaybackTiming", "extras chapters=${full.chapters.size} avatar=${full.channel?.avatarUrl != null}")
+            val current = resolved?.takeIf { it.videoId == video.videoId } ?: return@launch
+            val subtitles = current.subtitles.ifEmpty { full.subtitles }
+            resolved = current.copy(chapters = full.chapters, channel = full.channel ?: current.channel,
+                storyboard = current.storyboard ?: full.storyboard, subtitles = subtitles, complete = true)
+            _state.update { state ->
+                val now = state.nowPlaying?.takeIf { it.videoId == video.videoId } ?: return@update state
+                state.copy(nowPlaying = now.copy(chapters = full.chapters, channel = full.channel ?: now.channel,
+                    storyboard = now.storyboard ?: full.storyboard, subtitles = subtitles))
+            }
+        }
+    }
+
+    /** Looks up the next video's streams shortly before this one ends, so autoplay starts at once. */
+    private fun warmNext() {
+        val now = _state.value.nowPlaying ?: return
+        if (now.isShort || now.isLive || now.isOffline || _state.value.repeat) return
+        val duration = player.duration.takeIf { it > 0 } ?: return
+        if (duration - player.currentPosition > WARM_NEXT_MS) return
+        val next = _state.value.queue.firstOrNull()?.id ?: return
+        if (nextWarmed == next) return
+        nextWarmed = next
+        scope.launch {
+            if (!settings.autoplayNext.first()) return@launch
+            try { resolver.resolve(next, allowAccount = false) }
+            catch (e: CancellationException) { throw e }
+            catch (_: Exception) { /* Optional lookahead. */ }
         }
     }
 
@@ -369,7 +471,7 @@ class PlayerController @Inject constructor(
                 val video = resolver.resolve(videoId, allowAccount = false)
                 // Resolve while the current clip starts, but reserve bandwidth for its first frame.
                 while (player.playbackState != Player.STATE_READY) delay(100)
-                val tracks = StreamChoice.videoTracks(video.videoCandidates, blockedCodecs)
+                val tracks = tracksOf(video)
                 val track = tracks.getOrNull(StreamChoice.pick(tracks, settings.preferredQuality.first()))
                 val urls = if (track != null && video.audioUrl != null)
                     listOf(track.url to 512L * 1024, video.audioUrl to 128L * 1024)
@@ -403,11 +505,53 @@ class PlayerController @Inject constructor(
     fun selectQuality(index: Int) {
         val video = resolved ?: return
         val now = _state.value.nowPlaying ?: return
-        if (index == now.qualityIndex || index !in now.qualities.indices) return
-        val updated = now.copy(qualityIndex = index)
+        if (index !in now.qualities.indices || (index == now.qualityIndex && !now.qualityAuto)) return
+        val track = now.qualities[index]
+        scope.launch { settings.setPreferredQuality(track.height) }
+        // In a manifest the choice is instant: the player keeps its buffer and switches over.
+        if (dashActive && track.codecMime == dashFamily && pinVideoTrack(track.itag)) {
+            _state.update { it.copy(nowPlaying = now.copy(qualityIndex = index, qualityAuto = false), error = null) }
+            return
+        }
+        forceProgressive = true
+        val updated = now.copy(qualityIndex = index, qualityAuto = false)
         _state.update { it.copy(nowPlaying = updated, error = null) }
-        scope.launch { settings.setPreferredQuality(now.qualities[index].height) }
         rebuildKeepingPosition(video, updated)
+    }
+
+    /** Back to choosing the quality from the connection speed, up to the preferred one. */
+    fun selectAutoQuality() {
+        val video = resolved ?: return
+        val now = _state.value.nowPlaying ?: return
+        if (now.qualityAuto) return
+        if (dashActive) {
+            limitQuality()
+            _state.update { state -> state.copy(nowPlaying = state.nowPlaying?.copy(qualityAuto = true)) }
+        } else {
+            forceProgressive = false
+            val auto = now.copy(qualityAuto = true)
+            rebuildKeepingPosition(video, auto)
+            _state.update { state -> state.copy(nowPlaying = state.nowPlaying?.copy(qualityAuto = dashActive)) }
+        }
+    }
+
+    /** Auto quality: anything up to the preferred lines, chosen by the player from the measured speed. */
+    private fun limitQuality() {
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
+            .setMaxVideoSize(Int.MAX_VALUE, if (dashActive) qualityCap else Int.MAX_VALUE)
+            .build()
+    }
+
+    /** Holds the manifest's video at one stream; false when the player does not list it (yet). */
+    private fun pinVideoTrack(itag: Int): Boolean {
+        val group = player.currentTracks.groups.firstOrNull { it.type == C.TRACK_TYPE_VIDEO } ?: return false
+        val index = (0 until group.length).firstOrNull { group.getTrackFormat(it).id == itag.toString() } ?: return false
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .setMaxVideoSize(Int.MAX_VALUE, Int.MAX_VALUE)
+            .setOverrideForType(androidx.media3.common.TrackSelectionOverride(group.mediaTrackGroup, index))
+            .build()
+        return true
     }
 
     fun selectSubtitles(index: Int) {
@@ -472,6 +616,8 @@ class PlayerController @Inject constructor(
         savePosition()
         loadJob?.cancel()
         preloadJob?.cancel()
+        extrasJob?.cancel()
+        dashActive = false
         requestedId = null
         prefetchId = null
         parked = null
@@ -510,13 +656,13 @@ class PlayerController @Inject constructor(
         val now = _state.value.nowPlaying ?: return false
         val failed = now.qualities.getOrNull(now.qualityIndex) ?: return false
         val tracks = if (failed.codecMime != null && blockedCodecs.add(failed.codecMime)) {
-            StreamChoice.videoTracks(video.videoCandidates, blockedCodecs)
+            tracksOf(video)
         } else {
             now.qualities.filterIndexed { index, _ -> index > now.qualityIndex }
         }
         val index = StreamChoice.pick(tracks, failed.height)
         if (index < 0) return false
-        val updated = now.copy(qualities = tracks, qualityIndex = index)
+        val updated = now.copy(qualities = tracks, qualityIndex = index, qualityAuto = dashActive)
         _state.update { it.copy(nowPlaying = updated, error = null) }
         rebuildKeepingPosition(video, updated)
         player.playWhenReady = true
@@ -526,7 +672,9 @@ class PlayerController @Inject constructor(
     private fun rebuildKeepingPosition(video: ResolvedVideo, nowPlaying: NowPlaying) {
         val position = player.currentPosition
         val playing = player.playWhenReady
-        player.setMediaSource(buildSource(video, nowPlaying), position)
+        val source = buildSource(video, nowPlaying)
+        if (!dashActive || nowPlaying.qualityAuto) limitQuality()
+        player.setMediaSource(source, position)
         player.prepare()
         player.playWhenReady = playing
     }
@@ -555,6 +703,21 @@ class PlayerController @Inject constructor(
         // Media3 parses sidecar captions during extraction into cues. SingleSampleMediaSource
         // sends legacy TTML samples, which the current TextRenderer rejects.
         val factory = DefaultMediaSourceFactory(if (nowPlaying.isOffline) androidx.media3.datasource.DefaultDataSource.Factory(context) else dataSourceFactory)
+        dashActive = false
+        dashFamily = null
+        // Regular videos play from a DASH manifest of every quality, like YouTube's apps: the
+        // player starts at a quality the connection carries and steps up or down while playing,
+        // loading the files in small ranges. Shorts keep one file so their first bytes can be
+        // fetched ahead of the swipe.
+        val adaptive = StreamChoice.adaptiveSet(nowPlaying.qualities)
+        if (!nowPlaying.isOffline && !nowPlaying.isShort && !video.isLive && !forceProgressive && YoutubeDash.usable(adaptive, video.audio)) {
+            val manifest = YoutubeDash.manifest(adaptive, checkNotNull(video.audio), video.durationMs)
+            val uri = "data:application/dash+xml;base64," + android.util.Base64.encodeToString(manifest.toByteArray(), android.util.Base64.NO_WRAP)
+            dashActive = true
+            dashFamily = adaptive.first().codecMime
+            return DefaultMediaSourceFactory(androidx.media3.datasource.DefaultDataSource.Factory(context, dataSourceFactory))
+                .createMediaSource(item(uri, withSubtitles = true).buildUpon().setMimeType(androidx.media3.common.MimeTypes.APPLICATION_MPD).build())
+        }
         if (video.isLive && video.hlsUrl != null) {
             return factory.createMediaSource(item(video.hlsUrl, withSubtitles = true).buildUpon()
                 .setMimeType(androidx.media3.common.MimeTypes.APPLICATION_M3U8).build())
@@ -584,6 +747,8 @@ class PlayerController @Inject constructor(
                 if (++sinceSave >= SAVE_EVERY_TICKS) {
                     sinceSave = 0
                     savePosition()
+                    rememberBandwidth()
+                    warmNext()
                 }
                 delay(TICK_MS)
             }
@@ -629,6 +794,9 @@ class PlayerController @Inject constructor(
 
     private companion object {
         const val MAX_HISTORY = 50
+        const val WARM_NEXT_MS = 25_000L
+        /** Network types whose speed is remembered between launches. */
+        val NETWORK_TYPES = intArrayOf(C.NETWORK_TYPE_WIFI, C.NETWORK_TYPE_ETHERNET, C.NETWORK_TYPE_4G, C.NETWORK_TYPE_5G_SA, C.NETWORK_TYPE_5G_NSA, C.NETWORK_TYPE_3G)
         val DECODER_ERRORS = setOf(
             PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
             PlaybackException.ERROR_CODE_DECODER_QUERY_FAILED,

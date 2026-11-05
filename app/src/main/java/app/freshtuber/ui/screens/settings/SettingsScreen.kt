@@ -153,15 +153,8 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
             }
         }
         Spacer(Modifier.height(10.dp))
-        Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            handGrid(SettingsGroup.entries, 2, left).chunked(2).forEach { row ->
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    row.forEach { group ->
-                        if (group == null) Spacer(Modifier.weight(1f))
-                        else GroupTile(group, summary(group), Modifier.weight(1f)) { open = group }
-                    }
-                }
-            }
+        SectionTiles(SettingsGroup.entries, left, Modifier.padding(horizontal = 12.dp)) { group, tileModifier ->
+            SectionTile(group.icon, stringResource(group.title), summary(group), tileModifier) { open = group }
         }
     }
     }
@@ -245,22 +238,6 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
         dismissButton = { TextButton(onClick = { remove = null }) { Text(stringResource(R.string.action_cancel)) } }) }
     if (about) AlertDialog(onDismissRequest = { about = false }, title = { Text(stringResource(R.string.app_name)) },
         text = { Text(stringResource(R.string.settings_about_text)) }, confirmButton = { TextButton(onClick = { about = false }) { Text(stringResource(android.R.string.ok)) } })
-}
-
-/** A section tile: icon, title and what is set now. */
-@Composable
-private fun GroupTile(group: SettingsGroup, summary: String, modifier: Modifier, onClick: () -> Unit) {
-    Surface(onClick = onClick, modifier = modifier.heightIn(min = 92.dp), shape = RoundedCornerShape(22.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))) {
-        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.Center) {
-            Icon(group.icon, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
-            Text(stringResource(group.title), style = MaterialTheme.typography.titleSmall, maxLines = 2,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
-            Text(summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-        }
-    }
 }
 
 /** A section's switches in a sheet at the bottom; long sections scroll, starting at the bottom. */

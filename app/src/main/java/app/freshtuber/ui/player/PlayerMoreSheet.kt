@@ -108,8 +108,18 @@ fun PlayerMoreSheet(state: PlayerState, video: VideoUiState, controller: PlayerC
                         val (title, options, selected, apply) = when (current) {
                             // Tracks come best first; the strip reads low to high like the speeds.
                             MorePick.Quality -> now?.qualities.orEmpty().let { q ->
-                                Choice(stringResource(R.string.player_quality), q.map { it.label }.reversed(),
-                                    (now?.qualityIndex ?: -1).let { if (it >= 0) q.size - 1 - it else -1 }) { i: Int -> controller.selectQuality(q.size - 1 - i) }
+                                // «Авто» (the player picks from the connection speed, as YouTube does)
+                                // sits at the hand end of the strip, where it is seen and reached first.
+                                val canAuto = now != null && !now.isShort && !now.isOffline && !now.isLive
+                                val labels = q.map { it.label }.reversed()
+                                val autoAt = if (!canAuto) -1 else if (left) 0 else labels.size
+                                val shift = if (autoAt == 0) 1 else 0
+                                val options = if (!canAuto) labels else if (left) listOf(auto) + labels else labels + auto
+                                Choice(stringResource(R.string.player_quality), options,
+                                    when {
+                                        canAuto && now.qualityAuto -> autoAt
+                                        else -> (now?.qualityIndex ?: -1).let { if (it >= 0) q.size - 1 - it + shift else -1 }
+                                    }) { i: Int -> if (i == autoAt) controller.selectAutoQuality() else controller.selectQuality(q.size - 1 - (i - shift)) }
                             }
                             MorePick.Speed -> Choice(stringResource(R.string.player_speed), AllSpeeds.map(::speedLabel),
                                 AllSpeeds.indexOf(state.speed)) { i: Int -> controller.setSpeed(AllSpeeds[i]) }
@@ -128,7 +138,7 @@ fun PlayerMoreSheet(state: PlayerState, video: VideoUiState, controller: PlayerC
             // Switches: the current value on each, the choice opens above.
             val switches = listOf(
                 SwitchItem(Icons.Rounded.HighQuality, stringResource(R.string.player_quality),
-                    now?.qualities?.getOrNull(now.qualityIndex)?.label ?: auto, open = pick == MorePick.Quality,
+                    now?.qualities?.getOrNull(now.qualityIndex)?.label?.let { if (now.qualityAuto) "$auto · $it" else it } ?: auto, open = pick == MorePick.Quality,
                     enabled = !now?.qualities.isNullOrEmpty()) { toggle(MorePick.Quality) },
                 SwitchItem(Icons.Rounded.Speed, stringResource(R.string.player_speed), speedLabel(state.speed),
                     open = pick == MorePick.Speed, active = state.speed != 1f) { toggle(MorePick.Speed) },

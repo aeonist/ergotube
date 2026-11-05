@@ -12,6 +12,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.zIndex
 import app.freshtuber.ui.components.Reach
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.layout.onSizeChanged
@@ -250,7 +251,10 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
         // Closing the floating video fades it out; it keeps its last picture meanwhile.
         val lastPlaying = remember { arrayOfNulls<app.freshtuber.player.NowPlaying>(1) }
         if (nowPlaying != null && !nowPlaying.isShort) lastPlaying[0] = nowPlaying
+        // Dragged, the floating video and its close cross float above the dock.
+        var miniRaised by remember { mutableStateOf(false) }
         androidx.compose.animation.AnimatedVisibility(miniVisible && nowPlaying != null,
+            Modifier.zIndex(if (miniRaised) 1f else 0f),
             enter = EnterTransition.None,
             exit = if (nowPlaying == null) fadeOut(tween(220, easing = Motion.Accelerate)) else ExitTransition.None) {
             val playing = lastPlaying[0] ?: return@AnimatedVisibility
@@ -260,7 +264,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
                 hasNext = playerState.queue.isNotEmpty(), hasPrevious = playerState.history.isNotEmpty(),
                 onNext = viewModel.player::playNext, onPrevious = viewModel.player::playPrevious,
                 onOpen = { navController.navigate(PlayerRoute(playing.videoId)) }, onClose = viewModel.player::stop,
-                hidden = mineOpen,
+                hidden = mineOpen, onRaised = { miniRaised = it },
                 modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)))
         }
         if (mineOpen && dockVisible) MineList(downloads, bottomInset = if (onShorts) compactDockSpace else dockSpace, onPick = { item ->

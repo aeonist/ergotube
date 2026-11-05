@@ -5,6 +5,7 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VectorConverter
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -81,10 +82,20 @@ object MiniSize {
     fun clamp(width: Float, screenWidth: Float): Float = width.coerceIn(MIN, max(screenWidth))
 }
 
+/** The close target that appears at the bottom while the floating window is dragged. */
+object MiniDismiss {
+    /** Centre of the target: middle of the screen, low over the dock. */
+    fun center(area: Offset, bottomInset: Float, lift: Float): Offset = Offset(area.x / 2f, area.y - bottomInset - lift)
+
+    /** The window is over the target when its centre is within [radius] of it. */
+    fun armed(windowCenter: Offset, target: Offset, radius: Float): Boolean = (windowCenter - target).getDistance() <= radius
+}
+
 /**
  * The minimized video floats over the app like in YouTube: drag it anywhere, it settles in the
- * nearest corner. Pinch it, or drag the grip on its inner corner, to resize. A tap shows the
- * controls on the picture (open, close, previous, play/pause, next); a double tap opens the video.
+ * nearest corner; drag it onto the cross that appears at the bottom and let go to close it.
+ * Pinch it, or drag the grip on its inner corner, to resize. A tap shows the controls on the
+ * picture (open, close, previous, play/pause, next); a double tap opens the video.
  */
 @Composable
 fun FloatingMiniPlayer(
@@ -104,6 +115,8 @@ fun FloatingMiniPlayer(
     onPrevious: () -> Unit,
     /** Faded away (and not touchable) while «Моё» covers the screen. */
     hidden: Boolean = false,
+    /** True while the window is dragged or closing: the caller lifts it above the dock. */
+    onRaised: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val progress = rememberProgress(player)
@@ -142,6 +155,18 @@ fun FloatingMiniPlayer(
         val offset = remember { Animatable(target, Offset.VectorConverter) }
         var dragging by remember { mutableStateOf(false) }
         var resizing by remember { mutableStateOf(false) }
+        // Dragged over the cross the window is pulled onto it and shrinks; letting go closes it.
+        val navBottom = WindowInsets.navigationBars.getBottom(density).toFloat()
+        val closeCenter = MiniDismiss.center(area, navBottom, with(density) { 62.dp.toPx() })
+        val magnet = with(density) { 92.dp.toPx() }
+        var armed by remember { mutableStateOf(false) }
+        val pull by androidx.compose.animation.core.animateFloatAsState(if (armed) 1f else 0f,
+            spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMedium), label = "miniPull")
+        val closing = remember { Animatable(0f) }
+        val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+        val raised = dragging || armed
+        LaunchedEffect(raised) { onRaised(raised) }
+        DisposableEffect(Unit) { onDispose { onRaised(false) } }
         LaunchedEffect(target) {
             // While resizing the anchored corner stays put; otherwise the window glides there.
             if (resizing) offset.snapTo(target) else if (!dragging) offset.animateTo(target, spring(stiffness = Spring.StiffnessMediumLow))
@@ -166,11 +191,16 @@ fun FloatingMiniPlayer(
         val resizeBy: (Float) -> Unit = { delta -> onWidth(MiniSize.clamp(currentWidth + delta, screenWidth)) }
 
         Surface(
-            Modifier.offset { IntOffset(offset.value.x.roundToInt(), offset.value.y.roundToInt()) }
+            Modifier.offset {
+                    val onCross = closeCenter - window / 2f
+                    val x = offset.value.x + (onCross.x - offset.value.x) * pull
+                    val y = offset.value.y + (onCross.y - offset.value.y) * pull
+                    IntOffset(x.roundToInt(), y.roundToInt())
+                }
                 .size(width, height).testTag("mini")
                 .graphicsLayer {
-                    alpha = if (arriving) 0f else appear.value * hide
-                    val s = 0.88f + 0.12f * appear.value
+                    alpha = if (arriving) 0f else appear.value * hide * (1f - closing.value)
+                    val s = (0.88f + 0.12f * appear.value) * (1f - 0.42f * pull) * (1f - 0.6f * closing.value)
                     scaleX = s; scaleY = s
                 }
                 .semantics { contentDescription = openLabel; role = Role.Button; onClick { open(); true } },
@@ -200,25 +230,39 @@ fun FloatingMiniPlayer(
                         resizing = false
                     }
                 }
-                .pointerInput(area, window, margin, bottomMargin) {
+                .pointerInput(area, window, margin, bottomMargin, closeCenter) {
                     val tracker = VelocityTracker()
                     detectDragGestures(
-                        onDragStart = { dragging = true; tracker.resetTracking() },
+                        onDragStart = { dragging = true; armed = false; tracker.resetTracking() },
                         onDragEnd = {
+                            dragging = false
+                            if (armed) {
+                                haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
+                                scope.launch {
+                                    closing.animateTo(1f, androidx.compose.animation.core.tween(200, easing = app.freshtuber.ui.motion.Motion.Accelerate))
+                                    onClose()
+                                }
+                                return@detectDragGestures
+                            }
                             val v = tracker.calculateVelocity()
                             val thrown = offset.value + Offset(v.x, v.y) * 0.15f + window / 2f
                             val next = MiniCorners.nearest(thrown, area)
                             onCorner(next)
-                            dragging = false
                             scope.launch { offset.animateTo(MiniCorners.position(next, area, window, margin, bottomMargin), spring(stiffness = Spring.StiffnessMediumLow)) }
                         },
-                        onDragCancel = { dragging = false; scope.launch { offset.animateTo(target) } },
+                        onDragCancel = { dragging = false; armed = false; scope.launch { offset.animateTo(target) } },
                     ) { change, drag ->
-                        if (resizing) return@detectDragGestures
+                        if (resizing || closing.value > 0f) return@detectDragGestures
                         change.consume()
                         tracker.addPosition(change.uptimeMillis, change.position)
                         val next = offset.value + drag
-                        scope.launch { offset.snapTo(Offset(next.x.coerceIn(0f, area.x - window.x), next.y.coerceIn(0f, area.y - window.y))) }
+                        val free = Offset(next.x.coerceIn(0f, area.x - window.x), next.y.coerceIn(0f, area.y - window.y))
+                        val over = MiniDismiss.armed(free + window / 2f, closeCenter, magnet)
+                        if (over != armed) {
+                            armed = over
+                            if (over) haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.GestureThresholdActivate)
+                        }
+                        scope.launch { offset.snapTo(free) }
                     }
                 }) {
                 // The page keeps the video until it has copied its picture; only then does the window take it.
@@ -269,6 +313,40 @@ fun FloatingMiniPlayer(
                 }
             }
         }
+        CloseTarget(visible = dragging || (armed && closing.value < 1f), armed = armed, center = closeCenter)
+    }
+}
+
+/**
+ * The cross at the bottom while the window is dragged, on a soft shade so it shows over the
+ * dock. It grows and turns red when the window is over it.
+ */
+@Composable
+private fun BoxScope.CloseTarget(visible: Boolean, armed: Boolean, center: Offset) {
+    val shown by androidx.compose.animation.core.animateFloatAsState(if (visible) 1f else 0f,
+        androidx.compose.animation.core.tween(if (visible) 200 else 160), label = "crossShown")
+    if (shown <= 0f) return
+    val grow by androidx.compose.animation.core.animateFloatAsState(if (armed) 1f else 0f,
+        spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMedium), label = "crossGrow")
+    val density = LocalDensity.current
+    Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(200.dp)
+        .graphicsLayer { alpha = shown }
+        .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(Color.Transparent, Color(0x73000000)))))
+    val size = 58.dp
+    Box(Modifier
+        .offset { with(density) { IntOffset((center.x - size.toPx() / 2).roundToInt(), (center.y - size.toPx() / 2).roundToInt()) } }
+        .size(size)
+        .graphicsLayer {
+            alpha = shown
+            val s = (0.7f + 0.3f * shown) * (1f + 0.22f * grow)
+            scaleX = s; scaleY = s
+            translationY = (1f - shown) * 24.dp.toPx()
+        }
+        .clip(CircleShape)
+        .background(androidx.compose.ui.graphics.lerp(Color(0xE6202020), BrandColors.Red, grow))
+        .border(1.5.dp, Color.White.copy(alpha = 0.85f), CircleShape),
+        contentAlignment = Alignment.Center) {
+        Icon(Icons.Rounded.Close, stringResource(R.string.player_close), tint = Color.White, modifier = Modifier.size(28.dp))
     }
 }
 
