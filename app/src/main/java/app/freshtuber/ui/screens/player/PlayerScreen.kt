@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -40,6 +41,7 @@ import app.freshtuber.ui.feed.LoadError
 import app.freshtuber.ui.feed.LoadErrorState
 import app.freshtuber.ui.player.*
 import app.freshtuber.ui.components.*
+import app.freshtuber.ui.player.ClassicVideoControls
 import app.freshtuber.domain.model.LikeStatus
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -76,7 +78,10 @@ fun PlayerScreen(
     val message by viewModel.message.collectAsStateWithLifecycle()
     val playerState by viewModel.playerState.collectAsStateWithLifecycle()
     val gestures by viewModel.gesturesEnabled.collectAsStateWithLifecycle()
-    val pinned by viewModel.videoPinned.collectAsStateWithLifecycle()
+    val pinnedSetting by viewModel.videoPinned.collectAsStateWithLifecycle()
+    val classic = LocalClassic.current
+    // YouTube keeps the video on top; the classic layout has no pin.
+    val pinned = pinnedSetting || classic
     val listState = rememberLazyListState()
     // The pad slides away while the list is read downward and comes back on the way up.
     val padHide = rememberScrollHide()
@@ -103,13 +108,21 @@ fun PlayerScreen(
     val vertical = videoAspect < 0.9f
     var uprightFull by rememberSaveable { mutableStateOf(false) }
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    // An unfolded foldable or a tablet is wide in either orientation: turning it shows the page in
+    // two panes, and full screen comes only from the button, without turning the screen.
+    val large = isLargeScreen()
+    var largeFull by rememberSaveable { mutableStateOf(false) }
     // Turning the phone opens fullscreen like YouTube; the button and the pad swipe ask for it.
-    val fullscreen = uprightFull || lock == OrientationLock.Landscape || (landscape && lock != OrientationLock.Portrait)
+    val fullscreen = if (large) largeFull else uprightFull || lock == OrientationLock.Landscape || (landscape && lock != OrientationLock.Portrait)
     val enterFullscreen = {
-        if (vertical && !landscape) uprightFull = true
+        if (large) largeFull = true
+        else if (vertical && !landscape) uprightFull = true
         else { lock = OrientationLock.Landscape; rotateHint = !landscape }
     }
-    val exitFullscreen = { uprightFull = false; lock = if (landscape) OrientationLock.Portrait else OrientationLock.None; rotateHint = false }
+    val exitFullscreen = { largeFull = false; uprightFull = false; lock = if (landscape && !large) OrientationLock.Portrait else OrientationLock.None; rotateHint = false }
+    val fold = LocalFoldPosture.current
+    // A half-open phone with a horizontal fold: the video above the fold, the controls below.
+    val tabletop = fold.tabletop && fold.hingeTop > 0 && !LocalInPictureInPicture.current
     // The next video is wide: it turns the phone like any other.
     LaunchedEffect(vertical) { if (uprightFull && !vertical) { uprightFull = false; lock = OrientationLock.Landscape } }
     val padUi = remember { PadUi() }
@@ -122,7 +135,7 @@ fun PlayerScreen(
         viewModel.setVideoOnScreen(true)
         onDispose { viewModel.setVideoOnScreen(false) }
     }
-    FullscreenEffect(fullscreen = fullscreen, lock = lock, upright = uprightFull, onLock = { lock = it })
+    FullscreenEffect(fullscreen = fullscreen || tabletop, lock = lock, upright = uprightFull, onLock = { lock = it }, rotate = !large && !tabletop)
     BackHandler(enabled = fullscreen) { exitFullscreen() }
 
     LaunchedEffect(Unit) {
@@ -188,31 +201,43 @@ fun PlayerScreen(
     val density = LocalDensity.current
     val statusTop = WindowInsets.statusBars.getTop(density)
 
-    BoxWithConstraints(Modifier.fillMaxSize().then(if (fullscreen || inPip) Modifier.background(Color.Black) else Modifier)) {
+    BoxWithConstraints(Modifier.fillMaxSize().then(if (fullscreen || inPip || tabletop) Modifier.background(Color.Black) else Modifier)) {
         val details = state.details
         val pageHeight = maxHeight - with(density) { statusTop.toDp() }
+        // A wide page (unfolded foldable held sideways, tablet): the video and its details on the
+        // left, up next on the right.
+        val twoPane = large && !fullscreen && !inPip && !tabletop && maxWidth > maxHeight
+        val paneWidth = if (twoPane) maxWidth * 0.62f else maxWidth
         // Upright videos get more of the page, wide ones keep the top 40 %.
-        val share = when { videoAspect < 0.8f -> 0.56f; videoAspect < 1.2f -> 0.48f; else -> 0.4f }
-        val videoHeight by androidx.compose.animation.core.animateDpAsState(minOf(maxWidth / videoAspect, pageHeight * share),
+        val share = when { twoPane -> 0.7f; videoAspect < 0.8f -> 0.56f; videoAspect < 1.2f -> 0.48f; else -> 0.4f }
+        val videoHeight by androidx.compose.animation.core.animateDpAsState(minOf(paneWidth / videoAspect, pageHeight * share),
             androidx.compose.animation.core.tween(320, easing = app.freshtuber.ui.motion.Motion.Emphasized), label = "videoHeight")
         val videoHeightPx = with(density) { videoHeight.roundToPx() }
         val widthPx = with(density) { maxWidth.toPx() }
+        val paneWidthPx = with(density) { paneWidth.toPx() }
         val heightPx = with(density) { maxHeight.toPx() }
+        val hingeTop = with(density) { fold.hingeTop.toDp() }.coerceAtMost(maxHeight)
+        val belowHinge = (maxHeight - with(density) { fold.hingeBottom.toDp() }).coerceAtLeast(0.dp)
         // Unpinned, the video is the list's first row: it scrolls away and returns at the top.
         // The surface itself never moves in the composition, only its offset, so it never goes black.
-        val scrolls = !pinned && details != null
+        val scrolls = !pinned && details != null && !twoPane
         // Adding or removing the video row keeps the old first row in place; start from the top instead.
         LaunchedEffect(scrolls) { listState.scrollToItem(0) }
         val videoOffset by remember(scrolls, videoHeightPx) { derivedStateOf {
             if (!scrolls) 0 else if (listState.firstVisibleItemIndex == 0) -listState.firstVisibleItemScrollOffset else -videoHeightPx
         } }
-        val big = fullscreen || inPip
+        val big = fullscreen || inPip || tabletop
         // Where the picture sits on screen, for pictures flying in and out.
-        val videoRect = if (big) {
+        val videoRect = if (tabletop && !inPip) {
+            val areaH = fold.hingeTop.toFloat()
+            val fitW = minOf(widthPx, areaH * videoAspect)
+            val fitH = fitW / videoAspect
+            androidx.compose.ui.geometry.Rect((widthPx - fitW) / 2f, (areaH - fitH) / 2f, (widthPx + fitW) / 2f, (areaH + fitH) / 2f)
+        } else if (big) {
             val fitW = minOf(widthPx, heightPx * videoAspect)
             val fitH = fitW / videoAspect
             androidx.compose.ui.geometry.Rect((widthPx - fitW) / 2f, (heightPx - fitH) / 2f, (widthPx + fitW) / 2f, (heightPx + fitH) / 2f)
-        } else androidx.compose.ui.geometry.Rect(0f, statusTop.toFloat(), widthPx, statusTop.toFloat() + videoHeightPx)
+        } else androidx.compose.ui.geometry.Rect(0f, statusTop.toFloat(), paneWidthPx, statusTop.toFloat() + videoHeightPx)
         val currentRect by rememberUpdatedState(videoRect.translate(0f, if (big) 0f else videoOffset.toFloat()))
         LaunchedEffect(handoff, videoRect, handoff?.flight) { handoff?.land(videoId, FlightTarget.Page, videoRect, 0f) }
         LaunchedEffect(settled) { if (settled) handoff?.arrived(videoId, FlightTarget.Page) }
@@ -230,12 +255,44 @@ fun PlayerScreen(
             if (toMini && visible) handoff?.launch(videoId, frame ?: poster, from, 0f, FlightTarget.Mini)
         }
 
-        if (!big) PortraitPage(details, state, navigation, listState, padHide, padUi, playerState, viewModel, now, left, pinned, scrolls, videoHeight,
-            captionsOn, onSignIn, onBack, onNext, onPrevious, enterFullscreen, onSpeed, onCaptions, onBoost, { moreOpen = true }, pages)
+        val pageSegments = playerState.segments.takeIf { now?.videoId == viewModel.videoId }.orEmpty()
+        if (!big) Box(Modifier.width(paneWidth).fillMaxHeight()) {
+            if (classic) ClassicPortraitPage(details, state, navigation, listState, viewModel, now, videoHeight, onSignIn, { moreOpen = true }, related = !twoPane)
+            else PortraitPage(details, state, navigation, listState, padHide, padUi, playerState, viewModel, now, left, pinned, scrolls, videoHeight,
+                captionsOn, onSignIn, onBack, onNext, onPrevious, enterFullscreen, onSpeed, onCaptions, onBoost, { moreOpen = true }, pages, related = !twoPane)
+        }
+        if (twoPane && details != null) UpNextPane(details, navigation, Modifier.align(Alignment.TopEnd).width(maxWidth - paneWidth).fillMaxHeight())
+        val fullControls: @Composable (Modifier, Boolean) -> Unit = { controlsModifier, below ->
+            if (classic) ClassicVideoControls(viewModel.player, playerState, fullscreen = true, segments = pageSegments,
+                hasPrevious = playerState.history.isNotEmpty(), hasNext = playerState.queue.isNotEmpty(),
+                captionsOn = captionsOn, captionsAvailable = !now?.subtitles.isNullOrEmpty(),
+                onPrevious = onPrevious, onNext = onNext, onFullscreen = exitFullscreen,
+                onMinimize = onBack, onCaptions = { onCaptions() }, onMore = { moreOpen = true }, onRetry = viewModel::retryPlayback,
+                title = now?.title ?: details?.title, alwaysShown = below, modifier = controlsModifier)
+            else Box(controlsModifier) { FullscreenPlayer(
+                player = viewModel.player,
+                state = playerState,
+                ui = padUi,
+                pages = pages,
+                left = left,
+                gesturesEnabled = gestures,
+                captionsOn = captionsOn,
+                captionsAvailable = !now?.subtitles.isNullOrEmpty(),
+                hasNext = playerState.queue.isNotEmpty(),
+                showRotateHint = rotateHint && !below,
+                onExit = exitFullscreen,
+                onNext = onNext,
+                onSpeed = onSpeed,
+                onCaptions = onCaptions,
+                onBoost = onBoost,
+                onRetry = viewModel::retryPlayback,
+            ) }
+        }
 
         // The one video surface of this page: portrait, fullscreen and the system's floating
         // window all use it, so turning the phone never recreates it.
-        Box((if (big) Modifier.fillMaxSize() else Modifier.fillMaxWidth().padding(top = with(density) { statusTop.toDp() }).height(videoHeight)
+        Box((if (tabletop && !inPip) Modifier.fillMaxWidth().height(hingeTop) else if (big) Modifier.fillMaxSize()
+            else Modifier.width(paneWidth).padding(top = with(density) { statusTop.toDp() }).height(videoHeight)
             .offset { androidx.compose.ui.unit.IntOffset(0, videoOffset) }.clipToBounds())
             // Hidden while its picture is still flying in, or once it has flown off to the floating window.
             .graphicsLayer { alpha = if (handoff != null && (handoff.awaiting(videoId, FlightTarget.Page) || handoff.departed(videoId, FlightTarget.Mini))) 0f else 1f }
@@ -251,27 +308,18 @@ fun PlayerScreen(
                 posterScale = if (big) ContentScale.Fit else ContentScale.Crop)
             when {
                 inPip -> Unit
-                fullscreen -> FullscreenPlayer(
-                    player = viewModel.player,
-                    state = playerState,
-                    ui = padUi,
-                    pages = pages,
-                    left = left,
-                    gesturesEnabled = gestures,
-                    captionsOn = captionsOn,
-                    captionsAvailable = !now?.subtitles.isNullOrEmpty(),
-                    hasNext = playerState.queue.isNotEmpty(),
-                    showRotateHint = rotateHint,
-                    onExit = exitFullscreen,
-                    onNext = onNext,
-                    onSpeed = onSpeed,
-                    onCaptions = onCaptions,
-                    onBoost = onBoost,
-                    onRetry = viewModel::retryPlayback,
-                )
+                tabletop -> Unit
+                fullscreen -> fullControls(Modifier.fillMaxSize(), false)
+                classic -> ClassicVideoControls(viewModel.player, playerState, fullscreen = false, segments = pageSegments,
+                    hasPrevious = playerState.history.isNotEmpty(), hasNext = playerState.queue.isNotEmpty(),
+                    captionsOn = captionsOn, captionsAvailable = !now?.subtitles.isNullOrEmpty(),
+                    onPrevious = onPrevious, onNext = onNext, onFullscreen = enterFullscreen,
+                    onMinimize = onBack, onCaptions = { onCaptions() }, onMore = { moreOpen = true }, onRetry = viewModel::retryPlayback)
                 else -> PortraitVideoLayer(viewModel.player, playerState, onMinimize = onBack, onRetry = viewModel::retryPlayback)
             }
         }
+        // Below the fold the controls get the whole lower half.
+        if (tabletop && !inPip) fullControls(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(belowHinge), true)
         val scrub = padUi.scrubMs
         if (scrub != null && !big) {
             val duration = viewModel.player.duration.coerceAtLeast(1)
@@ -296,6 +344,7 @@ private fun PortraitPage(
     now: app.freshtuber.player.NowPlaying?, left: Boolean, pinned: Boolean, scrolls: Boolean, videoHeight: androidx.compose.ui.unit.Dp,
     captionsOn: Boolean, onSignIn: () -> Unit, onBack: () -> Unit, onNext: () -> Unit, onPrevious: () -> Unit, onFullscreen: () -> Unit,
     onSpeed: () -> Unit, onCaptions: () -> Unit, onBoost: (Boolean) -> Unit, onMore: () -> Unit, pages: StoryboardPages,
+    related: Boolean = true,
 ) {
     val statusBar = WindowInsets.statusBars
     val density = LocalDensity.current
@@ -317,7 +366,7 @@ private fun PortraitPage(
                     }
                     phase == 1 || details == null -> LoadErrorState(state.error ?: LoadError.Unknown, viewModel::load, onSignIn)
                     else -> VideoBody(details, state, navigation, listState, offline = now?.isOffline == true,
-                        videoSpace = if (scrolls) videoHeight else null, modifier = Modifier.nestedScroll(padHide.connection))
+                        videoSpace = if (scrolls) videoHeight else null, related = related, modifier = Modifier.nestedScroll(padHide.connection))
                 }
             }
         }
@@ -327,7 +376,7 @@ private fun PortraitPage(
             .navigationBarsPadding().padding(bottom = 14.dp)) {
             val padShown = padHide.visible || padUi.active || padUi.scrubMs != null
             androidx.compose.animation.AnimatedVisibility(!padShown, enter = androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut()) {
-                MiniProgress(viewModel.player)
+                MiniProgress(viewModel.player, playerState.segments.takeIf { now?.videoId == viewModel.videoId }.orEmpty())
             }
             PlayerActions(state, viewModel, left, pinned = pinned, onPin = { viewModel.setVideoPinned(!pinned) }, onMore = onMore)
             androidx.compose.animation.AnimatedVisibility(padShown,
@@ -345,6 +394,7 @@ private fun PortraitPage(
                     live = now?.isLive == true,
                     left = left,
                     hasNext = playerState.queue.isNotEmpty(),
+                    segments = playerState.segments.takeIf { now?.videoId == viewModel.videoId }.orEmpty(),
                     onNext = onNext,
                     hasPrevious = playerState.history.isNotEmpty(),
                     onPrevious = onPrevious,
@@ -402,10 +452,10 @@ private fun PlayerActions(state: VideoUiState, viewModel: VideoViewModel, left: 
 
 /** Hidden system bars while full screen; the orientation follows [lock] and the phone's turns. */
 @Composable
-private fun FullscreenEffect(fullscreen: Boolean, lock: OrientationLock, upright: Boolean, onLock: (OrientationLock) -> Unit) {
+private fun FullscreenEffect(fullscreen: Boolean, lock: OrientationLock, upright: Boolean, onLock: (OrientationLock) -> Unit, rotate: Boolean = true) {
     val activity = LocalActivity.current ?: return
     val currentLock by rememberUpdatedState(lock)
-    val holdUpright by rememberUpdatedState(upright)
+    val holdUpright by rememberUpdatedState(upright || !rotate)
     val setLock by rememberUpdatedState(onLock)
     DisposableEffect(activity) {
         var seenLandscape = false
@@ -423,8 +473,9 @@ private fun FullscreenEffect(fullscreen: Boolean, lock: OrientationLock, upright
             activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
     }
-    LaunchedEffect(lock, upright) {
-        activity.requestedOrientation = if (upright) ActivityInfo.SCREEN_ORIENTATION_PORTRAIT else when (lock) {
+    LaunchedEffect(lock, upright, rotate) {
+        activity.requestedOrientation = if (!rotate) ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        else if (upright) ActivityInfo.SCREEN_ORIENTATION_PORTRAIT else when (lock) {
             OrientationLock.Landscape -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
             OrientationLock.Portrait -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
             OrientationLock.None -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
@@ -465,7 +516,8 @@ private fun FullscreenEffect(fullscreen: Boolean, lock: OrientationLock, upright
 /** Title, channel, description and up next; scrolls between the video and the controls. */
 @Composable
 private fun VideoBody(details: VideoDetails, state: VideoUiState, navigation: FeedNavigation, listState: androidx.compose.foundation.lazy.LazyListState,
-    offline: Boolean = false, videoSpace: androidx.compose.ui.unit.Dp? = null, modifier: Modifier = Modifier) {
+    offline: Boolean = false, videoSpace: androidx.compose.ui.unit.Dp? = null, related: Boolean = true, modifier: Modifier = Modifier) {
+    val columns = feedColumns()
     LazyColumn(modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 16.dp)) {
         // Room for the unpinned video, which is drawn above the list at this row's offset.
         videoSpace?.let { item(key = "video") { Spacer(Modifier.fillMaxWidth().height(it)) } }
@@ -483,21 +535,19 @@ private fun VideoBody(details: VideoDetails, state: VideoUiState, navigation: Fe
                 }
             }
         }
-        if (details.related.isNotEmpty()) {
+        if (related && details.related.isNotEmpty()) {
             item(key = "related-title") {
                 Text(stringResource(R.string.player_up_next), style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(start = 16.dp, top = 14.dp, bottom = 6.dp))
             }
-            items(details.related, key = { "r:${it.id}" }) { video ->
-                VideoCard(video, onClick = { navigation.openVideo(video.id) }, onChannelClick = navigation::openChannel, enableMenu = true)
-            }
+            relatedRows(details.related, columns, navigation)
         }
     }
 }
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun TitleBlock(details: VideoDetails, offline: Boolean = false) {
+private fun TitleBlock(details: VideoDetails, offline: Boolean = false, compact: Boolean = false) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     Column(
         Modifier
@@ -507,12 +557,13 @@ private fun TitleBlock(details: VideoDetails, offline: Boolean = false) {
     ) {
         Text(details.title, style = app.freshtuber.ui.theme.AppType.playerTitle, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Text(
-            listOfNotNull(if (offline) stringResource(R.string.download_complete) else null, details.viewsText, details.dateText).joinToString(" · "),
+            listOfNotNull(if (offline) stringResource(R.string.download_complete) else null, details.viewsText, details.dateText).joinToString(" · ") +
+                if (compact && !details.description.isNullOrBlank()) "  …" + stringResource(R.string.video_more).lowercase() else "",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = 4.dp),
         )
-        details.description?.takeIf { it.isNotBlank() }?.let {
+        details.description?.takeIf { it.isNotBlank() && !compact }?.let {
             Text(
                 it,
                 style = MaterialTheme.typography.bodySmall,
@@ -545,10 +596,157 @@ internal fun VideoMessage.textRes(): Int = when (this) {
 
 /** A thin progress line shown in place of the hidden pad. */
 @Composable
-private fun MiniProgress(player: androidx.media3.common.Player) {
+private fun MiniProgress(player: androidx.media3.common.Player, segments: List<app.freshtuber.data.extras.SkipSegment>) {
     val progress = rememberProgress(player)
     val fraction = if (progress.durationMs > 0) (progress.positionMs.toFloat() / progress.durationMs).coerceIn(0f, 1f) else 0f
-    Box(Modifier.fillMaxWidth().height(2.dp).background(MaterialTheme.colorScheme.surfaceContainerHighest)) {
-        Box(Modifier.fillMaxHeight().fillMaxWidth(fraction).background(app.freshtuber.ui.theme.BrandColors.Red))
+    val spans = remember(segments, progress.durationMs) { app.freshtuber.ui.player.SegmentMarks.spans(segments, progress.durationMs) }
+    val track = MaterialTheme.colorScheme.surfaceContainerHighest
+    androidx.compose.foundation.Canvas(Modifier.fillMaxWidth().height(2.dp)) {
+        drawRect(track)
+        drawRect(app.freshtuber.ui.theme.BrandColors.Red, size = androidx.compose.ui.geometry.Size(size.width * fraction, size.height))
+        spans.forEach { (a, b, color) -> drawRect(color, androidx.compose.ui.geometry.Offset(size.width * a, 0f), androidx.compose.ui.geometry.Size(size.width * (b - a), size.height)) }
+    }
+}
+
+/** The classic watch page: the video on top, then YouTube's own order of title, channel, actions, comments and up next. */
+@Composable
+private fun ClassicPortraitPage(details: VideoDetails?, state: VideoUiState, navigation: FeedNavigation, listState: androidx.compose.foundation.lazy.LazyListState,
+    viewModel: VideoViewModel, now: app.freshtuber.player.NowPlaying?, videoHeight: androidx.compose.ui.unit.Dp, onSignIn: () -> Unit, onMore: () -> Unit,
+    related: Boolean = true) {
+    val statusBar = WindowInsets.statusBars
+    Column(Modifier.fillMaxSize()
+        .drawBehind { drawRect(Color.Black, size = androidx.compose.ui.geometry.Size(size.width, statusBar.getTop(this).toFloat())) }
+        .statusBarsPadding()) {
+        Spacer(Modifier.fillMaxWidth().height(videoHeight))
+        androidx.compose.animation.Crossfade(when {
+            state.loading -> 0
+            details == null -> 1
+            else -> 2
+        }, Modifier.weight(1f), animationSpec = androidx.compose.animation.core.tween(240), label = "classicBody") { phase ->
+            when {
+                phase == 0 -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                phase == 1 || details == null -> LoadErrorState(state.error ?: LoadError.Unknown, viewModel::load, onSignIn)
+                else -> ClassicWatchBody(details, state, navigation, listState, viewModel, offline = now?.isOffline == true, onMore = onMore, related = related)
+            }
+        }
+    }
+}
+
+@Composable
+internal fun ClassicWatchBody(details: VideoDetails, state: VideoUiState, navigation: FeedNavigation, listState: androidx.compose.foundation.lazy.LazyListState,
+    viewModel: VideoViewModel, offline: Boolean, onMore: () -> Unit, related: Boolean = true, modifier: Modifier = Modifier) {
+    val columns = feedColumns()
+    LazyColumn(modifier.fillMaxSize(), state = listState, contentPadding = WindowInsets.navigationBars.asPaddingValues()) {
+        item(key = "info") { TitleBlock(details, offline, compact = true) }
+        details.channel?.let { channel ->
+            item(key = "channel") {
+                val subscribed = state.subscribed == true
+                Row(Modifier.fillMaxWidth().clickable { navigation.openChannel(channel.id) }.padding(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    coil3.compose.AsyncImage(channel.avatarUrl, null, Modifier.size(36.dp).clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHighest), contentScale = ContentScale.Crop)
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(channel.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        channel.detailText?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }
+                    }
+                    Surface(onClick = viewModel::toggleSubscription, shape = RoundedCornerShape(18.dp),
+                        color = if (subscribed) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.onSurface,
+                        contentColor = if (subscribed) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surface,
+                        modifier = Modifier.height(36.dp)) {
+                        Row(Modifier.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                            if (subscribed) Icon(Icons.Rounded.NotificationsNone, null, Modifier.size(20.dp).padding(end = 4.dp))
+                            Text(stringResource(if (subscribed) R.string.channel_subscribed else R.string.channel_subscribe), style = MaterialTheme.typography.labelLarge)
+                        }
+                    }
+                }
+            }
+        }
+        item(key = "actions") { ClassicActions(state, viewModel, onMore) }
+        item(key = "comments") {
+            Surface(onClick = viewModel::openComments, shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.surfaceContainer,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
+                Row(Modifier.padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.video_comments), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                    Icon(Icons.Rounded.UnfoldMore, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+        if (related) relatedRows(details.related, columns, navigation)
+    }
+}
+
+/** YouTube's row of grey pills under the channel: like | dislike, share, save, download, more. */
+@Composable
+private fun ClassicActions(state: VideoUiState, viewModel: VideoViewModel, onMore: () -> Unit) {
+    val locale = LocalConfiguration.current.locales[0]
+    val details = state.details
+    val liked = state.likeStatus == LikeStatus.Like
+    val disliked = state.likeStatus == LikeStatus.Dislike
+    val likeCount = (if (liked) details?.likeCountTextLiked ?: details?.likeCountText else details?.likeCountText)?.takeIf { it.any(Char::isDigit) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val shareTitle = stringResource(R.string.video_share)
+    val download = app.freshtuber.ui.components.rememberNotificationPermission { viewModel.download() }
+    val pill = MaterialTheme.colorScheme.surfaceContainerHigh
+    androidx.compose.foundation.lazy.LazyRow(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        item(key = "rate") {
+            Row(Modifier.height(36.dp).clip(RoundedCornerShape(18.dp)).background(pill), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxHeight().clickable(enabled = details != null, onClick = viewModel::toggleLike).padding(start = 12.dp, end = 10.dp)
+                    .semantics { contentDescription = "${likeCount ?: ""}"; selected = liked }, verticalAlignment = Alignment.CenterVertically) {
+                    Icon(if (liked) Icons.Rounded.ThumbUp else Icons.Rounded.ThumbUpOffAlt, stringResource(R.string.video_like), Modifier.size(20.dp))
+                    likeCount?.let { Text(it, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 6.dp)) }
+                }
+                Box(Modifier.width(1.dp).height(20.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)))
+                Row(Modifier.fillMaxHeight().clickable(enabled = details != null, onClick = viewModel::toggleDislike).padding(start = 10.dp, end = 12.dp)
+                    .semantics { selected = disliked }, verticalAlignment = Alignment.CenterVertically) {
+                    Icon(if (disliked) Icons.Rounded.ThumbDown else Icons.Rounded.ThumbDownOffAlt, stringResource(R.string.video_dislike), Modifier.size(20.dp))
+                    state.dislikes?.let { Text(compactNumber(it, locale), style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 6.dp)) }
+                }
+            }
+        }
+        val pills = listOf(
+            Triple(Icons.Rounded.Share, shareTitle) { app.freshtuber.ui.feed.shareVideo(context, viewModel.videoId, shareTitle) },
+            Triple(Icons.AutoMirrored.Rounded.PlaylistAdd, context.getString(R.string.video_save)) { viewModel.openPlaylistPicker() },
+            Triple(Icons.Rounded.Download, context.getString(R.string.feed_download)) { download() },
+            Triple(Icons.Rounded.MoreHoriz, context.getString(R.string.video_more), onMore),
+        )
+        items(pills.size, key = { "p$it" }) { index ->
+            val (icon, label, onClick) = pills[index]
+            Row(Modifier.height(36.dp).clip(RoundedCornerShape(18.dp)).background(pill).clickable(onClick = onClick).padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, null, Modifier.size(20.dp))
+                Text(label, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 6.dp))
+            }
+        }
+    }
+}
+
+/** Up next as its own column beside the video on a wide page. */
+@Composable
+private fun UpNextPane(details: VideoDetails, navigation: FeedNavigation, modifier: Modifier = Modifier) {
+    LazyColumn(modifier.statusBarsPadding(), contentPadding = WindowInsets.navigationBars.asPaddingValues()) {
+        item(key = "title") {
+            Text(stringResource(R.string.player_up_next), style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(start = 16.dp, top = 12.dp, bottom = 6.dp))
+        }
+        items(details.related, key = { "n:${it.id}" }) { video ->
+            VideoCard(video, onClick = { navigation.openVideo(video.id) }, onChannelClick = navigation::openChannel, enableMenu = true)
+        }
+    }
+}
+
+/** Up next under the video; side by side on a wide single-pane page. */
+private fun androidx.compose.foundation.lazy.LazyListScope.relatedRows(related: List<app.freshtuber.domain.model.VideoSummary>, columns: Int, navigation: FeedNavigation) {
+    items(related.chunked(columns), key = { "r:${it.first().id}" }) { row ->
+        Row(Modifier.fillMaxWidth().padding(horizontal = if (columns > 1) 4.dp else 0.dp)) {
+            row.forEach { video ->
+                VideoCard(video, onClick = { navigation.openVideo(video.id) }, onChannelClick = navigation::openChannel, enableMenu = true,
+                    modifier = Modifier.weight(1f))
+            }
+            repeat(columns - row.size) { Spacer(Modifier.weight(1f)) }
+        }
     }
 }

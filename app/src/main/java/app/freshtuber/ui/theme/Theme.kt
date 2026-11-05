@@ -29,6 +29,8 @@ fun AppTheme(
     amoled: Boolean = false,
     serif: Boolean = true,
     hue: Float = 62f,
+    /** YouTube's flat colours (classic theme or classic layout) instead of the liquid scheme. */
+    youTube: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val darkness by animateFloatAsState(if (darkTheme) 1f else 0f, tween(700), label = "dark")
@@ -44,6 +46,7 @@ fun AppTheme(
         }
     }
     val colorScheme = when {
+        youTube -> youTubeColorScheme(darkTheme, amoled)
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
             val scheme = if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)

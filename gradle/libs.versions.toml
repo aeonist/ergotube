@@ -23,6 +23,8 @@ work = "2.11.2"
 datastore = "1.2.1"
 webkit = "1.18.0"
 profileinstaller = "1.4.1"
+# Fold posture (tabletop / flex mode) for foldable phones.
+window = "1.5.0"
 
 # Network / data
 newpipe-extractor = "v0.26.5"
@@ -58,6 +60,7 @@ androidx-compose-ui = { module = "androidx.compose.ui:ui" }
 androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 androidx-compose-material3 = { module = "androidx.compose.material3:material3" }
+androidx-window = { module = "androidx.window:window", version.ref = "window" }
 androidx-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
 androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
 androidx-test-espresso = { module = "androidx.test.espresso:espresso-core", version.ref = "espresso" }

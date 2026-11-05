@@ -253,4 +253,13 @@
     <string name="settings_grain_hint">Fine film grain over the background light.</string>
     <string name="settings_power_saver">Follow system battery saver</string>
     <string name="settings_power_saver_hint">With battery saver on, the background becomes one flat color.</string>
+    <string name="theme_classic">Classic dark</string>
+    <string name="settings_style">Layout</string>
+    <string name="settings_style_ergonomic">One-handed</string>
+    <string name="settings_style_classic">Classic YouTube</string>
+    <string name="sponsor_sponsor">Sponsor</string>
+    <string name="sponsor_selfpromo">Self-promotion</string>
+    <string name="sponsor_interaction">Reminder to subscribe</string>
+    <string name="sponsor_intro">Intro</string>
+    <string name="sponsor_outro">Ending</string>
 </resources>

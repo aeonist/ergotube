@@ -21,10 +21,17 @@ enum class AppFeature(val key: String, val default: Boolean) {
 /** How the background light moves. */
 enum class BackgroundMotion { Always, OnTransition, Off }
 
-enum class ThemeMode { System, Light, Dark, Amoled }
+/** [Classic] is YouTube's own dark theme: flat #0F0F0F, no liquid light. */
+enum class ThemeMode { System, Light, Dark, Amoled, Classic }
+
+/** [Ergonomic] keeps controls under the thumb; [Classic] repeats YouTube's own layout. */
+enum class UiStyle { Ergonomic, Classic }
 
 data class AppPreferences(val features: Map<AppFeature, Boolean> = AppFeature.entries.associateWith { it.default },
     val theme: ThemeMode = ThemeMode.System, val quality: Int = 1080, val downloadQuality: Int = 720,
-    val motion: BackgroundMotion = BackgroundMotion.Always) {
+    val motion: BackgroundMotion = BackgroundMotion.Always, val style: UiStyle = UiStyle.Ergonomic) {
     fun enabled(feature: AppFeature) = features[feature] ?: feature.default
+    val classicLayout: Boolean get() = style == UiStyle.Classic
+    /** Flat YouTube colours instead of the liquid light: the classic theme or the classic layout. */
+    val flatYouTube: Boolean get() = theme == ThemeMode.Classic || classicLayout
 }

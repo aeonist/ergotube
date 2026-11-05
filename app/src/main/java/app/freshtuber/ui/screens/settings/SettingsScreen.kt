@@ -57,6 +57,7 @@ class SettingsViewModel @Inject constructor(private val settings: AppSettings,
     } }
     fun feature(feature: app.freshtuber.data.settings.AppFeature, enabled: Boolean) = update { settings.setFeature(feature, enabled) }
     fun theme(mode: app.freshtuber.data.settings.ThemeMode) = update { settings.setTheme(mode) }
+    fun style(style: app.freshtuber.data.settings.UiStyle) = update { settings.setStyle(style) }
     fun motion(motion: app.freshtuber.data.settings.BackgroundMotion) = update { settings.setMotion(motion) }
     fun quality(height: Int) = update { settings.setPreferredQuality(height) }
     fun downloadQuality(height: Int) = update { settings.setDownloadQuality(height) }
@@ -118,7 +119,7 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
     var about by remember { mutableStateOf(false) }
     val qualityOptions = listOf(144, 240, 360, 480, 720, 1080, 1440, 2160, 4320)
     val notificationsOn = preferences.enabled(AppFeature.Notifications) && systemNotifications
-    val themeNames = listOf(R.string.theme_system, R.string.theme_light, R.string.theme_dark, R.string.theme_amoled).map { stringResource(it) }
+    val themeNames = listOf(R.string.theme_system, R.string.theme_light, R.string.theme_dark, R.string.theme_amoled, R.string.theme_classic).map { stringResource(it) }
     val on = stringResource(R.string.player_on)
     val off = stringResource(R.string.player_off)
 
@@ -173,6 +174,8 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
                     SettingsToggle(stringResource(R.string.settings_dynamic_color), stringResource(R.string.settings_dynamic_color_hint), preferences.enabled(AppFeature.DynamicColor)) { viewModel.feature(AppFeature.DynamicColor, it) }
                     SettingsChoice(stringResource(R.string.settings_font), listOf(stringResource(R.string.settings_font_serif), stringResource(R.string.settings_font_sans)),
                         if (preferences.enabled(AppFeature.SerifFont)) 0 else 1, left) { viewModel.feature(AppFeature.SerifFont, it == 0) }
+                    SettingsChoice(stringResource(R.string.settings_style), listOf(stringResource(R.string.settings_style_ergonomic), stringResource(R.string.settings_style_classic)),
+                        preferences.style.ordinal, left) { viewModel.style(app.freshtuber.data.settings.UiStyle.entries[it]) }
                     SettingsChoice(stringResource(R.string.settings_theme), themeNames, preferences.theme.ordinal, left) { viewModel.theme(app.freshtuber.data.settings.ThemeMode.entries[it]) }
                     SettingsChoice(stringResource(R.string.settings_hand), listOf(stringResource(R.string.radial_left), stringResource(R.string.radial_right)),
                         if (left) 0 else 1, left) { menu.setHand(it == 0) }

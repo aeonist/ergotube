@@ -251,4 +251,13 @@
     <string name="settings_grain_hint">Мелкое плёночное зерно на фоне.</string>
     <string name="settings_power_saver">Включать вместе с системным энергосбережением</string>
     <string name="settings_power_saver_hint">Когда включено системное энергосбережение, фон становится одним цветом.</string>
+    <string name="theme_classic">Классическая тёмная</string>
+    <string name="settings_style">Вид</string>
+    <string name="settings_style_ergonomic">Под одну руку</string>
+    <string name="settings_style_classic">Классический YouTube</string>
+    <string name="sponsor_sponsor">Спонсор</string>
+    <string name="sponsor_selfpromo">Самореклама</string>
+    <string name="sponsor_interaction">Просьба подписаться</string>
+    <string name="sponsor_intro">Заставка</string>
+    <string name="sponsor_outro">Концовка</string>
 </resources>

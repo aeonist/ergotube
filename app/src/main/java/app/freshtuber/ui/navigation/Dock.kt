@@ -78,11 +78,12 @@ fun AppDock(selected: DockTab?, mineOpen: Boolean, left: Boolean, shorts: Boolea
     val light = app.freshtuber.ui.liquid.LocalLiquidLight.current
     val radius = with(androidx.compose.ui.platform.LocalDensity.current) { 34.dp.toPx() }
     DisposableEffect(light) { onDispose { light?.setDrop(0, null, 0f) } }
-    Column(modifier.fillMaxWidth()) {
+    // On a wide unfolded screen the drop stays thumb-sized at the working-hand side.
+    Column(modifier.fillMaxWidth(), horizontalAlignment = if (left) Alignment.Start else Alignment.End) {
         Row(
             Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
                 .padding(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 14.dp)
-                .fillMaxWidth().height(Reach.DockHeight)
+                .widthIn(max = 560.dp).fillMaxWidth().height(Reach.DockHeight)
                 .onGloballyPositioned { light?.setDrop(0, it.boundsInRoot(), radius) }
                 .padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -163,7 +164,8 @@ fun MineList(downloads: Int, onPick: (MineItem) -> Unit, onDismiss: () -> Unit, 
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.18f))
             .pointerInput(onDismiss) { detectTapGestures { onDismiss() } })
         val glass = MaterialTheme.colorScheme.surfaceContainer
-        Surface(Modifier.align(Alignment.BottomCenter).padding(start = 14.dp, end = 14.dp, bottom = 8.dp + bottomInset).fillMaxWidth()
+        Surface(Modifier.align(if (app.freshtuber.ui.components.LocalLeftHanded.current) Alignment.BottomStart else Alignment.BottomEnd)
+            .padding(start = 14.dp, end = 14.dp, bottom = 8.dp + bottomInset).widthIn(max = 560.dp).fillMaxWidth()
             .border(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f), RoundedCornerShape(26.dp)),
             color = glass.copy(alpha = 0.62f), shape = RoundedCornerShape(26.dp)) {
             Column(Modifier.padding(vertical = 8.dp)) {

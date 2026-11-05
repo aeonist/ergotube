@@ -43,6 +43,9 @@ object Reach {
     val CompactDockHeight: Dp = 50.dp
 }
 
+/** The classic layout: the interface repeats YouTube's own (top bar, bottom tabs, overlay controls). */
+val LocalClassic = staticCompositionLocalOf { false }
+
 /** The working hand from settings; controls press to this side. */
 val LocalLeftHanded = compositionLocalOf { false }
 

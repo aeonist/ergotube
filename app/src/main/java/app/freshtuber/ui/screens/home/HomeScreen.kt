@@ -113,7 +113,13 @@ fun HomeScreen(
     val selected = state.filters.firstOrNull { it.selected }?.title
     // Categories slide away while reading down, like the channel strip in Subscriptions.
     val hide = rememberScrollHide()
+    val classic = LocalClassic.current
+    val chips = state.filters.map { filter -> ChipItem(filter.title, filter.selected) { viewModel.feed.selectFilter(filter) } }
     Column(Modifier.fillMaxSize()) {
+        // Classic: YouTube's chip row right under the top bar, hiding while reading down.
+        if (classic && state.filters.size > 1) AnimatedVisibility(hide.visible, enter = expandVertically(), exit = shrinkVertically()) {
+            app.freshtuber.ui.classic.ClassicChips(chips)
+        }
         FeedList(
             state = state,
             navigation = navigation,
@@ -124,17 +130,16 @@ fun HomeScreen(
             emptyMessage = stringResource(R.string.feed_empty),
             onSignInAgain = onSignIn,
             modifier = Modifier.weight(1f).nestedScroll(hide.connection),
-            header = {
+            header = if (classic) null else ({
                 item(key = "header") {
                     ScreenHeader(stringResource(R.string.nav_home), selected ?: stringResource(R.string.home_subtitle))
                 }
-            },
+            }),
         )
         // Filters live at the bottom, starting at the working-hand edge.
-        if (state.filters.size > 1) AnimatedVisibility(hide.visible, enter = expandVertically(), exit = shrinkVertically()) {
+        if (!classic && state.filters.size > 1) AnimatedVisibility(hide.visible, enter = expandVertically(), exit = shrinkVertically()) {
             BottomBar {
-                HandChips(state.filters.map { filter -> ChipItem(filter.title, filter.selected) { viewModel.feed.selectFilter(filter) } }, left,
-                    Modifier.padding(vertical = 4.dp))
+                HandChips(chips, left, Modifier.padding(vertical = 4.dp))
             }
         }
     }

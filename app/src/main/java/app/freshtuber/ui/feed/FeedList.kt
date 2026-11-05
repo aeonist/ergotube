@@ -118,7 +118,8 @@ fun FeedList(
         if (nearEnd && state.items.isNotEmpty()) onLoadMore()
     }
 
-    val rows = remember(state.items, shortsShelf) { FeedRows.of(state.items, shortsShelf) }
+    val columns = app.freshtuber.ui.components.feedColumns()
+    val rows = remember(state.items, shortsShelf, columns) { FeedRows.grid(FeedRows.of(state.items, shortsShelf), columns) }
     LazyColumn(modifier.fillMaxSize().bottomFade(atTop = fromBottom), state = listState, reverseLayout = fromBottom,
         contentPadding = PaddingValues(bottom = if (fromBottom) 8.dp else LocalFeedBottomClearance.current, top = if (fromBottom) 24.dp else 0.dp)) {
         header?.invoke(this)
@@ -139,15 +140,15 @@ fun FeedList(
                 MessageState(emptyMessage, Modifier.fillParentMaxHeight(0.62f))
             }
             else -> {
-                items(rows, key = { it.key }, contentType = { (it as? FeedRow.Item)?.item?.let { item -> item::class } ?: FeedRow.Shelf::class }) { row ->
+                items(rows, key = { it.key }, contentType = { (it as? FeedRow.Item)?.item?.let { item -> item::class } ?: it::class }) { row ->
                     // New rows fade in, hidden ones fade out while the rest glide into place.
                     val appear = Modifier.animateItem(fadeInSpec = androidx.compose.animation.core.tween(320),
                         placementSpec = androidx.compose.animation.core.spring(stiffness = 500f, visibilityThreshold = androidx.compose.ui.unit.IntOffset(1, 1)),
                         fadeOutSpec = androidx.compose.animation.core.tween(200))
                     if (row is FeedRow.Shelf) { ShortsShelf(row.shorts, navigation, appear); return@items }
-                    when (val item = (row as FeedRow.Item).item) {
-                        is FeedItem.Video -> VideoCard(
-                            modifier = appear,
+                    val card: @Composable (FeedItem.Video, Modifier) -> Unit = { item, cardModifier ->
+                        VideoCard(
+                            modifier = cardModifier,
                             video = item.video,
                             branding = state.branding[item.video.id],
                             onClick = { navigation.openVideo(item.video.id) },
@@ -156,6 +157,16 @@ fun FeedList(
                             enableMenu = videoActions,
                             recommendation = videoActions && recommendations,
                         )
+                    }
+                    if (row is FeedRow.Grid) {
+                        Row(appear.fillMaxWidth().padding(horizontal = 4.dp)) {
+                            row.items.forEach { androidx.compose.runtime.key(it.key) { card(it.item as FeedItem.Video, Modifier.weight(1f)) } }
+                            repeat(columns - row.items.size) { Spacer(Modifier.weight(1f)) }
+                        }
+                        return@items
+                    }
+                    when (val item = (row as FeedRow.Item).item) {
+                        is FeedItem.Video -> card(item, appear)
                         is FeedItem.Playlist -> PlaylistRow(item.playlist, appear) {
                             navigation.openPlaylist(item.playlist.id, item.playlist.title, item.playlist.seedVideoId)
                         }

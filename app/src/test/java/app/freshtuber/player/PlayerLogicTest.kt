@@ -69,6 +69,17 @@ class SponsorBlockRulesTest {
         assertNull(SponsorBlockRules.segmentAt(segments, 9.9))
         assertNull(SponsorBlockRules.segmentAt(segments, 39.8))
     }
+
+    @Test
+    fun `intros and endings are marked on the timeline but never skipped`() {
+        val segments = listOf(SkipSegment(0.0, 8.0, "intro"), SkipSegment(10.0, 40.0, "sponsor"), SkipSegment(90.0, 100.0, "outro"))
+        assertEquals(listOf("sponsor"), segments.filter { it.skipped }.map { it.category })
+        val spans = app.freshtuber.ui.player.SegmentMarks.spans(segments, 100_000)
+        assertEquals(3, spans.size)
+        assertEquals(0.1f, spans[1].first, 0.0001f)
+        assertEquals(1f, spans[2].second, 0.0001f)
+        assertEquals(emptyList<Any>(), app.freshtuber.ui.player.SegmentMarks.spans(segments, 0))
+    }
 }
 
 class ChunkPlanTest {

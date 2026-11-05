@@ -138,7 +138,13 @@ fun SubscriptionsScreen(
     // The strip slides away while reading down and comes back on the way up.
     val hide = rememberScrollHide()
 
+    val classic = app.freshtuber.ui.components.LocalClassic.current
     Column(Modifier.fillMaxSize()) {
+        if (classic && strip.isNotEmpty()) androidx.compose.animation.AnimatedVisibility(hide.visible) {
+            ChannelStrip(strip, selectedChannel, true,
+                onPick = { id -> if (id != null && id == selectedChannel) navigation.openChannel(id) else selectedChannel = id },
+                onList = { listOpen = true })
+        }
         FeedList(
             state = shown,
             navigation = navigation,
@@ -148,7 +154,7 @@ fun SubscriptionsScreen(
             onSignInAgain = onSignIn,
             videoActions = true,
             modifier = Modifier.weight(1f).nestedScroll(hide.connection),
-            header = {
+            header = if (classic && selectedName == null && !(localMode && localChannels.any { it.syncFailed })) null else ({
                 item(key = "header") {
                     ScreenHeader(selectedName ?: stringResource(R.string.nav_subscriptions),
                         when {
@@ -157,10 +163,10 @@ fun SubscriptionsScreen(
                             else -> null
                         })
                 }
-            },
+            }),
         )
         val controlsShown = localMode
-        if (controlsShown || strip.isNotEmpty()) BottomBar {
+        if (controlsShown || (!classic && strip.isNotEmpty())) BottomBar {
             if (controlsShown) Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
                 val controls: List<@Composable () -> Unit> = buildList {
@@ -176,7 +182,7 @@ fun SubscriptionsScreen(
                 if (!left) Spacer(Modifier.weight(1f))
                 handOrder(controls, left).forEach { it() }
             }
-            if (strip.isNotEmpty()) androidx.compose.animation.AnimatedVisibility(hide.visible) {
+            if (!classic && strip.isNotEmpty()) androidx.compose.animation.AnimatedVisibility(hide.visible) {
                 ChannelStrip(strip, selectedChannel, left,
                     onPick = { id -> if (id != null && id == selectedChannel) navigation.openChannel(id) else selectedChannel = id },
                     onList = { listOpen = true })

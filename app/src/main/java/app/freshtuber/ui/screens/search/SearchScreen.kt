@@ -20,6 +20,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
@@ -78,8 +79,9 @@ fun SearchScreen(
     val suggestions = SearchHistory.suggestions(history, query).take(room.coerceIn(1, 5))
     val showSuggestions = (focused || !hasQuery) && suggestions.isNotEmpty() && (focused || query.isEmpty())
 
-    Column(Modifier.fillMaxSize()) {
-        Box(Modifier.weight(1f)) {
+    val classic = app.freshtuber.ui.components.LocalClassic.current
+    val results: @Composable (Modifier) -> Unit = { modifier ->
+        Box(modifier) {
             if (!hasQuery) {
                 MessageState(stringResource(R.string.search_idle))
             } else {
@@ -91,58 +93,84 @@ fun SearchScreen(
                     emptyMessage = stringResource(R.string.search_empty, submitted),
                     onSignInAgain = onSignIn,
                     videoActions = true,
-                    header = { item(key = "header") { ScreenHeader("«$submitted»") } },
+                    header = if (classic) null else ({ item(key = "header") { ScreenHeader("«$submitted»") } }),
                 )
             }
         }
+    }
+    // Classic: the field is on top as in YouTube and suggestions read downward from it.
+    val shownSuggestions = if (classic) SearchHistory.suggestions(history, query).take(8) else suggestions
+    val suggestionRows: @Composable () -> Unit = {
+        Column(Modifier.fillMaxWidth()) {
+            // Ergonomic: the first suggestion sits right above the field.
+            (if (classic) shownSuggestions else shownSuggestions.reversed()).forEach { text ->
+                Row(Modifier.fillMaxWidth().height(48.dp).clickable { run(text) }.padding(horizontal = 20.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Icon(if (query.isEmpty()) Icons.Rounded.History else Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(14.dp))
+                    Text(text, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
+    }
+    val chips: @Composable () -> Unit = {
+        HandChips(state.filters.map { ChipItem(it.title, it.selected) { viewModel.selectFilter(it) } }, left = classic || left)
+    }
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+    if (classic) LaunchedEffect(Unit) { if (!hasQuery) runCatching { focus.requestFocus() } }
+    val field: @Composable () -> Unit = {
+        val leading: @Composable () -> Unit = { Icon(Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+        val trailing: @Composable () -> Unit = {
+            Row {
+                if (query.isNotEmpty()) IconButton(onClick = { query = "" }) {
+                    Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.action_clear))
+                }
+                if (voiceAvailable) IconButton(onClick = { runCatching { voice.launch(voiceIntent) } }) {
+                    Icon(Icons.Rounded.Mic, contentDescription = stringResource(R.string.search_voice))
+                }
+            }
+        }
+        val handLeft = left && !classic
+        TextField(
+            value = query,
+            onValueChange = { query = it },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = if (classic) 6.dp else 8.dp)
+                .then(if (classic) Modifier.height(52.dp) else Modifier)
+                .focusRequester(focus)
+                .onGloballyPositioned { fieldTop = it.positionInWindow().y.toInt() }
+                .onFocusChanged { focused = it.isFocused },
+            placeholder = { Text(stringResource(R.string.search_hint)) },
+            // The voice button sits on the working-hand side.
+            leadingIcon = if (handLeft) trailing else leading,
+            trailingIcon = if (handLeft) leading else trailing,
+            singleLine = true,
+            shape = RoundedCornerShape(26.dp),
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                focusedIndicatorColor = Color.Transparent,
+                unfocusedIndicatorColor = Color.Transparent,
+            ),
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { run(query) }),
+        )
+    }
+    val suggestionsVisible = (focused || !hasQuery) && shownSuggestions.isNotEmpty() && (focused || query.isEmpty())
+    if (classic) Column(Modifier.fillMaxSize()) {
+        field()
+        if (suggestionsVisible) Box(Modifier.weight(1f)) { suggestionRows() }
+        else {
+            if (hasQuery && state.filters.size > 1) chips()
+            results(Modifier.weight(1f))
+        }
+    } else Column(Modifier.fillMaxSize()) {
+        results(Modifier.weight(1f))
         BottomBar {
-            if (showSuggestions) Column(Modifier.fillMaxWidth()) {
-                // The first suggestion sits right above the field.
-                suggestions.reversed().forEach { text ->
-                    Row(Modifier.fillMaxWidth().height(48.dp).clickable { run(text) }.padding(horizontal = 20.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
-                        Icon(if (query.isEmpty()) Icons.Rounded.History else Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.width(14.dp))
-                        Text(text, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-            } else if (hasQuery && state.filters.size > 1) {
-                HandChips(state.filters.map { ChipItem(it.title, it.selected) { viewModel.selectFilter(it) } }, left)
-            }
-            val leading: @Composable () -> Unit = { Icon(Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
-            val trailing: @Composable () -> Unit = {
-                Row {
-                    if (query.isNotEmpty()) IconButton(onClick = { query = "" }) {
-                        Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.action_clear))
-                    }
-                    if (voiceAvailable) IconButton(onClick = { runCatching { voice.launch(voiceIntent) } }) {
-                        Icon(Icons.Rounded.Mic, contentDescription = stringResource(R.string.search_voice))
-                    }
-                }
-            }
-            TextField(
-                value = query,
-                onValueChange = { query = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-                    .onGloballyPositioned { fieldTop = it.positionInWindow().y.toInt() }
-                    .onFocusChanged { focused = it.isFocused },
-                placeholder = { Text(stringResource(R.string.search_hint)) },
-                // The voice button sits on the working-hand side.
-                leadingIcon = if (left) trailing else leading,
-                trailingIcon = if (left) leading else trailing,
-                singleLine = true,
-                shape = RoundedCornerShape(26.dp),
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                ),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                keyboardActions = KeyboardActions(onSearch = { run(query) }),
-            )
+            if (showSuggestions) suggestionRows()
+            else if (hasQuery && state.filters.size > 1) chips()
+            field()
         }
     }
 }

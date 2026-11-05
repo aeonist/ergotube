@@ -23,4 +23,11 @@ class FeedRowsTest {
         val items = listOf(video("s1", true), video("s2", true))
         assertEquals(items.map { it.key }, FeedRows.of(items, minRun = 0).map { it.key })
     }
+
+    @Test fun wideScreensPutVideosSideBySideButKeepShelvesWhole() {
+        val rows = FeedRows.grid(FeedRows.of(listOf(video("a"), video("b"), video("c"), video("s1", true), video("s2", true), video("d")), minRun = 2), columns = 2)
+        assertEquals(listOf("grid:v:a", "grid:v:c", "shelf:s1", "grid:v:d"), rows.map { it.key })
+        assertEquals(listOf("v:a", "v:b"), (rows[0] as FeedRow.Grid).items.map { it.key })
+        assertEquals(6, FeedRows.grid(FeedRows.of(listOf(video("a")), 2), columns = 1).size + 5)
+    }
 }

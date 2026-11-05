@@ -59,9 +59,27 @@ sealed interface FeedRow {
     data class Shelf(val shorts: List<VideoSummary>) : FeedRow {
         override val key: String get() = "shelf:${shorts.first().id}"
     }
+
+    /** Videos side by side on a wide screen (an unfolded foldable or a tablet). */
+    data class Grid(val items: List<Item>) : FeedRow {
+        override val key: String get() = "grid:${items.first().key}"
+    }
 }
 
 object FeedRows {
+    /** Puts runs of plain videos [columns] to a row; everything else keeps a full row. */
+    fun grid(rows: List<FeedRow>, columns: Int): List<FeedRow> {
+        if (columns <= 1) return rows
+        val out = mutableListOf<FeedRow>()
+        val run = mutableListOf<FeedRow.Item>()
+        fun flush() { run.chunked(columns).forEach { out += FeedRow.Grid(it) }; run.clear() }
+        rows.forEach { row ->
+            if (row is FeedRow.Item && row.item is FeedItem.Video) run += row else { flush(); out += row }
+        }
+        flush()
+        return out
+    }
+
     /**
      * Gathers every run of at least [minRun] Shorts in a row into one shelf, as YouTube does;
      * [minRun] 0 keeps every item as it is.

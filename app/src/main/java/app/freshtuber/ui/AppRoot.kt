@@ -86,6 +86,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
         }
     }
     val leftHanded by viewModel.leftHanded.collectAsStateWithLifecycle()
+    val classic = app.freshtuber.ui.components.LocalClassic.current
     val shortsEnabled by viewModel.shortsEnabled.collectAsStateWithLifecycle()
     val online by viewModel.online.collectAsStateWithLifecycle()
     val expired by viewModel.expiredSession.collectAsStateWithLifecycle()
@@ -167,7 +168,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     val compactDockSpace = Reach.CompactDockHeight + navBottom
     // The dock floats over the screens; each screen keeps room for it, whatever the next screen
     // is, so nothing jumps while two screens cross-fade.
-    val dockSpace = Reach.DockHeight + 22.dp + navBottom
+    val dockSpace = if (classic) compactDockSpace else Reach.DockHeight + 22.dp + navBottom
     var bannerHeight by remember { mutableStateOf(0.dp) }
     val screenBottom by androidx.compose.animation.core.animateDpAsState(
         if (keyboardVisible) 0.dp else dockSpace + bannerHeight, label = "screenBottom")
@@ -213,10 +214,11 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
                     )
                 }
             }
-            composable<HomeRoute> { Box(docked.then(transitionBlur())) { HomeScreen(navigation, onSignIn = signIn) } }
+            composable<HomeRoute> { Box(docked.then(transitionBlur())) { ClassicTop(classic, { openSection(SearchRoute) }, { openSection(SettingsRoute) }) { HomeScreen(navigation, onSignIn = signIn) } } }
             composable<ShortsRoute> { Box(Modifier.fillMaxSize().then(transitionBlur())) { ShortsScreen(navigation, onSignIn = signIn, settled = settled) } }
             composable<ShortsViewerRoute> { Box(Modifier.fillMaxSize().then(transitionBlur())) { ShortsScreen(navigation, onSignIn = signIn, settled = settled) } }
-            composable<SubscriptionsRoute> { Box(docked.then(transitionBlur())) { SubscriptionsScreen(navigation, onSignIn = signIn, onSearch = { openSection(SearchRoute) }) } }
+            composable<SubscriptionsRoute> { Box(docked.then(transitionBlur())) { ClassicTop(classic, { openSection(SearchRoute) }, { openSection(SettingsRoute) }) {
+                SubscriptionsScreen(navigation, onSignIn = signIn, onSearch = { openSection(SearchRoute) }) } } }
             composable<SearchRoute> { Box(docked.then(transitionBlur())) { SearchScreen(navigation, onSignIn = signIn) } }
             composable<DownloadsRoute> { Box(docked.then(transitionBlur())) { DownloadsScreen(onVideo = { navController.navigate(PlayerRoute(it)) }, onSearch = { openSection(SearchRoute) }) } }
             composable<LibraryListRoute> { Box(docked.then(transitionBlur())) { ListScreen(navigation, onSignIn = signIn,
@@ -280,14 +282,16 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
                 androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(Motion.ENTER_MS)),
             exit = androidx.compose.animation.slideOutVertically(androidx.compose.animation.core.tween(Motion.EXIT_MS, easing = Motion.Accelerate)) { it } +
                 androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(Motion.EXIT_MS))) {
-            AppDock(selected = currentTab, mineOpen = mineOpen, left = leftHanded, shorts = shortsEnabled, onSelect = selectTab)
+            if (classic) app.freshtuber.ui.classic.ClassicNavBar(currentTab, mineOpen, shortsEnabled, overVideo = false, onSelect = selectTab)
+            else AppDock(selected = currentTab, mineOpen = mineOpen, left = leftHanded, shorts = shortsEnabled, onSelect = selectTab)
         }
     }
     // Over a Short the dock is a slim row of icons drawn on the video itself.
     androidx.compose.animation.AnimatedVisibility(dockVisible && onShorts, Modifier.align(Alignment.BottomCenter),
         enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(Motion.ENTER_MS)),
         exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(Motion.EXIT_MS))) {
-        CompactDock(selected = currentTab, mineOpen = mineOpen, left = leftHanded, shorts = shortsEnabled, onSelect = selectTab)
+        if (classic) app.freshtuber.ui.classic.ClassicNavBar(currentTab, mineOpen, shortsEnabled, overVideo = true, onSelect = selectTab)
+        else CompactDock(selected = currentTab, mineOpen = mineOpen, left = leftHanded, shorts = shortsEnabled, onSelect = selectTab)
     }
     app.freshtuber.ui.feed.FanOverlay(fanHost)
     app.freshtuber.ui.player.VideoFlightOverlay(handoff)
@@ -366,5 +370,15 @@ private fun NavHostController.navigateToTopLevel(route: Any) {
         // An explicit section choice must not restore an old watch/channel child above it.
         // Home remains in the stack, preserving its loaded feed.
         restoreState = false
+    }
+}
+
+/** In the classic layout Home and Subscriptions sit under YouTube's top bar. */
+@Composable
+private fun ClassicTop(classic: Boolean, onSearch: () -> Unit, onSettings: () -> Unit, content: @Composable () -> Unit) {
+    if (!classic) { content(); return }
+    Column(Modifier.fillMaxSize()) {
+        app.freshtuber.ui.classic.ClassicTopBar(onSearch, onSettings)
+        Box(Modifier.weight(1f)) { content() }
     }
 }

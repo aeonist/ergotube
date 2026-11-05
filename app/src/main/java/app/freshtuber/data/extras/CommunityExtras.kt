@@ -54,8 +54,8 @@ class CommunityExtras @Inject constructor(private val okHttp: OkHttpClient) {
     }
 
     /**
-     * SponsorBlock segments to skip, through the hash-prefix API like DeArrow. Only "skip"
-     * segments of the categories the app skips are returned, in seconds.
+     * SponsorBlock segments, through the hash-prefix API like DeArrow: "skip" segments of
+     * [SPONSOR_CATEGORIES], in seconds. Only [SkipSegment.skipped] ones are jumped over.
      */
     suspend fun sponsorSegments(videoId: String): List<SkipSegment> = withContext(Dispatchers.IO) {
         runCatching {
@@ -79,11 +79,17 @@ class CommunityExtras @Inject constructor(private val okHttp: OkHttpClient) {
         MessageDigest.getInstance("SHA-256").digest(text.encodeToByteArray()).joinToString("") { "%02x".format(it) }
 }
 
-/** A part of a video to jump over, in seconds. */
-data class SkipSegment(val start: Double, val end: Double, val category: String)
+/** A marked part of a video, in seconds. */
+data class SkipSegment(val start: Double, val end: Double, val category: String) {
+    /** Sponsors and reminders are jumped over; intros and endings are only shown on the timeline. */
+    val skipped: Boolean get() = category in SKIPPED_CATEGORIES
+}
 
 /** Categories skipped automatically, as ReVanced does by default. */
-val SPONSOR_CATEGORIES = listOf("sponsor", "selfpromo", "interaction")
+val SKIPPED_CATEGORIES = setOf("sponsor", "selfpromo", "interaction")
+
+/** Categories asked from SponsorBlock: the skipped ones plus intros ("intro") and endings ("outro"). */
+val SPONSOR_CATEGORIES = listOf("sponsor", "selfpromo", "interaction", "intro", "outro")
 
 object SponsorBlockRules {
     /** The hash-prefix response lists several videos; pick ours and keep skippable segments. */

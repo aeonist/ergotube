@@ -95,6 +95,7 @@ fun PlayerPad(
     live: Boolean,
     left: Boolean,
     hasNext: Boolean,
+    segments: List<app.freshtuber.data.extras.SkipSegment> = emptyList(),
     onNext: () -> Unit,
     hasPrevious: Boolean,
     onPrevious: () -> Unit,
@@ -266,7 +267,7 @@ fun PlayerPad(
             Track(if (durationMs > 0) shownMs.toFloat() / durationMs else 0f, chapters, durationMs, scrubbing = ui.scrubMs != null,
                 live = live, modifier = Modifier.fillMaxWidth().height(18.dp).padding(horizontal = 8.dp)
                     .onGloballyPositioned { trackBounds = it.boundsInRoot() },
-                gap = Color.Transparent)
+                gap = Color.Transparent, segments = segments)
             Row(Modifier.fillMaxWidth().height(50.dp).onGloballyPositioned { mainBounds = it.boundsInRoot() },
                 verticalAlignment = Alignment.CenterVertically) {
                 PadButton(Icons.Rounded.SkipPrevious, stringResource(R.string.player_previous), Modifier.button("previous"), enabled = hasPrevious, onClick = onPrevious)
@@ -325,15 +326,19 @@ private fun PadZoneIcon(icon: ImageVector, label: String, modifier: Modifier, bi
 /** Progress with chapter gaps and a dot that grows while scrubbing. */
 @Composable
 fun Track(fraction: Float, chapters: List<Chapter>, durationMs: Long, scrubbing: Boolean, live: Boolean, modifier: Modifier,
-    background: Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f), gap: Color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+    background: Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f), gap: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    segments: List<app.freshtuber.data.extras.SkipSegment> = emptyList(), stroke: androidx.compose.ui.unit.Dp = 4.dp) {
+    val spans = remember(segments, durationMs) { SegmentMarks.spans(segments, durationMs) }
     val dot by animateFloatAsState(if (scrubbing) 9.5f else 7f, label = "dot")
     Canvas(modifier) {
         val y = size.height / 2
-        val stroke = 4.dp.toPx()
+        val stroke = stroke.toPx()
         drawLine(background, Offset(0f, y), Offset(size.width, y), stroke, StrokeCap.Round)
         if (live) return@Canvas
         val f = fraction.coerceIn(0f, 1f)
         drawLine(BrandColors.Red, Offset(0f, y), Offset(size.width * f, y), stroke, StrokeCap.Round)
+        // Sponsor and intro marks lie over both the played and the unplayed part.
+        spans.forEach { (a, b, color) -> drawLine(color, Offset(size.width * a, y), Offset(size.width * b, y), stroke, StrokeCap.Butt) }
         if (durationMs > 0) chapters.drop(1).forEach { c ->
             val x = size.width * (c.startSeconds * 1000f / durationMs)
             drawLine(gap, Offset(x, y - 4.dp.toPx()), Offset(x, y + 4.dp.toPx()), 3.dp.toPx())

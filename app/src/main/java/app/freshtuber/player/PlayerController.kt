@@ -107,6 +107,8 @@ data class PlayerState(
     val queue: List<VideoSummary> = emptyList(),
     /** Videos played before this one in this session, oldest first; Previous goes back here. */
     val history: List<String> = emptyList(),
+    /** SponsorBlock segments of [nowPlaying] for the timeline, skipped or only marked. */
+    val segments: List<SkipSegment> = emptyList(),
 )
 
 /** Something the user should briefly see, e.g. a skipped sponsor segment. */
@@ -207,6 +209,7 @@ class PlayerController @Inject constructor(
 
     private var resolved: ResolvedVideo? = null
     private var segments: List<SkipSegment> = emptyList()
+        set(value) { field = value; _state.update { it.copy(segments = value) } }
     private var sponsorEnabled = true
     init {
         scope.launch { settings.sponsorBlockEnabled.collectLatest { enabled ->
@@ -574,7 +577,7 @@ class PlayerController @Inject constructor(
             var sinceSave = 0
             while (isActive && player.isPlaying) {
                 val seconds = player.currentPosition / 1000.0
-                SponsorBlockRules.segmentAt(if (sponsorEnabled) segments else emptyList(), seconds)?.let { segment ->
+                SponsorBlockRules.segmentAt(if (sponsorEnabled) segments.filter { it.skipped } else emptyList(), seconds)?.let { segment ->
                     player.seekTo((segment.end * 1000).toLong())
                     _events.tryEmit(PlayerEvent.SegmentSkipped(segment))
                 }

@@ -26,7 +26,8 @@ class AppSettings @Inject constructor(
             theme = runCatching { ThemeMode.valueOf(data[THEME] ?: "System") }.getOrDefault(ThemeMode.System),
             quality = data[QUALITY]?.coerceIn(144, 4320) ?: 1080,
             downloadQuality = data[DOWNLOAD_QUALITY]?.coerceIn(144, 4320) ?: 720,
-            motion = runCatching { BackgroundMotion.valueOf(data[MOTION] ?: "Always") }.getOrDefault(BackgroundMotion.Always))
+            motion = runCatching { BackgroundMotion.valueOf(data[MOTION] ?: "Always") }.getOrDefault(BackgroundMotion.Always),
+            style = runCatching { UiStyle.valueOf(data[STYLE] ?: "Ergonomic") }.getOrDefault(UiStyle.Ergonomic))
     }
     val backgroundPlayback: Flow<Boolean> = context.settingsStore.data.map { it[booleanPreferencesKey(AppFeature.BackgroundPlayback.key)] ?: true }
     val shortsEnabled: Flow<Boolean> = context.settingsStore.data.map { it[booleanPreferencesKey(AppFeature.ShortsTab.key)] ?: true }
@@ -35,6 +36,7 @@ class AppSettings @Inject constructor(
     suspend fun setFeature(feature: AppFeature, enabled: Boolean) { context.settingsStore.edit { it[booleanPreferencesKey(feature.key)] = enabled } }
     suspend fun setMotion(motion: BackgroundMotion) { context.settingsStore.edit { it[MOTION] = motion.name } }
     suspend fun setTheme(theme: ThemeMode) { context.settingsStore.edit { it[THEME] = theme.name } }
+    suspend fun setStyle(style: UiStyle) { context.settingsStore.edit { it[STYLE] = style.name } }
     suspend fun setDownloadQuality(height: Int) { context.settingsStore.edit { it[DOWNLOAD_QUALITY] = height.coerceIn(144, 4320) } }
     suspend fun resetHiddenVideos() { context.settingsStore.edit { it.remove(HIDDEN_VIDEOS) } }
 
@@ -97,6 +99,7 @@ class AppSettings @Inject constructor(
 
     private companion object {
         val THEME = stringPreferencesKey("theme_mode")
+        val STYLE = stringPreferencesKey("ui_style")
         val MOTION = stringPreferencesKey("liquid_motion")
         val DOWNLOAD_QUALITY = intPreferencesKey("download_quality")
         val NOTIFICATIONS = booleanPreferencesKey("new_video_notifications")

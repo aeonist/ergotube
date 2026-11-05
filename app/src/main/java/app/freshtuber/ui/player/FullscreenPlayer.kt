@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -117,6 +118,7 @@ fun FullscreenPlayer(
         label = "fan")
     fun stage(startMs: Int, lengthMs: Int = 220) = FanMotion.stage(shown, startMs, lengthMs)
 
+    val spans = androidx.compose.runtime.remember(state.segments, progress.durationMs) { SegmentMarks.spans(state.segments, progress.durationMs) }
     Box(Modifier.fillMaxSize()) {
     // While the video just plays, a plain straight timeline along the very bottom edge.
     if (shown < 1f) {
@@ -124,6 +126,7 @@ fun FullscreenPlayer(
         Canvas(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(3.dp).alpha(1f - shown)) {
             drawRect(Color.White.copy(alpha = 0.3f))
             if (!live) drawRect(BrandColors.Red, size = Size(size.width * fraction.coerceIn(0f, 1f), size.height))
+            spans.forEach { (a, b, color) -> drawRect(color, Offset(size.width * a, 0f), Size(size.width * (b - a), size.height)) }
         }
     }
     BoxWithConstraints(Modifier.fillMaxSize()
@@ -294,6 +297,13 @@ fun FullscreenPlayer(
                         val uf = FanGeometry.toArc(minOf(b, fraction))
                         drawArc(BrandColors.Red, base + ua * 90f, (uf - ua) * 90f, false, box.topLeft, box.size, style = stroke)
                     }
+                }
+                // Sponsor and intro marks over the arc, cut to the part already drawn in.
+                spans.forEach { (a, b, color) ->
+                    val end = minOf(b, sweep)
+                    if (end <= a) return@forEach
+                    val ua = FanGeometry.toArc(a); val ub = FanGeometry.toArc(end)
+                    drawArc(color, base + ua * 90f, (ub - ua) * 90f, false, box.topLeft, box.size, style = Stroke(5.dp.toPx(), cap = StrokeCap.Butt))
                 }
                 if (!live && dotIn > 0f) {
                     val p = geo.position(geo.track, FanGeometry.toArc(fraction))
