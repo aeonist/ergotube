@@ -9,6 +9,11 @@ plugins {
     alias(libs.plugins.room)
 }
 
+/** Commit the build was made from, shown in Settings so test builds can be told apart. */
+fun gitShortHash(): String = runCatching {
+    providers.exec { commandLine("git", "rev-parse", "--short", "HEAD") }.standardOutput.asText.get().trim()
+}.getOrDefault("local")
+
 android {
     namespace = "app.freshtuber"
     compileSdk {
@@ -21,8 +26,9 @@ android {
         applicationId = "app.freshtuber"
         minSdk = 26
         targetSdk = 37
-        versionCode = 5
-        versionName = "1.2-beta3"
+        // Test build number: bump with every build handed to the user (file name and Settings show it).
+        versionCode = 6
+        versionName = "1.2 liquid 03 · " + gitShortHash()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
