@@ -215,10 +215,16 @@ fun PlayerScreen(
         val twoPane = large && !fullscreen && !inPip && !tabletop && maxWidth > maxHeight
         val paneWidth = if (twoPane) maxWidth * 0.62f else maxWidth
         // Upright videos get more of the page, wide ones keep the top 40 %.
-        val share = when { twoPane -> 0.7f; videoAspect < 0.8f -> 0.56f; videoAspect < 1.2f -> 0.48f; else -> 0.4f }
+        // A near-square page (unfolded foldable held upright) gives a wide video more height, so it
+        // fills the width instead of sitting between black bars.
+        val squareish = !twoPane && maxHeight < maxWidth * 1.4f
+        val share = when { twoPane -> 0.7f; videoAspect < 0.8f -> 0.56f; videoAspect < 1.2f -> 0.48f; squareish -> 0.6f; else -> 0.4f }
         val videoHeight by androidx.compose.animation.core.animateDpAsState(minOf(paneWidth / videoAspect, pageHeight * share),
             androidx.compose.animation.core.tween(320, easing = app.freshtuber.ui.motion.Motion.Emphasized), label = "videoHeight")
         val videoHeightPx = with(density) { videoHeight.roundToPx() }
+        // Never wider than the picture: no black bars at the sides, the page shows around it.
+        val videoWidth = minOf(paneWidth, videoHeight * videoAspect)
+        val videoInset = (paneWidth - videoWidth) / 2
         val widthPx = with(density) { maxWidth.toPx() }
         val paneWidthPx = with(density) { paneWidth.toPx() }
         val heightPx = with(density) { maxHeight.toPx() }
@@ -244,7 +250,7 @@ fun PlayerScreen(
             val fitW = minOf(widthPx, heightPx * videoAspect)
             val fitH = fitW / videoAspect
             androidx.compose.ui.geometry.Rect((widthPx - fitW) / 2f, (heightPx - fitH) / 2f, (widthPx + fitW) / 2f, (heightPx + fitH) / 2f)
-        } else androidx.compose.ui.geometry.Rect(0f, statusTop.toFloat(), paneWidthPx, statusTop.toFloat() + videoHeightPx)
+        } else with(density) { androidx.compose.ui.geometry.Rect(videoInset.toPx(), statusTop.toFloat(), (videoInset + videoWidth).toPx(), statusTop.toFloat() + videoHeightPx) }
         val currentRect by rememberUpdatedState(videoRect.translate(0f, if (big) 0f else videoOffset.toFloat()))
         LaunchedEffect(handoff, videoRect, handoff?.flight) { handoff?.land(videoId, FlightTarget.Page, videoRect, 0f) }
         LaunchedEffect(settled) { if (settled) handoff?.arrived(videoId, FlightTarget.Page) }
@@ -300,7 +306,7 @@ fun PlayerScreen(
         // The one video surface of this page: portrait, fullscreen and the system's floating
         // window all use it, so turning the phone never recreates it.
         Box((if (tabletop && !inPip) Modifier.fillMaxWidth().height(hingeTop) else if (big) Modifier.fillMaxSize()
-            else Modifier.width(paneWidth).padding(top = with(density) { statusTop.toDp() }).height(videoHeight)
+            else Modifier.padding(start = videoInset, top = with(density) { statusTop.toDp() }).width(videoWidth).height(videoHeight)
             .offset { androidx.compose.ui.unit.IntOffset(0, videoOffset) }.clipToBounds())
             // Hidden while its picture is still flying in, or once it has flown off to the floating window.
             .graphicsLayer { alpha = if (handoff != null && (handoff.awaiting(videoId, FlightTarget.Page) || handoff.departed(videoId, FlightTarget.Mini))) 0f else 1f }

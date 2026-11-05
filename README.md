@@ -8,6 +8,7 @@ PiP hotfix: the system cross clears playback even when Android reports dismissal
 
 Current build: **1.2 "liquid 13"** (versionCode 16), branch `liquid-light-ui`.
 - Liquid 14: one network request before playback (cached visitor id), lookup starts on card press, clock bottom-left on the video and always on the remote. APK `apk/ErgoTube-liquid-14-release.apk`.
+- Liquid 15: restyled quality palette, foldable watch page without side bars, whole Shorts on wide screens. APK `apk/ErgoTube-liquid-15-release.apk`.
 
 > ErgoTube is an independent project. It is not affiliated with, endorsed by or connected to YouTube or Google. YouTube is a trademark of Google LLC.
 

@@ -10,6 +10,7 @@
 
 Последняя сборка: **ErgoTube 1.2 liquid 13** (versionCode 16), [APK для установки](apk/ErgoTube-liquid-13-release.apk).
 - Liquid 14: перед стартом видео один сетевой запрос (visitor id берётся заранее), поиск потоков начинается при касании карточки, время в нижнем левом углу видео и всегда на пульте. APK `apk/ErgoTube-liquid-14-release.apk`.
+- Liquid 15: новое оформление меню качества, на раскладушке видео без чёрных полос, Shorts на широком экране видны целиком. APK `apk/ErgoTube-liquid-15-release.apk`.
 
 ## Статус
 

@@ -8,6 +8,7 @@ import androidx.compose.material.icons.rounded.*
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.ViewModelProvider
@@ -289,23 +290,29 @@ private fun ShortPage(
     ) {
         val area = (maxHeight - statusTop - bottomSpace).coerceAtLeast(1.dp)
         val natural = maxWidth / aspect
+        // A wide screen (unfolded foldable, tablet) would cut most of an upright Short away when
+        // filling its width: show the whole picture at full height instead, centred.
+        val fit = !inPip && natural > maxHeight * 1.15f
+        val width = if (fit) minOf(maxWidth, area * aspect) else maxWidth
+        val left = (maxWidth - width) / 2
         val (top, height) = when {
             inPip -> 0.dp to maxHeight
+            fit -> statusTop to width / aspect
             natural <= area -> statusTop + (area - natural) / 2 to natural
             natural <= maxHeight -> (maxHeight - natural) / 2 to natural
             else -> 0.dp to maxHeight
         }
-        val fills = top <= 0.5.dp && height >= maxHeight - 0.5.dp
-        val trimmed = natural > maxHeight
+        val fills = !fit && top <= 0.5.dp && height >= maxHeight - 0.5.dp
+        val trimmed = !fit && natural > maxHeight
         // A picture that covers everything hides the light, so it is not drawn at all.
         if (active) SideEffect { light?.setPlayerCovered(fills) }
-        val rect = with(density) { androidx.compose.ui.geometry.Rect(0f, top.toPx(), maxWidth.toPx(), (top + height).toPx()) }
+        val rect = with(density) { androidx.compose.ui.geometry.Rect(left.toPx(), top.toPx(), (left + width).toPx(), (top + height).toPx()) }
         if (active) {
             LaunchedEffect(rect) { if (!fills) light?.setVideoRect(rect) }
             LaunchedEffect(handoff, rect, handoff?.flight) { handoff?.land(item.videoId, FlightTarget.Short, rect, 0f) }
             LaunchedEffect(settled) { if (settled) handoff?.arrived(item.videoId, FlightTarget.Short) }
         }
-        Box(Modifier.offset(y = top).fillMaxWidth().height(height)
+        Box(Modifier.offset(x = left, y = top).width(width).height(height).clip(RoundedCornerShape(if (fit) 24.dp else 0.dp))
             .graphicsLayer { alpha = if (handoff?.awaiting(item.videoId, FlightTarget.Short) == true) 0f else 1f }
             .background(Color.Black)) {
             if (player != null) VideoSurface(player, Modifier.fillMaxSize(), zoomToFill = trimmed, onFrame = grab,

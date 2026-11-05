@@ -382,3 +382,10 @@ The existing focused instrumentation scenario now taps the actual system cross v
 - **Press warm-up.** A finger resting on a feed card for 70 ms without scrolling starts the anonymous stream lookup (`LocalWarmVideo` → `warmShort`), so the lookup is under way before the tap completes.
 - **Clock.** Elapsed/total sits in the bottom-left corner of the picture (portrait, fullscreen; above the classic bar) and is always shown on the remote, not only while seeking.
 - Validation: unit tests, debug + release builds, API37 playback check with screenshots. APKs `apk/ErgoTube-liquid-14-{debug,release}.apk`.
+
+## 2026-11-05 — liquid 15: quality palette styling, foldable video and Shorts
+
+- **Quality palette** (remote and fullscreen): the same glass as the remote, with a translucent panel, hairline edge, the remote's accent for the chosen pill and the current quality as a small badge. «Авто» takes its own full-width row, and fixed qualities sit three to a row. Before, rounding put only two in a row. Fullscreen uses a dark glass.
+- **Foldable, unfolded upright:** on a near-square page a wide video gets up to 60 % of the height, so a 16:9 picture fills the width. The video box is never wider than the picture, so no black side bars come from the app (bars baked into the video itself remain).
+- **Shorts on wide screens:** filling the width of a near-square screen cut about half of an upright Short away. When more than 15 % would be cut, the Short is shown whole at full height, centred, with rounded corners and the liquid light around it.
+- Validation: unit tests, debug and release builds, ErgoTube_Fold emulator (unfolded) with screenshots of the watch page, the palette (screen recording, because screencap misses popups) and Shorts playback and swiping. APKs: `apk/ErgoTube-liquid-15-{debug,release}.apk`.
