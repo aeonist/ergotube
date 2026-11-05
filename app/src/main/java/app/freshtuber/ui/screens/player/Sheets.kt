@@ -114,6 +114,7 @@ fun CommentsSheet(state: CommentsUiState, viewModel: VideoViewModel, onOpenChann
                                 } else {
                                     null
                                 },
+                                onTimestamp = { viewModel.seekTo(it); viewModel.closeComments() }, videoId = viewModel.videoId,
                                 onOpenChannel = onOpenChannel,
                             )
                             val replies = state.replies[comment.id]
@@ -124,7 +125,8 @@ fun CommentsSheet(state: CommentsUiState, viewModel: VideoViewModel, onOpenChann
                                         liked = state.likedOverrides[reply.id] ?: reply.isLiked,
                                         onLike = { viewModel.toggleCommentLike(reply) },
                                         onReply = null,
-                                        onOpenChannel = onOpenChannel,
+                                        onTimestamp = { viewModel.seekTo(it); viewModel.closeComments() }, videoId = viewModel.videoId,
+                                onOpenChannel = onOpenChannel,
                                         indent = true,
                                     )
                                 }
@@ -174,6 +176,8 @@ private fun CommentItem(
     onLike: () -> Unit,
     onReply: (() -> Unit)?,
     onOpenChannel: (String) -> Unit,
+    onTimestamp: (Long) -> Unit,
+    videoId: String,
     indent: Boolean = false,
 ) {
     val likeCount = if (liked && !comment.isLiked) comment.likeCountTextLiked else comment.likeCountText
@@ -196,7 +200,7 @@ private fun CommentItem(
                 fontWeight = if (comment.isByCreator) FontWeight.Bold else FontWeight.Normal,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            Text(comment.text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(top = 2.dp))
+            app.freshtuber.ui.components.VideoText(comment.text, comment.links, videoId, onTimestamp, modifier = Modifier.padding(top = 2.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onLike) {
                     Icon(

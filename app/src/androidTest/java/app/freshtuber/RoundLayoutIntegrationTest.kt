@@ -24,6 +24,7 @@ class RoundLayoutIntegrationTest {
             settings.markWelcomeDone()
             settings.setFeature(AppFeature.LiquidFlat, true)
             settings.setStyle(UiStyle.Ergonomic)
+            settings.setFeature(AppFeature.SwapHomeMine, false)
             settings.setDockWidth(100)
             ActivityScenario.launch(MainActivity::class.java).use {
                 fun ready() { compose.waitForIdle(); Thread.sleep(800); compose.waitForIdle() }
@@ -50,11 +51,23 @@ class RoundLayoutIntegrationTest {
                 ready()
                 assertEquals(centers().sorted(), centers())
                 capture("round-classic")
+                val beforeSwap = centers()
+                settings.setFeature(AppFeature.SwapHomeMine, true)
+                ready()
+                val swapped = centers()
+                assertTrue(swapped.first() > swapped.last())
+                assertEquals(beforeSwap.subList(1, 4), swapped.subList(1, 4))
+                capture("liquid12-swapped-classic")
+                settings.setStyle(UiStyle.Ergonomic)
+                ready()
+                assertTrue(centers().first() > centers().last())
+                capture("liquid12-swapped-dock")
             }
         } finally {
             settings.setFeature(AppFeature.LiquidFlat, original.enabled(AppFeature.LiquidFlat))
             settings.setStyle(original.style)
             settings.setDockWidth(original.dockWidth)
+            settings.setFeature(AppFeature.SwapHomeMine, original.enabled(AppFeature.SwapHomeMine))
         }
     }
 }

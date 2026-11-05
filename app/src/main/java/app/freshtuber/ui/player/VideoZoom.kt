@@ -32,7 +32,7 @@ class VideoZoom {
 }
 
 /** Initial pass lets a pinch cancel taps in either classic or ergonomic video controls. */
-fun Modifier.videoZoom(zoom: VideoZoom, enabled: Boolean, aspect: Float): Modifier = if (!enabled) this else pointerInput(zoom, aspect) {
+fun Modifier.videoZoom(zoom: VideoZoom, enabled: Boolean, aspect: Float, panAllowed: (Offset, Offset) -> Boolean = { _, _ -> true }): Modifier = if (!enabled) this else pointerInput(zoom, aspect) {
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
         var transformed = false
@@ -41,7 +41,7 @@ fun Modifier.videoZoom(zoom: VideoZoom, enabled: Boolean, aspect: Float): Modifi
             val fingers = event.changes.count { it.pressed }
             val multi = fingers >= 2
             val moved = event.changes.firstOrNull { it.id == down.id }?.let { (it.position - down.position).getDistance() > viewConfiguration.touchSlop } == true
-            if (multi || (zoom.scale > 1f && moved)) transformed = true
+            if (multi || (zoom.scale > 1f && moved && panAllowed(down.position, Offset(size.width.toFloat(), size.height.toFloat())))) transformed = true
             if (transformed) {
                 if (fingers > 0) zoom.transform(if (multi) event.calculateZoom() else 1f, event.calculatePan(),
                     event.calculateCentroid(useCurrent = false), Offset(size.width.toFloat(), size.height.toFloat()), aspect)

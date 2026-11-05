@@ -64,6 +64,7 @@ fun ClassicVideoControls(
     onMore: () -> Unit,
     onQuality: () -> Unit,
     onRetry: () -> Unit,
+    onScrubPosition: (Long?) -> Unit = {},
     modifier: Modifier = Modifier,
     title: String? = null,
     /** Below the fold of a half-open phone the controls stay up: the video is above. */
@@ -72,6 +73,7 @@ fun ClassicVideoControls(
     val progress = rememberProgress(player)
     val hide = rememberAutoHide(3_000)
     var scrub by remember { mutableStateOf<Float?>(null) }
+    SideEffect { onScrubPosition(scrub?.let { (it * progress.durationMs).toLong() }) }
     val live = state.nowPlaying?.isLive == true
     hide.Run(keepVisible = alwaysShown || scrub != null || (!progress.isPlaying && !progress.buffering && state.loadingId == null))
     val burst = remember { SeekBurst(windowMs = 900) }
@@ -127,7 +129,7 @@ fun ClassicVideoControls(
                     .then(if (fullscreen) Modifier.windowInsetsPadding(WindowInsets.displayCutout.union(WindowInsets.navigationBars)).padding(start = 16.dp, end = 8.dp, bottom = 30.dp)
                         else Modifier.padding(start = 12.dp, end = 4.dp, bottom = 10.dp)),
                     verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (live) stringResource(R.string.search_live) else "${formatDuration(shown / 1000)} / ${formatDuration(progress.durationMs / 1000)}",
+                    if (live || scrub != null) Text(if (live) stringResource(R.string.search_live) else "${formatDuration(shown / 1000)} / ${formatDuration(progress.durationMs / 1000)}",
                         color = Color.White, style = MaterialTheme.typography.labelMedium)
                     Spacer(Modifier.weight(1f))
                     OverlayIcon(Icons.Rounded.HighQuality, stringResource(R.string.player_quality), tag = "player:quality", onClick = onQuality)
@@ -191,7 +193,7 @@ fun SeekLine(fraction: Float, buffered: Float, spans: List<Triple<Float, Float, 
 
 @Composable
 private fun OverlayIcon(icon: ImageVector, label: String, size: Dp = 26.dp, enabled: Boolean = true, tag: String? = null, onClick: () -> Unit) {
-    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(size + 22.dp).then(if (tag != null) Modifier.testTag(tag) else Modifier)) {
+    IconButton(onClick = onClick, enabled = enabled, modifier = Modifier.size(size + 22.dp).then(if (tag == "player:quality") Modifier.qualityAnchor() else Modifier).then(if (tag != null) Modifier.testTag(tag) else Modifier)) {
         Icon(icon, label, Modifier.size(size), tint = Color.White.copy(alpha = if (enabled) 1f else 0.38f))
     }
 }

@@ -280,4 +280,7 @@
     <string name="settings_quality_wifi">Качество по Wi-Fi</string>
     <string name="settings_quality_mobile">Качество в мобильной сети</string>
     <string name="settings_quality_hint">Авто подбирает качество по скорости сети. Выбранное разрешение задаёт верхний предел.</string>
+    <string name="settings_swap_home_mine">Поменять «Моё» и «Главная» местами</string>
+    <string name="settings_swap_home_mine_hint">«Главная» слева, «Моё» справа.</string>
+    <string name="player_audio_only">Слушать в фоне</string>
 </resources>

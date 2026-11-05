@@ -2,6 +2,7 @@ package app.freshtuber.data.settings
 
 /** Stable preference keys shared by settings and feature consumers. */
 enum class AppFeature(val key: String, val default: Boolean) {
+    SwapHomeMine("swap_home_mine", false),
     DeArrow("dearrow", true), Dislikes("return_dislikes", true), SponsorBlock("sponsor_block", true),
     Gestures("gesture_controls", true), Autoplay("autoplay_next", true), PictureInPicture("pip_on_leave", true),
     BackgroundPlayback("background_playback", true), MiniPlayerTapOpens("mini_player_tap_opens", true), ShortsTab("shorts_tab", true), ShortsInFeeds("shorts_in_feeds", false),

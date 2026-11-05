@@ -19,7 +19,7 @@ import java.lang.reflect.Proxy
 class PortraitZoomIntegrationTest {
     @get:Rule val compose = createComposeRule()
 
-    @Test fun pinchAndPanNeverPauseOrMinimizeAndTapStillWorks() {
+    @Test fun pinchPanAndSingleTapsNeverPauseOrMinimize() {
         var pauses = 0
         var minimizes = 0
         val player = Proxy.newProxyInstance(Player::class.java.classLoader, arrayOf(Player::class.java)) { proxy, method, args ->
@@ -52,6 +52,10 @@ class PortraitZoomIntegrationTest {
         compose.onNodeWithTag("video").performTouchInput { swipe(center, center + Offset(0f, height * 0.4f)) }
         compose.runOnIdle { assertEquals(0, pauses); assertEquals(0, minimizes) }
         compose.onNodeWithTag("video").performTouchInput { click(center) }
-        compose.runOnIdle { assertEquals(1, pauses) }
+        compose.onNodeWithTag("video").performTouchInput { click(Offset(width * 0.15f, height * 0.5f)) }
+        Thread.sleep(400)
+        compose.onNodeWithTag("video").performTouchInput { click(Offset(width * 0.85f, height * 0.5f)) }
+        Thread.sleep(400)
+        compose.runOnIdle { assertEquals(0, pauses) }
     }
 }

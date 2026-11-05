@@ -280,4 +280,7 @@
     <string name="settings_quality_wifi">Default quality on Wi-Fi</string>
     <string name="settings_quality_mobile">Default quality on mobile data</string>
     <string name="settings_quality_hint">Auto follows your connection speed. A resolution sets the maximum quality.</string>
+    <string name="settings_swap_home_mine">Swap Mine and Home</string>
+    <string name="settings_swap_home_mine_hint">Home on the left, Mine on the right.</string>
+    <string name="player_audio_only">Continue with audio only</string>
 </resources>

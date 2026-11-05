@@ -19,6 +19,11 @@ class DockLayoutTest {
         assertEquals(listOf(DockTab.Mine, DockTab.Subscriptions, DockTab.Search, DockTab.Home), DockLayout.order(left = true, shorts = false))
     }
 
+    @Test fun swappingOnlyExchangesTheTwoEndTabs() {
+        assertEquals(listOf(DockTab.Home, DockTab.Subscriptions, DockTab.Search, DockTab.Shorts, DockTab.Mine), DockLayout.order(false, true, true))
+        assertEquals(listOf(DockTab.Home, DockTab.Subscriptions, DockTab.Search, DockTab.Mine), DockLayout.order(true, false, true))
+    }
+
     @Test fun expandedScreenAlwaysUsesFullWidth() {
         assertEquals(300f, DockLayout.width(400f, 0, false))
         assertEquals(400f, DockLayout.width(400f, 100, false))

@@ -2,6 +2,7 @@ package app.freshtuber.ui.feed
 
 import androidx.annotation.StringRes
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -160,7 +161,21 @@ fun FanOverlay(host: FanHost) {
     val density = LocalDensity.current
     host.density = density.density
     Box(Modifier.fillMaxSize().onSizeChanged { host.size = Offset(it.width.toFloat(), it.height.toFloat()) }) {
-        val session = host.session ?: return@Box
+        var lastSession by remember { mutableStateOf<FanSession?>(null) }
+        host.session?.let { lastSession = it }
+        val visible = host.session != null
+        val phase by animateFloatAsState(if (visible) 1f else 0f,
+            androidx.compose.animation.core.tween(if (visible) 260 else 170, easing = app.freshtuber.ui.motion.Motion.Decelerate), label = "cardFanReveal")
+        val session = lastSession ?: return@Box
+        if (phase <= 0f && !visible) return@Box
+        Box(Modifier.fillMaxSize().graphicsLayer {
+            alpha = phase
+            val blur = (1f - phase) * 12.dp.toPx()
+            renderEffect = if (android.os.Build.VERSION.SDK_INT >= 31 && blur > 0.5f)
+                androidx.compose.ui.graphics.BlurEffect(blur, blur, androidx.compose.ui.graphics.TileMode.Decal) else null
+            scaleX = 0.94f + 0.06f * phase; scaleY = scaleX
+            transformOrigin = androidx.compose.ui.graphics.TransformOrigin(session.center.x / size.width, session.center.y / size.height)
+        }) {
         val haptics = LocalHapticFeedback.current
         LaunchedEffect(session) { haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
         LaunchedEffect(session.selected) { if (session.selected != null) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick) }
@@ -200,6 +215,7 @@ fun FanOverlay(host: FanHost) {
         Box(Modifier.offset { IntOffset((session.center.x - 26.dp.toPx()).toInt(), (session.center.y - 26.dp.toPx()).toInt()) }
             .size(52.dp).background(BrandColors.Red, CircleShape), contentAlignment = Alignment.Center) {
             Icon(Icons.Rounded.SmartDisplay, null, tint = Color.White)
+        }
         }
     }
 }

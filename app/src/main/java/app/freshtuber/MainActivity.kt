@@ -45,6 +45,8 @@ class MainActivity : ComponentActivity() {
     private var pipOnLeave = true
     private var backgroundPlayback = true
     private var leftPictureInPicture = false
+    private var audioOnlyRequested = false
+    private var wasInPictureInPicture = false
     private var videoBounds: android.graphics.Rect? = null
     private val reportVideoBounds: (android.graphics.Rect) -> Unit = { bounds ->
         if (!isInPictureInPictureMode && lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) &&
@@ -62,6 +64,12 @@ class MainActivity : ComponentActivity() {
                 PIP_PREVIOUS -> playerController.skipBack()
                 PIP_TOGGLE -> playerController.togglePlayPause()
                 PIP_NEXT -> playerController.skipForward()
+                PIP_BACKGROUND -> {
+                    audioOnlyRequested = true
+                    playerController.enterAudioOnly()
+                    finish()
+                }
+                PIP_CLOSE -> { playerController.stop(); finishAndRemoveTask() }
             }
         }
     }
@@ -136,7 +144,7 @@ class MainActivity : ComponentActivity() {
     private fun canEnterPictureInPicture(): Boolean {
         val player = playerController.player
         return packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE) && pipOnLeave &&
-            playerController.videoOnScreen && player.playWhenReady &&
+            !audioOnlyRequested && playerController.videoOnScreen && player.playWhenReady &&
             player.playbackState != androidx.media3.common.Player.STATE_IDLE && player.playbackState != androidx.media3.common.Player.STATE_ENDED
     }
 
@@ -153,13 +161,14 @@ class MainActivity : ComponentActivity() {
         ).apply { isEnabled = enabled }
         val playing = player.isPlaying || (player.playbackState == androidx.media3.common.Player.STATE_BUFFERING && player.playWhenReady)
         val actions = listOf(
-            action(PIP_PREVIOUS, R.drawable.ic_pip_previous, R.string.player_previous),
+            action(PIP_BACKGROUND, R.drawable.ic_pip_headphones, R.string.player_audio_only),
             action(PIP_TOGGLE, if (playing) R.drawable.ic_pip_pause else R.drawable.ic_pip_play,
                 if (playing) R.string.player_pause else R.string.player_play),
             action(PIP_NEXT, R.drawable.ic_pip_next, R.string.player_next, enabled = short || state.queue.isNotEmpty()),
         )
         return PictureInPictureParams.Builder().setAspectRatio(ratio.clamped()).setActions(actions).apply {
             videoBounds?.let { setSourceRectHint(it) }
+            if (android.os.Build.VERSION.SDK_INT >= 33) setCloseAction(action(PIP_CLOSE, R.drawable.ic_pip_close, R.string.player_close))
             if (android.os.Build.VERSION.SDK_INT >= 31) setAutoEnterEnabled(canEnterPictureInPicture())
         }.build()
     }
@@ -171,6 +180,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        if (isFinishing && wasInPictureInPicture && !audioOnlyRequested) playerController.stop()
         playerController.player.removeListener(pipPlayerListener)
         runCatching { unregisterReceiver(pipReceiver) }
         super.onDestroy()
@@ -179,22 +189,24 @@ class MainActivity : ComponentActivity() {
     override fun onPictureInPictureModeChanged(isInPictureInPictureMode: Boolean, newConfig: Configuration) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         inPictureInPicture = isInPictureInPictureMode
+        if (isInPictureInPictureMode) wasInPictureInPicture = true
         if (!isInPictureInPictureMode) leftPictureInPicture = true
     }
 
     override fun onResume() {
         super.onResume()
         leftPictureInPicture = false
+        if (!isInPictureInPictureMode) wasInPictureInPicture = false
     }
 
     /** Closing the floating window stops the video, as YouTube does. */
     override fun onStop() {
-        if (!backgroundPlayback && !isInPictureInPictureMode && !isChangingConfigurations) playerController.player.pause()
+        if (!backgroundPlayback && !audioOnlyRequested && !isInPictureInPictureMode && !isChangingConfigurations) playerController.player.pause()
         super.onStop()
         controllerFuture?.let(MediaController::releaseFuture)
         controllerFuture = null
         if (leftPictureInPicture) {
-            playerController.player.pause()
+            if (!audioOnlyRequested) playerController.stop()
             leftPictureInPicture = false
         }
     }
@@ -205,6 +217,8 @@ class MainActivity : ComponentActivity() {
         const val PIP_PREVIOUS = 1
         const val PIP_TOGGLE = 2
         const val PIP_NEXT = 3
+        const val PIP_BACKGROUND = 4
+        const val PIP_CLOSE = 5
     }
 
     /** Android only accepts ratios between 1:2.39 and 2.39:1. */

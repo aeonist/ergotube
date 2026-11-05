@@ -154,15 +154,19 @@ fun FullscreenPlayer(
                     touching = true
                     wake()
                     val onArc = geo.onTrack(r0) && !live
+                    var cancelled = false
                     var move = false
                     var lifted: PointerInputChange? = null
                     val decided = withTimeoutOrNull(if (!onArc && !live) PadGestures.HOLD_MS else Long.MAX_VALUE) {
                         while (true) {
-                            val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: return@withTimeoutOrNull true
+                            val event = awaitPointerEvent()
+                            if (event.changes.any { it.isConsumed } || event.changes.size > 1) { cancelled = true; return@withTimeoutOrNull true }
+                            val change = event.changes.firstOrNull { it.id == down.id } ?: return@withTimeoutOrNull true
                             if (!change.pressed) { lifted = change; return@withTimeoutOrNull true }
                             if (!live && (change.position - down.position).getDistance() > PadGestures.SEEK_SLOP_DP * density) { change.consume(); move = true; return@withTimeoutOrNull true }
                         }
                     }
+                    if (cancelled) { touching = false; return@awaitEachGesture }
                     if (decided == null) {
                         ui.boost = true; onBoost(true); ui.say(holdText, keep = true)
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -199,7 +203,12 @@ fun FullscreenPlayer(
                     var fine = false
                     ui.hush()
                     while (true) {
-                        val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                        val event = awaitPointerEvent()
+                        if (event.changes.any { it.isConsumed } || event.changes.size > 1) {
+                            ui.scrubMs = null; ui.fine = null; touching = false
+                            return@awaitEachGesture
+                        }
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
                         change.consume()
                         val (r, u) = geo.polar(change.position.x / density, change.position.y / density)
                         val nowFine = r - r0 > FanGeometry.FINE_DISTANCE
@@ -227,7 +236,9 @@ fun FullscreenPlayer(
                 var volume = currentVolumeSteps(context)
                 var lastY = down.position.y
                 while (true) {
-                    val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: return@awaitEachGesture
+                    val event = awaitPointerEvent()
+                    if (event.changes.any { it.isConsumed } || event.changes.size > 1) { pending?.cancel(); return@awaitEachGesture }
+                    val change = event.changes.firstOrNull { it.id == down.id } ?: return@awaitEachGesture
                     end = change
                     val d = change.position - down.position
                     if (!vertical && gesturesEnabled && abs(d.y) > 16 * density && abs(d.y) > abs(d.x)) vertical = true
@@ -328,7 +339,7 @@ fun FullscreenPlayer(
                     Surface(onClick = { click(); wake() }, enabled = awake, shape = RoundedCornerShape(22.dp),
                         color = if (selected) Color.White else Color.White.copy(alpha = 0.18f), contentColor = if (selected) Color(0xFF0F0F0F) else Color.White,
                         modifier = Modifier.offset { IntOffset(((p.x - width / 2).dp).roundToPx(), ((p.y - 22).dp).roundToPx()) }
-                            .size(width.dp, 44.dp).onGloballyPositioned { buttons[key] = it.boundsInParent() }.layerIn(appear, left)) {
+                            .size(width.dp, 44.dp).then(if (key == "quality") Modifier.qualityAnchor() else Modifier).onGloballyPositioned { buttons[key] = it.boundsInParent() }.layerIn(appear, left)) {
                         Box(contentAlignment = Alignment.Center) { content() }
                     }
                 }
@@ -343,20 +354,7 @@ fun FullscreenPlayer(
                 if (captionsAvailable) chip("cc", geo.position(geo.outer, 0.85f), 44f, {
                     Icon(if (captionsOn) Icons.Rounded.ClosedCaption else Icons.Rounded.ClosedCaptionDisabled, stringResource(R.string.player_subtitles), Modifier.size(22.dp))
                 }, captionsOn, stage(290), onCaptions)
-                if (!live) Text(buildString {
-                    append("${formatDuration(shownMs / 1000)} / ${formatDuration(durationMs / 1000)}")
-                    Chapter.at(chapters, shownMs / 1000)?.let { append(" · ${it.title}") }
-                }, color = Color(0xFFE6E6E6), style = MaterialTheme.typography.labelLarge.merge(Shade), maxLines = 1,
-                    modifier = Modifier.align(if (left) Alignment.BottomStart else Alignment.BottomEnd)
-                        // Upright the fan fills the width, so the time sits just above it.
-                        .padding(bottom = if (geo.upright) (geo.radius + 20).dp else 12.dp,
-                            start = if (geo.upright) 20.dp else if (left) (geo.radius + 12).dp else 0.dp,
-                            end = if (geo.upright) 20.dp else if (left) 0.dp else (geo.radius + 12).dp)
-                        .graphicsLayer {
-                            val e = app.freshtuber.ui.motion.Motion.Decelerate.transform(stage(280))
-                            alpha = e
-                            translationY = (1f - e) * 8.dp.toPx()
-                        })
+
             }
             // The title drifts down into place out of a blur, last of all.
             val titleIn = app.freshtuber.ui.motion.Motion.Decelerate.transform(stage(200, 260))

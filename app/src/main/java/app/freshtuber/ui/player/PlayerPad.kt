@@ -25,6 +25,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -55,6 +56,9 @@ class PadUi {
     var bubbleId by mutableIntStateOf(0)
         private set
     var boost by mutableStateOf(false)
+    var seekTimeVisible by mutableStateOf(false)
+    var seekTimeId by mutableIntStateOf(0)
+    fun showSeekTime() { seekTimeVisible = true; seekTimeId++ }
     var active by mutableStateOf(false)
     /** Height of the bottom control zone, so the scrub preview floats right above it. */
     var zoneHeight by mutableStateOf(0.dp)
@@ -70,6 +74,7 @@ fun speedLabel(speed: Float): String = if (speed == 1f) "1×" else "${speed.toSt
 
 /** Seeks by [seconds] and reports the running total in the bubble ("−20 с → 4:10"). */
 fun PadUi.skip(player: Player, seconds: Int, secondsLabel: (String) -> String) {
+    showSeekTime()
     val total = burst.add(seconds, System.currentTimeMillis())
     val duration = player.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
     val target = (player.currentPosition + seconds * 1000L).coerceIn(0, duration)
@@ -119,6 +124,7 @@ fun PlayerPad(
     val durationMs = progress.durationMs
     val shownMs = ui.scrubMs ?: progress.positionMs
     val chapter = Chapter.at(chapters, shownMs / 1000)
+    LaunchedEffect(ui.seekTimeId) { if (ui.seekTimeVisible) { delay(900); ui.seekTimeVisible = false } }
     LaunchedEffect(ui.bubbleId) { if (ui.bubble != null && !ui.bubbleKeep) { delay(800); ui.hush() } }
 
     val toggle = {
@@ -162,7 +168,10 @@ fun PlayerPad(
                         val d = change.position - start
                         move = PadGestures.decide(d.x / density, d.y / density)
                         if (move == PadMove.Seek && live) move = null
-                        if (move != null) { change.consume(); last = change.position; return@withTimeoutOrNull true }
+                        if (move != null) {
+                            if (move == PadMove.Seek) ui.scrubMs = startMs
+                            change.consume(); last = change.position; return@withTimeoutOrNull true
+                        }
                     }
                 }
                 if (decided == null) {
@@ -233,6 +242,7 @@ fun PlayerPad(
                 if (move == PadMove.Seek) {
                     val target = (scrubSeconds * 1000).toLong()
                     player.seekTo(target)
+                    ui.showSeekTime()
                     ui.scrubMs = null
                     ui.fine = null
                     ui.say("${signedSeek(target / 1000 - startMs / 1000)}  →  ${formatDuration(target / 1000)}")
@@ -247,17 +257,17 @@ fun PlayerPad(
             val top: List<@Composable RowScope.() -> Unit> = listOf(
                 { PadButton(Icons.Rounded.KeyboardArrowDown, stringResource(R.string.player_minimize), Modifier.button("collapse"), small = true, onClick = onMinimize) },
                 {
-                    val time = if (live) null else "${formatDuration(shownMs / 1000)} / ${formatDuration(durationMs / 1000)}"
+                    val time = if (live || (ui.scrubMs == null && !ui.seekTimeVisible)) null else "${formatDuration(shownMs / 1000)} / ${formatDuration(durationMs / 1000)}"
                     Row(Modifier.weight(1f).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (live) Text(stringResource(R.string.search_live), color = Color.White, style = MaterialTheme.typography.labelMedium,
                             modifier = Modifier.background(BrandColors.Red, RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
                         Text(listOfNotNull(time, chapter?.title).joinToString(" · "),
                             style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = app.freshtuber.ui.theme.TabularNumbers),
                             fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(start = if (live) 8.dp else 0.dp))
+                            modifier = Modifier.padding(start = if (live) 8.dp else 0.dp).then(if (time != null) Modifier.testTag("pad:time") else Modifier))
                     }
                 },
-                { PadButton(Icons.Rounded.HighQuality, stringResource(R.string.player_quality), Modifier.button("quality"), small = true, onClick = onQuality) },
+                { PadButton(Icons.Rounded.HighQuality, stringResource(R.string.player_quality), Modifier.button("quality").qualityAnchor(), small = true, onClick = onQuality) },
                 { if (captionsAvailable) PadButton(if (captionsOn) Icons.Rounded.ClosedCaption else Icons.Rounded.ClosedCaptionDisabled,
                     stringResource(R.string.player_subtitles), Modifier.button("cc"), selected = captionsOn, small = true, onClick = onCaptions) },
                 { if (!live) SpeedChip(if (ui.boost) "2×" else speedLabel(speed), selected = ui.boost || speed != 1f, Modifier.button("speed"), onClick = onSpeed) },
@@ -268,7 +278,7 @@ fun PlayerPad(
             }
             Track(if (durationMs > 0) shownMs.toFloat() / durationMs else 0f, chapters, durationMs, scrubbing = ui.scrubMs != null,
                 live = live, modifier = Modifier.fillMaxWidth().height(18.dp).padding(horizontal = 8.dp)
-                    .onGloballyPositioned { trackBounds = it.boundsInRoot() },
+                    .testTag("player:track").onGloballyPositioned { trackBounds = it.boundsInRoot() },
                 gap = Color.Transparent, segments = segments)
             Row(Modifier.fillMaxWidth().height(50.dp).onGloballyPositioned { mainBounds = it.boundsInRoot() },
                 verticalAlignment = Alignment.CenterVertically) {

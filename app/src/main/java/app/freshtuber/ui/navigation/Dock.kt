@@ -63,8 +63,10 @@ object DockLayout {
         return if (expanded) available else minimum + (available - minimum) * percent.coerceIn(0, 100) / 100f
     }
     /** Fixed visual order chosen by the user, independent of the working hand. */
-    fun order(left: Boolean, shorts: Boolean): List<DockTab> {
-        return listOf(DockTab.Mine, DockTab.Subscriptions, DockTab.Search, DockTab.Shorts, DockTab.Home)
+    fun order(left: Boolean, shorts: Boolean, swapHomeMine: Boolean = false): List<DockTab> {
+        val first = if (swapHomeMine) DockTab.Home else DockTab.Mine
+        val last = if (swapHomeMine) DockTab.Mine else DockTab.Home
+        return listOf(first, DockTab.Subscriptions, DockTab.Search, DockTab.Shorts, last)
             .filter { shorts || it != DockTab.Shorts }
     }
 
@@ -93,7 +95,7 @@ fun AppDock(selected: DockTab?, mineOpen: Boolean, left: Boolean, shorts: Boolea
                 .padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            DockLayout.order(left, shorts).forEach { tab ->
+            DockLayout.order(left, shorts, preferences.enabled(app.freshtuber.data.settings.AppFeature.SwapHomeMine)).forEach { tab ->
                 val active = if (tab == DockTab.Mine) mineOpen || (selected == DockTab.Mine) else selected == tab && !mineOpen
                 DockButton(tab, active, Modifier.weight(1f)) { onSelect(tab) }
             }
@@ -119,7 +121,7 @@ fun CompactDock(selected: DockTab?, mineOpen: Boolean, left: Boolean, shorts: Bo
             Modifier.width(DockLayout.width(maxWidth.value, preferences.dockWidth, expanded).dp).height(Reach.CompactDockHeight),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            DockLayout.order(left, shorts).forEach { tab ->
+            DockLayout.order(left, shorts, preferences.enabled(app.freshtuber.data.settings.AppFeature.SwapHomeMine)).forEach { tab ->
                 val active = if (tab == DockTab.Mine) mineOpen || (selected == DockTab.Mine) else selected == tab && !mineOpen
                 val label = stringResource(tab.labelRes)
                 val description = if (tab == DockTab.Mine) stringResource(R.string.nav_mine_description) else label

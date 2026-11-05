@@ -165,6 +165,8 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
             // Inside a sheet the most used rows come last, nearest the thumb.
             when (group) {
                 SettingsGroup.Look -> {
+                    SettingsToggle(stringResource(R.string.settings_swap_home_mine), stringResource(R.string.settings_swap_home_mine_hint),
+                        preferences.enabled(AppFeature.SwapHomeMine)) { viewModel.feature(AppFeature.SwapHomeMine, it) }
                     Text(stringResource(R.string.settings_dock_width), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(horizontal = 16.dp))
                     var width by remember(preferences.dockWidth) { mutableFloatStateOf(preferences.dockWidth.toFloat()) }
                     Slider(value = width, onValueChange = { width = it }, valueRange = 0f..100f,

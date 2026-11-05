@@ -60,14 +60,16 @@ object VideoPageParser {
         val commentsSection = root.findAll("itemSectionRenderer")
             .firstOrNull { it.str("sectionIdentifier") == "comment-item-section" }
 
+        val descriptionSource = root.findAll("attributedDescription").firstOrNull { it.str("content") != null } ?: secondary.obj("description")
+        val description = descriptionSource.str("content") ?: descriptionSource.text()
         return VideoDetails(
             id = videoId,
             title = title,
             viewsText = primary.path("viewCount", "videoViewCountRenderer", "viewCount").text()
                 ?: primary.path("viewCount", "videoViewCountRenderer", "shortViewCount").text(),
             dateText = primary.obj("relativeDateText").text() ?: primary.obj("dateText").text(),
-            description = root.findAll("attributedDescription").firstNotNullOfOrNull { it.str("content") }
-                ?: secondary.obj("description").text(),
+            description = description,
+            descriptionLinks = description?.let { TextLinks.attributed(descriptionSource, it, videoId) }.orEmpty(),
             channel = channel,
             likeCountText = likeToggle.path("defaultButtonViewModel", "buttonViewModel").str("title"),
             likeCountTextLiked = likeToggle.path("toggledButtonViewModel", "buttonViewModel").str("title"),
@@ -164,6 +166,7 @@ object CommentsParser {
             authorAvatarUrl = author.str("avatarThumbnailUrl"),
             authorChannelId = author.str("channelId"),
             text = properties.obj("content").str("content") ?: return null,
+            links = properties.obj("content").str("content")?.let { TextLinks.attributed(properties.obj("content"), it) }.orEmpty(),
             publishedText = properties.str("publishedTime"),
             likeCountText = toolbar.str("likeCountNotliked")?.takeIf { it.isNotBlank() },
             likeCountTextLiked = toolbar.str("likeCountLiked")?.takeIf { it.isNotBlank() },

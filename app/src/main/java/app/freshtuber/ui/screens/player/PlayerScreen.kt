@@ -89,6 +89,7 @@ fun PlayerScreen(
     val left = LocalLeftHanded.current
     val messages = LocalAppMessages.current
     val resources = LocalResources.current
+    var qualityAnchor by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
     var qualityOpen by rememberSaveable { mutableStateOf(false) }
     var moreOpen by rememberSaveable { mutableStateOf(false) }
     var lock by rememberSaveable { mutableStateOf(OrientationLock.None) }
@@ -198,11 +199,14 @@ fun PlayerScreen(
     // The page is lit by its video's thumbnail from the first frame, not only once the stream is known.
     val lightThumbnail = handoff?.thumbnail(videoId) ?: now?.thumbnailUrl?.takeIf { now.videoId == videoId } ?: "https://i.ytimg.com/vi/$videoId/mqdefault.jpg"
     LaunchedEffect(light, lightThumbnail) { light?.setVideoThumbnail(lightThumbnail) }
+    val resuming = remember(videoId) { viewModel.player.currentMediaItem?.mediaId == videoId &&
+        viewModel.player.playbackState != androidx.media3.common.Player.STATE_IDLE && now?.videoId == videoId }
     val surface = remember { VideoSurfaceHandle() }
     var surfaceOff by remember { mutableStateOf(false) }
     val density = LocalDensity.current
     val statusTop = WindowInsets.statusBars.getTop(density)
 
+    CompositionLocalProvider(LocalQualityAnchor provides { qualityAnchor = it }) {
     BoxWithConstraints(Modifier.fillMaxSize().then(if (fullscreen || inPip || tabletop) Modifier.background(Color.Black) else Modifier)) {
         val details = state.details
         val pageHeight = maxHeight - with(density) { statusTop.toDp() }
@@ -270,7 +274,7 @@ fun PlayerScreen(
                 hasPrevious = playerState.history.isNotEmpty(), hasNext = playerState.queue.isNotEmpty(),
                 captionsOn = captionsOn, captionsAvailable = !now?.subtitles.isNullOrEmpty(),
                 onPrevious = onPrevious, onNext = onNext, onFullscreen = exitFullscreen,
-                onMinimize = onBack, onCaptions = { onCaptions() }, onMore = { moreOpen = true }, onQuality = { qualityOpen = true }, onRetry = viewModel::retryPlayback,
+                onMinimize = onBack, onCaptions = { onCaptions() }, onMore = { moreOpen = true }, onQuality = { qualityOpen = true }, onRetry = viewModel::retryPlayback, onScrubPosition = { padUi.scrubMs = it },
                 title = now?.title ?: details?.title, alwaysShown = below, modifier = controlsModifier)
             else Box(controlsModifier) { FullscreenPlayer(
                 player = viewModel.player,
@@ -300,7 +304,10 @@ fun PlayerScreen(
             .offset { androidx.compose.ui.unit.IntOffset(0, videoOffset) }.clipToBounds())
             // Hidden while its picture is still flying in, or once it has flown off to the floating window.
             .graphicsLayer { alpha = if (handoff != null && (handoff.awaiting(videoId, FlightTarget.Page) || handoff.departed(videoId, FlightTarget.Mini))) 0f else 1f }
-            .clipToBounds().videoZoom(zoom, enabled = !big, aspect = videoAspect)
+            .clipToBounds().videoZoom(zoom, enabled = !inPip && !tabletop, aspect = videoAspect, panAllowed = { point, viewport ->
+                if (classic) point.y < viewport.y - with(density) { 72.dp.toPx() } else !fullscreen || !FanGeometry(viewport.x / density.density, viewport.y / density.density, left)
+                    .inFan(point.x / density.density, point.y / density.density)
+            })
             .background(Color.Black)
             .onGloballyPositioned { c ->
                 if (!big) {
@@ -311,8 +318,8 @@ fun PlayerScreen(
             VideoSurface(viewModel.player, Modifier.fillMaxSize().graphicsLayer {
                 scaleX = zoom.scale; scaleY = zoom.scale
                 translationX = zoom.offset.x; translationY = zoom.offset.y
-            }, texture = !big, onFrame = if (big) null else grab,
-                active = (settled || leaving || inPip) && !surfaceOff, poster = poster, mediaId = videoId, handle = surface,
+            }, texture = true, onFrame = if (big) null else grab,
+                active = (resuming || settled || leaving || inPip) && !surfaceOff, poster = poster, mediaId = videoId, handle = surface,
                 posterScale = if (big) ContentScale.Fit else ContentScale.Crop)
             when {
                 inPip -> Unit
@@ -322,9 +329,11 @@ fun PlayerScreen(
                     hasPrevious = playerState.history.isNotEmpty(), hasNext = playerState.queue.isNotEmpty(),
                     captionsOn = captionsOn, captionsAvailable = !now?.subtitles.isNullOrEmpty(),
                     onPrevious = onPrevious, onNext = onNext, onFullscreen = enterFullscreen,
-                    onMinimize = onBack, onCaptions = { onCaptions() }, onMore = { moreOpen = true }, onQuality = { qualityOpen = true }, onRetry = viewModel::retryPlayback)
+                    onMinimize = onBack, onCaptions = { onCaptions() }, onMore = { moreOpen = true }, onQuality = { qualityOpen = true }, onRetry = viewModel::retryPlayback, onScrubPosition = { padUi.scrubMs = it })
                 else -> PortraitVideoLayer(viewModel.player, playerState, onMinimize = onBack, onRetry = viewModel::retryPlayback)
             }
+            if (!inPip && !tabletop && now?.isLive != true) PlaybackTime(rememberProgress(viewModel.player), padUi.scrubMs,
+                Modifier.align(Alignment.TopEnd).padding(end = 12.dp, top = if (fullscreen) 48.dp else if (classic) 56.dp else 12.dp))
         }
         // Below the fold the controls get the whole lower half.
         if (tabletop && !inPip) fullControls(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(belowHinge), true)
@@ -338,8 +347,9 @@ fun PlayerScreen(
         }
     }
 
+    }
     if (inPip) return
-    if (qualityOpen) QualitySheet(playerState, controller) { qualityOpen = false }
+    if (qualityOpen) QualityChooser(playerState, controller, qualityAnchor, fullscreen) { qualityOpen = false }
     if (moreOpen) PlayerMoreSheet(playerState, state, controller, viewModel, navigation::openChannel) { moreOpen = false }
     if (comments.opened) CommentsSheet(comments, viewModel, navigation::openChannel)
     if (picker.opened) PlaylistPickerSheet(picker, viewModel)
@@ -374,7 +384,7 @@ private fun PortraitPage(
                         CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     phase == 1 || details == null -> LoadErrorState(state.error ?: LoadError.Unknown, viewModel::load, onSignIn)
-                    else -> VideoBody(details, state, navigation, listState, offline = now?.isOffline == true,
+                    else -> VideoBody(details, state, navigation, listState, offline = now?.isOffline == true, onTimestamp = viewModel::seekTo,
                         videoSpace = if (scrolls) videoHeight else null, related = related, modifier = Modifier.nestedScroll(padHide.connection))
                 }
             }
@@ -526,12 +536,12 @@ private fun FullscreenEffect(fullscreen: Boolean, lock: OrientationLock, upright
 /** Title, channel, description and up next; scrolls between the video and the controls. */
 @Composable
 private fun VideoBody(details: VideoDetails, state: VideoUiState, navigation: FeedNavigation, listState: androidx.compose.foundation.lazy.LazyListState,
-    offline: Boolean = false, videoSpace: androidx.compose.ui.unit.Dp? = null, related: Boolean = true, modifier: Modifier = Modifier) {
+    offline: Boolean = false, onTimestamp: (Long) -> Unit, videoSpace: androidx.compose.ui.unit.Dp? = null, related: Boolean = true, modifier: Modifier = Modifier) {
     val columns = feedColumns()
     LazyColumn(modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 16.dp)) {
         // Room for the unpinned video, which is drawn above the list at this row's offset.
         videoSpace?.let { item(key = "video") { Spacer(Modifier.fillMaxWidth().height(it)) } }
-        item(key = "info") { TitleBlock(details, offline) }
+        item(key = "info") { TitleBlock(details, offline, onTimestamp = onTimestamp) }
         details.channel?.let { channel ->
             item(key = "channel") {
                 Row(Modifier.fillMaxWidth().clickable { navigation.openChannel(channel.id) }.padding(horizontal = 16.dp, vertical = 10.dp),
@@ -557,7 +567,7 @@ private fun VideoBody(details: VideoDetails, state: VideoUiState, navigation: Fe
 
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun TitleBlock(details: VideoDetails, offline: Boolean = false, compact: Boolean = false) {
+private fun TitleBlock(details: VideoDetails, offline: Boolean = false, compact: Boolean = false, onTimestamp: (Long) -> Unit) {
     var expanded by rememberSaveable { mutableStateOf(false) }
     Column(
         Modifier
@@ -574,8 +584,8 @@ private fun TitleBlock(details: VideoDetails, offline: Boolean = false, compact:
             modifier = Modifier.padding(top = 4.dp),
         )
         details.description?.takeIf { it.isNotBlank() && !compact }?.let {
-            Text(
-                it,
+            VideoText(
+                it, details.descriptionLinks, details.id, onTimestamp,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 3,
@@ -589,7 +599,7 @@ private fun TitleBlock(details: VideoDetails, offline: Boolean = false, compact:
         Column(Modifier.fillMaxWidth().verticalScroll(androidx.compose.foundation.rememberScrollState())
             .padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(details.title, style = MaterialTheme.typography.titleLarge)
-            details.description?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+            details.description?.let { VideoText(it, details.descriptionLinks, details.id, onTimestamp = { ms -> expanded = false; onTimestamp(ms) }) }
         }
     }
 }
@@ -649,7 +659,7 @@ internal fun ClassicWatchBody(details: VideoDetails, state: VideoUiState, naviga
     viewModel: VideoViewModel, offline: Boolean, onMore: () -> Unit, related: Boolean = true, modifier: Modifier = Modifier) {
     val columns = feedColumns()
     LazyColumn(modifier.fillMaxSize(), state = listState, contentPadding = WindowInsets.navigationBars.asPaddingValues()) {
-        item(key = "info") { TitleBlock(details, offline, compact = true) }
+        item(key = "info") { TitleBlock(details, offline, compact = true, onTimestamp = viewModel::seekTo) }
         details.channel?.let { channel ->
             item(key = "channel") {
                 val subscribed = state.subscribed == true

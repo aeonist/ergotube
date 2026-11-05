@@ -27,11 +27,30 @@ import javax.inject.Singleton
 class VideoRepository @Inject constructor(
     private val innerTube: InnerTubeClient,
     private val guard: ActionGuard,
+    private val accounts: app.freshtuber.data.account.AccountRepository,
 ) {
+
+    private data class Cached(val details: VideoDetails, val at: Long)
+    private val recent = LinkedHashMap<Pair<String, String>, Cached>()
+    private fun identity(): String? = when (val account = accounts.state.value) {
+        app.freshtuber.data.account.AccountState.Loading -> null
+        app.freshtuber.data.account.AccountState.SignedOut -> "anonymous"
+        is app.freshtuber.data.account.AccountState.SignedIn -> account.active.id + ":" + account.active.activePageId.orEmpty()
+    }
+    @Synchronized fun cachedDetails(videoId: String): VideoDetails? {
+        val key = (identity() ?: return null) to videoId
+        return recent[key]?.takeIf { android.os.SystemClock.elapsedRealtime() - it.at < 5 * 60_000 }?.details
+    }
+    @Synchronized fun rememberDetails(details: VideoDetails) {
+        val key = (identity() ?: return) to details.id
+        recent.remove(key)
+        recent[key] = Cached(details, android.os.SystemClock.elapsedRealtime())
+        while (recent.size > 4) recent.remove(recent.keys.first())
+    }
 
     suspend fun details(videoId: String): VideoDetails = withContext(Dispatchers.IO) {
         val root = innerTube.post("next", buildJsonObject { put("videoId", videoId) })
-        VideoPageParser.parse(videoId, root) ?: throw InnerTubeException.BadResponse()
+        (VideoPageParser.parse(videoId, root) ?: throw InnerTubeException.BadResponse()).also(::rememberDetails)
     }
 
     /** Comments, replies and their next pages all come from a continuation token. */

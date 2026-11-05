@@ -76,7 +76,7 @@ fun ClassicNavBar(selected: DockTab?, mineOpen: Boolean, shorts: Boolean, overVi
             contentAlignment = if (left) Alignment.CenterStart else Alignment.CenterEnd) {
         Row(Modifier.width(app.freshtuber.ui.navigation.DockLayout.width(maxWidth.value, preferences.dockWidth, expanded).dp).height(Reach.CompactDockHeight),
             verticalAlignment = Alignment.CenterVertically) {
-            app.freshtuber.ui.navigation.DockLayout.order(left, shorts).forEach { tab ->
+            app.freshtuber.ui.navigation.DockLayout.order(left, shorts, preferences.enabled(app.freshtuber.data.settings.AppFeature.SwapHomeMine)).forEach { tab ->
                 val active = if (tab == DockTab.Mine) mineOpen || selected == DockTab.Mine else selected == tab && !mineOpen
                 val label = stringResource(tab.labelRes)
                 Column(Modifier.weight(1f).fillMaxHeight().testTag("dock:${tab.name}")

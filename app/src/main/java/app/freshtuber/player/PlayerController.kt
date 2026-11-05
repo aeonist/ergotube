@@ -216,7 +216,16 @@ class PlayerController @Inject constructor(
     private val _videoVisible = MutableStateFlow(false)
     val videoVisible: StateFlow<Boolean> = _videoVisible.asStateFlow()
     val videoOnScreen: Boolean get() = screensShowingVideo.get() > 0
+    private var audioOnly = false
+    fun enterAudioOnly() {
+        audioOnly = true
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true).build()
+    }
     fun setVideoScreen(shown: Boolean) {
+        if (shown && audioOnly) {
+            audioOnly = false
+            player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, false).build()
+        }
         if (shown) screensShowingVideo.incrementAndGet() else screensShowingVideo.updateAndGet { (it - 1).coerceAtLeast(0) }
         _videoVisible.value = videoOnScreen
     }

@@ -54,3 +54,7 @@ Mixes (RD playlists) load through watch-next playlist panels with seed video and
 
 ## Liquid 11 refinement (5 Nov 2026)
 The current liquid / classic implementation is the visual authority for this refinement; historical radial-navigation contracts above are superseded by the current bottom dock. User-confirmed navigation order is fixed left to right: Mine, Subscriptions, Search, Shorts, Home. Width is user-adjustable on phones, full-width on expanded screens, with unchanged icon sizes. Classic navigation has no painted panel or separator. Portrait video supports pinch and pan independently of playback; quality is a direct HQ control in portrait and fullscreen. Card hold has six evenly spaced choices, including Channel and Save, and the centre cancels. Preserve all unrelated liquid colours, typography and effects.
+
+
+## Liquid 12 refinement (5 Nov 2026)
+Quality is a contextual palette anchored to HQ, using rounded remote-style choice pills and a blur/scale reveal in portrait/fullscreen; no radio-list sheet. Ordinary video-picture single taps never pause. Both orientations support pinch and pan independently of playback; visible controls retain their gesture zones. Elapsed/total time stays over the picture, temporarily duplicated on the remote while seeking. The card fan emerges through blur over the blurred feed. An independent preference swaps only Mine and Home. Descriptions/comments retain native selectable text and annotated links/timestamps. All other liquid effects, typography and colour choices remain the incumbent implementation.

@@ -46,7 +46,7 @@ class VideoFlash {
 }
 
 /**
- * Gestures on the video itself, as in YouTube: tap pauses, double tap on a side skips 10 s and
+ * Gestures on the video itself, as in YouTube: a tap leaves playback unchanged, double tap on a side skips 10 s and
  * repeated taps add up, swipe down minimizes. Loading and errors are drawn here too.
  */
 @Composable
@@ -64,17 +64,12 @@ fun PortraitVideoLayer(player: Player, state: PlayerState, onMinimize: () -> Uni
         var pending: Job? = null
         var lastSide = 0
         var lastAt = 0L
-        fun toggle() {
-            if (player.playbackState == Player.STATE_ENDED) { player.seekTo(0); player.play() }
-            else if (player.isPlaying) player.pause() else player.play()
-            flash.show(if (player.playWhenReady) Icons.Rounded.PlayArrow else Icons.Rounded.Pause)
-        }
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
             var end = down
             while (true) {
                 val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: return@awaitEachGesture
-                // A second pointer belongs to zoom, never to tap-to-pause or minimize.
+                // A second pointer belongs to zoom, never to single-tap action or minimize.
                 if (change.isConsumed || currentEvent.changes.size > 1) { pending?.cancel(); return@awaitEachGesture }
                 end = change
                 if (!change.pressed) break
@@ -97,10 +92,10 @@ fun PortraitVideoLayer(player: Player, state: PlayerState, onMinimize: () -> Uni
                 return@awaitEachGesture
             }
             pending?.cancel()
-            if (side == 0) { lastSide = 0; toggle(); return@awaitEachGesture }
+            if (side == 0) { lastSide = 0; return@awaitEachGesture }
             lastSide = side
             lastAt = now
-            pending = scope.launch { delay(300); lastSide = 0; toggle() }
+            pending = scope.launch { delay(300); lastSide = 0 }
         }
     }) {
         val loading = state.loadingId != null || progress.buffering

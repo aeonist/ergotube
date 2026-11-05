@@ -167,7 +167,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     // Shorts decide themselves: a full-screen video covers the light, a square one is lit around.
     SideEffect { light?.setRouteCovered(inPictureInPicture) }
     // «Моё» is a frosted pane: the screen behind it blurs while it is open (Android 12+).
-    val behindBlur by androidx.compose.animation.core.animateDpAsState(if (mineOpen && dockVisible) 18.dp else 0.dp, label = "mineBlur")
+    val behindBlur by androidx.compose.animation.core.animateDpAsState(if (fanHost.session != null || (mineOpen && dockVisible)) 18.dp else 0.dp, label = "mineBlur")
     val density = LocalDensity.current
     val navBottom = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() }
     val compactDockSpace = Reach.CompactDockHeight + navBottom

@@ -164,7 +164,7 @@ class Downloads @Inject constructor(
                 val file = File(folder(id), "metadata.json")
                 if (file.length() > 1024 * 1024) null else Json.decodeFromString<OfflineMetadata>(file.readText())
             }.getOrNull()
-            item.details(related(id)).copy(description = metadata?.description, viewsText = metadata?.views, dateText = metadata?.date)
+            item.details(related(id)).copy(description = metadata?.description, viewsText = metadata?.views, dateText = metadata?.date, descriptionLinks = metadata?.descriptionLinks.orEmpty())
         }
     }
 
@@ -214,7 +214,7 @@ class Downloads @Inject constructor(
                     item = item.copy(channelId = details.channel?.id ?: item.channelId, channelName = details.channel?.name ?: item.channelName)
                     runCatching {
                         val temp = File(dir, "metadata.json.part")
-                        temp.writeText(Json.encodeToString(OfflineMetadata(details.description?.take(200_000), details.viewsText, details.dateText)))
+                        temp.writeText(Json.encodeToString(OfflineMetadata(details.description?.take(200_000), details.viewsText, details.dateText, details.descriptionLinks)))
                         temp.renameTo(File(dir, "metadata.json"))
                     }
                 }

@@ -90,7 +90,9 @@ class VideoViewModel @Inject constructor(
 
     val videoId: String = savedState.get<String>("videoId") ?: savedState.toRoute<PlayerRoute>().videoId
 
-    private val _state = MutableStateFlow(VideoUiState())
+    private val remembered = videos.cachedDetails(videoId)
+    private val _state = MutableStateFlow(VideoUiState(details = remembered, loading = remembered == null,
+        likeStatus = remembered?.likeStatus ?: LikeStatus.Indifferent, subscribed = remembered?.subscribed))
     val state: StateFlow<VideoUiState> = _state.asStateFlow()
 
     private val _comments = MutableStateFlow(CommentsUiState())
@@ -114,8 +116,11 @@ class VideoViewModel @Inject constructor(
     fun setVideoPinned(pinned: Boolean) { viewModelScope.launch { settings.setVideoPinned(pinned) } }
 
     fun startPlayback() {
-        controller.play(videoId)
-        _state.value.details?.let { controller.setQueue(it.related) }
+        val current = player.currentMediaItem?.mediaId == videoId && player.playbackState != Player.STATE_IDLE && playerState.value.error == null
+        if (!current) {
+            controller.play(videoId)
+            _state.value.details?.let { controller.setQueue(it.related) }
+        }
     }
 
     fun setVideoOnScreen(onScreen: Boolean) {
@@ -126,6 +131,10 @@ class VideoViewModel @Inject constructor(
     fun playPrevious() = controller.playPrevious()
 
     fun retryPlayback() = controller.retry()
+    fun seekTo(milliseconds: Long) {
+        if (player.currentMediaItem?.mediaId == videoId)
+            player.seekTo(milliseconds.coerceIn(0, player.duration.takeIf { it > 0 } ?: Long.MAX_VALUE))
+    }
 
     private fun withChannelFallback(details: VideoDetails): VideoDetails = details.copy(
         channel = details.channel ?: controller.state.value.nowPlaying?.takeIf { it.videoId == videoId }?.channel,
@@ -146,11 +155,14 @@ class VideoViewModel @Inject constructor(
                 }
             }
         }
-        load()
+        if (remembered == null || controller.state.value.nowPlaying?.videoId != videoId) load()
+        else viewModelScope.launch {
+            if (settings.dislikesEnabled.first()) extras.dislikes(videoId)?.let { count -> _state.update { it.copy(dislikes = count) } }
+        }
     }
 
     fun load() {
-        _state.update { it.copy(loading = true, error = null) }
+        _state.update { it.copy(loading = it.details == null, error = null) }
         viewModelScope.launch {
             try {
                 val local = downloads.available(videoId)
@@ -203,7 +215,8 @@ class VideoViewModel @Inject constructor(
         } ?: return
         val before = _state.value.likeStatus
         _state.update { it.copy(likeStatus = target) }
-        perform(command) { _state.update { it.copy(likeStatus = before) } }
+        videos.rememberDetails(details.copy(likeStatus = target))
+        perform(command) { _state.update { it.copy(likeStatus = before) }; videos.rememberDetails(details.copy(likeStatus = before)) }
     }
 
     fun toggleSubscription() {
@@ -225,7 +238,8 @@ class VideoViewModel @Inject constructor(
         }
         val before = _state.value.subscribed
         _state.update { it.copy(subscribed = subscribe) }
-        perform(command) { _state.update { it.copy(subscribed = before) } }
+        videos.rememberDetails(details.copy(subscribed = subscribe))
+        perform(command) { _state.update { it.copy(subscribed = before) }; videos.rememberDetails(details.copy(subscribed = before)) }
     }
 
     fun setLocalNotifications(enabled: Boolean) {

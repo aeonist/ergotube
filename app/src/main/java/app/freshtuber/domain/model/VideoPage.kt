@@ -25,6 +25,7 @@ data class VideoDetails(
     val unsubscribeCommand: InnerTubeCommand?,
     val related: List<VideoSummary>,
     val commentsContinuation: String?,
+    val descriptionLinks: List<TextLink> = emptyList(),
 )
 
 data class Comment(
@@ -44,6 +45,7 @@ data class Comment(
     /** Present when the signed-in user may reply; needs the reply text added. */
     val replyCommand: InnerTubeCommand?,
     val repliesContinuation: String?,
+    val links: List<TextLink> = emptyList(),
 )
 
 data class CommentSortOption(val title: String, val token: String, val selected: Boolean)

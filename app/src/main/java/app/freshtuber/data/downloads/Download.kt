@@ -8,7 +8,7 @@ import kotlinx.serialization.Serializable
 enum class DownloadStatus { Queued, Downloading, Paused, Complete, Failed, Deleting }
 
 @Serializable
-data class OfflineMetadata(val description: String?, val views: String?, val date: String?)
+data class OfflineMetadata(val description: String?, val views: String?, val date: String?, val descriptionLinks: List<TextLink> = emptyList())
 
 /** Only local paths and non-secret stream fingerprints are persisted, never signed URLs. */
 @Entity(tableName = "downloads")

@@ -418,7 +418,7 @@ private fun ShortActions(id: String, viewModel: VideoViewModel, navigation: Feed
             state.details?.let { d ->
                 Text(d.title, style = MaterialTheme.typography.titleMedium)
                 d.channel?.let { channel -> TextButton(onClick = { descriptionOpen = false; navigation.openChannel(channel.id) }) { Text(channel.name) } }
-                d.description?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
+                d.description?.let { app.freshtuber.ui.components.VideoText(it, d.descriptionLinks, d.id, onTimestamp = { ms -> descriptionOpen = false; viewModel.seekTo(ms) }) }
             }
         }
     }
