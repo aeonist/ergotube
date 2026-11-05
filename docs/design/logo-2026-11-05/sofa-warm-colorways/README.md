@@ -15,6 +15,8 @@ These are palette targets for generated raster previews, rather than color-certi
 
 Tool: built-in image generation, edit mode. [Full prompts](PROMPTS.md).
 
+[Four-way comparison collage](collage.png), composed with the built-in image generator from the four existing previews. Top row: terracotta/vanilla, olive/honey. Bottom row: cocoa/caramel, wine/apricot. Visually checked all four complete panels and readable wordmarks. [Collage prompt](COLLAGE-PROMPT.md).
+
 ## Validation and scope
 
 Visually reviewed all four outputs against the sofa reference: the silhouette, play counter, serif wordmark and composition are retained. All four square presentations are 1254 × 1254 px. Production vector geometry and launcher masking remain separate implementation work after selection.
