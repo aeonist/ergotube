@@ -1,0 +1,30 @@
+ErgoTube
+Copyright (C) 2026 aeonist (https://github.com/aeonist)
+
+This program is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License version 3 as published by
+the Free Software Foundation (see LICENSE), with the additional terms below.
+
+Additional terms under section 7(b) of the GNU GPL version 3
+-------------------------------------------------------------
+
+1. Author attribution. Any copy, modified version or work based on ErgoTube,
+   in source or in compiled form, must keep this attribution:
+
+       Based on ErgoTube by aeonist (https://github.com/aeonist/ergotube)
+
+2. Where it must appear:
+   a) in this NOTICE file, which must be kept in every copy of the source code;
+   b) in the documentation (for example the README) of any distributed copy or
+      modified version;
+   c) in the Appropriate Legal Notices of the program's user interface (the
+      "About" section of the settings screen, or an equivalent place in a
+      modified version).
+
+3. You may not remove or change the copyright notices of ErgoTube, and you may
+   not present a modified version as the original ErgoTube. A modified version
+   should say that it was changed and should use a different name.
+
+ErgoTube uses NewPipeExtractor and other libraries under their own licenses.
+ErgoTube is not affiliated with YouTube or Google. YouTube is a trademark of
+Google LLC.

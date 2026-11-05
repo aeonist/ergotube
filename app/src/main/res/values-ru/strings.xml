@@ -218,7 +218,7 @@
     <string name="settings_reset_hidden_hint">Видео, скрытые на этом устройстве, снова смогут появляться в рекомендациях.</string>
     <string name="settings_about">Об ErgoTube</string>
     <string name="settings_version">Версия %1$s · GPLv3</string>
-    <string name="settings_about_text">ErgoTube — независимый клиент YouTube для управления одной рукой. Вход необязателен. Локальные подписки, настройки и скачанные видео хранятся на устройстве. Аналитики и слежения нет. Лицензия GPLv3.</string>
+    <string name="settings_about_text">ErgoTube — независимый клиент YouTube для управления одной рукой. Вход необязателен. Локальные подписки, настройки и скачанные видео хранятся на устройстве. Аналитики и слежения нет. Автор: aeonist (github.com/aeonist/ergotube). Лицензия GPLv3 с обязательным указанием автора.</string>
     <string name="settings_save_failed">Не удалось сохранить изменение. Попробуй ещё раз.</string>
     <string name="settings_cleared">Готово</string>
     <string name="quality_resolution">%1$dp</string>

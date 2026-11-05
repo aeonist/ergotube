@@ -97,4 +97,8 @@ Data formats were checked against open projects: [NewPipe](https://github.com/Te
 
 ## License
 
-[GNU GPL v3.0](LICENSE). ErgoTube uses NewPipeExtractor, which is GPLv3, so ErgoTube is GPLv3 too.
+[GNU GPL v3.0](LICENSE) with an author attribution term under section 7(b), described in [NOTICE](NOTICE).
+
+You may use, change and share the code, but every copy and every modified version must keep the credit **"Based on ErgoTube by aeonist (https://github.com/aeonist/ergotube)"** in its source, its README and the About section of the app. Modified versions must say they were changed. ErgoTube uses NewPipeExtractor, which is GPLv3, so ErgoTube stays GPLv3.
+
+Copyright (C) 2026 aeonist.

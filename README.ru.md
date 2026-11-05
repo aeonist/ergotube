@@ -77,6 +77,10 @@ Android-проверки запускаются на эмуляторе кома
 
 ## Лицензия
 
-[GNU GPL v3.0](LICENSE). Проект использует NewPipeExtractor, который распространяется под GPLv3, поэтому ErgoTube тоже распространяется под GPLv3.
+[GNU GPL v3.0](LICENSE) с дополнительным условием об указании автора по разделу 7(b), см. [NOTICE](NOTICE).
+
+Код можно использовать, менять и распространять, но в каждой копии и каждой изменённой версии нужно сохранить строку **«Based on ErgoTube by aeonist (https://github.com/aeonist/ergotube)»**: в исходниках, в README и в разделе «О приложении». Изменённые версии должны указывать, что они изменены. Проект использует NewPipeExtractor под GPLv3, поэтому ErgoTube тоже остаётся под GPLv3.
+
+Copyright (C) 2026 aeonist.
 
 ErgoTube не связан с YouTube и Google. YouTube является товарным знаком Google LLC.

@@ -218,7 +218,7 @@
     <string name="settings_reset_hidden_hint">Videos hidden on this device may appear in recommendations again.</string>
     <string name="settings_about">About ErgoTube</string>
     <string name="settings_version">Version %1$s · GPLv3</string>
-    <string name="settings_about_text">ErgoTube is an independent YouTube client made for one-handed use. Sign-in is optional. Local subscriptions, settings and downloads stay on your device. No analytics or tracking. Licensed under GPLv3.</string>
+    <string name="settings_about_text">ErgoTube is an independent YouTube client made for one-handed use. Sign-in is optional. Local subscriptions, settings and downloads stay on your device. No analytics or tracking. Created by aeonist (github.com/aeonist/ergotube). Licensed under GPLv3 with an author attribution term.</string>
     <string name="settings_save_failed">Could not save this change. Try again.</string>
     <string name="settings_cleared">Done</string>
     <string name="quality_resolution">%1$dp</string>
