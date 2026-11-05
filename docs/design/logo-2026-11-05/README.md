@@ -4,6 +4,8 @@ Created on 5 November 2026 with the built-in image generation tool.
 
 The user subsequently requested more creative alternatives. See [three additional directions](creative-v2/README.md): chameleon, personal cinema chair and ET monogram.
 
+Further exploration: [three cloud logo directions](clouds/README.md), following the [warm cinema-sofa colorways](sofa-warm-colorways/README.md).
+
 ## Concept
 
 A rounded lowercase **e** carries a play triangle in its counter. The lower curve suggests a comfortable thumb sweep, connecting the ErgoTube name with its one-handed controls. The red mark accompanies a friendly dark wordmark. Small black and reversed versions demonstrate the intended single-color treatment.
