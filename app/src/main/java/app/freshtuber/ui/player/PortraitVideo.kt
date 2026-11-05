@@ -74,6 +74,8 @@ fun PortraitVideoLayer(player: Player, state: PlayerState, onMinimize: () -> Uni
             var end = down
             while (true) {
                 val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: return@awaitEachGesture
+                // A second pointer belongs to zoom, never to tap-to-pause or minimize.
+                if (change.isConsumed || currentEvent.changes.size > 1) { pending?.cancel(); return@awaitEachGesture }
                 end = change
                 if (!change.pressed) break
             }

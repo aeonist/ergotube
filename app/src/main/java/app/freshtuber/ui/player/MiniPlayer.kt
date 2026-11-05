@@ -94,8 +94,8 @@ object MiniDismiss {
 /**
  * The minimized video floats over the app like in YouTube: drag it anywhere, it settles in the
  * nearest corner; drag it onto the cross that appears at the bottom and let go to close it.
- * Pinch it, or drag the grip on its inner corner, to resize. A tap shows the controls on the
- * picture (open, close, previous, play/pause, next); a double tap opens the video.
+ * Pinch it, or drag the grip on its inner corner, to resize. A tap opens the portrait player
+ * by default; a setting switches it to showing controls. A double tap always opens the video.
  */
 @Composable
 fun FloatingMiniPlayer(
@@ -115,6 +115,7 @@ fun FloatingMiniPlayer(
     onPrevious: () -> Unit,
     /** Faded away (and not touchable) while «Моё» covers the screen. */
     hidden: Boolean = false,
+    tapOpens: Boolean = true,
     /** True while the window is dragged or closing: the caller lifts it above the dock. */
     onRaised: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
@@ -207,8 +208,8 @@ fun FloatingMiniPlayer(
             shape = RoundedCornerShape(12.dp), color = Color.Black, shadowElevation = 8.dp,
         ) {
             Box(Modifier.fillMaxSize()
-                .pointerInput(Unit) {
-                    detectTapGestures(onTap = { controls = !controls; controlsPoke++ }, onDoubleTap = { open() })
+                .pointerInput(tapOpens, hidden) {
+                    detectTapGestures(onTap = { if (!hidden) { if (tapOpens) open() else { controls = !controls; controlsPoke++ } } }, onDoubleTap = { if (!hidden) open() })
                 }
                 .pointerInput(screenWidth) {
                     // Two fingers: pinch to resize, like YouTube's floating window.

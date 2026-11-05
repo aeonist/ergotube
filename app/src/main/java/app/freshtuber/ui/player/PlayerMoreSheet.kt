@@ -42,7 +42,7 @@ private val SleepChoices = listOf(SleepTimer.Off, SleepTimer.Minutes(15), SleepT
     SleepTimer.Minutes(60), SleepTimer.Minutes(90), SleepTimer.EndOfVideo)
 
 /** Which choice the sheet shows inline, right above its switches. */
-private enum class MorePick { Quality, Speed, Subtitles, Sleep }
+private enum class MorePick { Speed, Subtitles, Sleep }
 
 /** Turns captions on (last or preferred language) or off. Returns whether they are on now. */
 fun toggleCaptions(controller: PlayerController, state: PlayerState, last: Int): Boolean {
@@ -63,7 +63,7 @@ fun sleepLabel(timer: SleepTimer): String = when (timer) {
 
 /**
  * «Ещё» in the player, built from the thumb up: the four most used actions lowest (Save,
- * Download, Share, Sleep timer), above them switches for quality, speed, subtitles and
+ * Download, Share, Sleep timer), above them switches for speed, subtitles and
  * repeat whose choices open inline right above, and the channel with its notifications on top.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -78,7 +78,6 @@ fun PlayerMoreSheet(state: PlayerState, video: VideoUiState, controller: PlayerC
     val enableNotifications = app.freshtuber.ui.components.rememberNotificationPermission { viewModel.setLocalNotifications(true) }
     val shareTitle = stringResource(R.string.video_share)
     val off = stringResource(R.string.player_off)
-    val auto = stringResource(R.string.player_quality_auto)
     val toggle: (MorePick) -> Unit = { pick = if (pick == it) null else it }
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -106,21 +105,6 @@ fun PlayerMoreSheet(state: PlayerState, video: VideoUiState, controller: PlayerC
                 Column(Modifier.fillMaxWidth()) {
                     if (current != null) {
                         val (title, options, selected, apply) = when (current) {
-                            // Tracks come best first; the strip reads low to high like the speeds.
-                            MorePick.Quality -> now?.qualities.orEmpty().let { q ->
-                                // «Авто» (the player picks from the connection speed, as YouTube does)
-                                // sits at the hand end of the strip, where it is seen and reached first.
-                                val canAuto = now != null && !now.isShort && !now.isOffline && !now.isLive
-                                val labels = q.map { it.label }.reversed()
-                                val autoAt = if (!canAuto) -1 else if (left) 0 else labels.size
-                                val shift = if (autoAt == 0) 1 else 0
-                                val options = if (!canAuto) labels else if (left) listOf(auto) + labels else labels + auto
-                                Choice(stringResource(R.string.player_quality), options,
-                                    when {
-                                        canAuto && now.qualityAuto -> autoAt
-                                        else -> (now?.qualityIndex ?: -1).let { if (it >= 0) q.size - 1 - it + shift else -1 }
-                                    }) { i: Int -> if (i == autoAt) controller.selectAutoQuality() else controller.selectQuality(q.size - 1 - (i - shift)) }
-                            }
                             MorePick.Speed -> Choice(stringResource(R.string.player_speed), AllSpeeds.map(::speedLabel),
                                 AllSpeeds.indexOf(state.speed)) { i: Int -> controller.setSpeed(AllSpeeds[i]) }
                             MorePick.Subtitles -> Choice(stringResource(R.string.player_subtitles), listOf(off) + now?.subtitles.orEmpty().map { it.label },
@@ -137,9 +121,6 @@ fun PlayerMoreSheet(state: PlayerState, video: VideoUiState, controller: PlayerC
             }
             // Switches: the current value on each, the choice opens above.
             val switches = listOf(
-                SwitchItem(Icons.Rounded.HighQuality, stringResource(R.string.player_quality),
-                    now?.qualities?.getOrNull(now.qualityIndex)?.label?.let { if (now.qualityAuto) "$auto · $it" else it } ?: auto, open = pick == MorePick.Quality,
-                    enabled = !now?.qualities.isNullOrEmpty()) { toggle(MorePick.Quality) },
                 SwitchItem(Icons.Rounded.Speed, stringResource(R.string.player_speed), speedLabel(state.speed),
                     open = pick == MorePick.Speed, active = state.speed != 1f) { toggle(MorePick.Speed) },
                 SwitchItem(Icons.Rounded.ClosedCaption, stringResource(R.string.player_subtitles),

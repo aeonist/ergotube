@@ -4,7 +4,7 @@ package app.freshtuber.data.settings
 enum class AppFeature(val key: String, val default: Boolean) {
     DeArrow("dearrow", true), Dislikes("return_dislikes", true), SponsorBlock("sponsor_block", true),
     Gestures("gesture_controls", true), Autoplay("autoplay_next", true), PictureInPicture("pip_on_leave", true),
-    BackgroundPlayback("background_playback", true), ShortsTab("shorts_tab", true), ShortsInFeeds("shorts_in_feeds", false),
+    BackgroundPlayback("background_playback", true), MiniPlayerTapOpens("mini_player_tap_opens", true), ShortsTab("shorts_tab", true), ShortsInFeeds("shorts_in_feeds", false),
     Notifications("new_video_notifications", true), DownloadsWifi("downloads_wifi", true), DynamicColor("dynamic_color", false),
     /** Source Serif 4 everywhere; off switches to the system sans. */
     SerifFont("font_serif", true),
@@ -29,7 +29,10 @@ enum class UiStyle { Ergonomic, Classic }
 
 data class AppPreferences(val features: Map<AppFeature, Boolean> = AppFeature.entries.associateWith { it.default },
     val theme: ThemeMode = ThemeMode.System, val quality: Int = 1080, val downloadQuality: Int = 720,
-    val motion: BackgroundMotion = BackgroundMotion.Always, val style: UiStyle = UiStyle.Ergonomic) {
+    val motion: BackgroundMotion = BackgroundMotion.Always, val style: UiStyle = UiStyle.Ergonomic,
+    val wifiQuality: Int = quality, val mobileQuality: Int = quality, val dockWidth: Int = 100) {
+    /** Zero means unrestricted adaptive quality; a resolution caps adaptive playback. */
+    fun playbackQuality(wifi: Boolean): Int = if (wifi) wifiQuality else mobileQuality
     fun enabled(feature: AppFeature) = features[feature] ?: feature.default
     /** Only where the buttons are; colours, light and effects follow their own settings. */
     val classicLayout: Boolean get() = style == UiStyle.Classic

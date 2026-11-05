@@ -101,6 +101,10 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     val dockVisible = !inPictureInPicture && !onPlayer && !inFlow && !keyboardVisible
     val onShorts = destination?.hasRoute<ShortsRoute>() == true || destination?.hasRoute<ShortsViewerRoute>() == true
     val miniVisible = dockVisible && !onShorts && playerState.nowPlaying?.isShort == false
+    DisposableEffect(miniVisible) {
+        if (miniVisible) viewModel.player.setVideoScreen(true)
+        onDispose { if (miniVisible) viewModel.player.setVideoScreen(false) }
+    }
     val handoff = remember { app.freshtuber.ui.player.VideoHandoff() }
     // Read by the watch page when it leaves: the video then flies into the floating window.
     handoff.miniExpected = miniVisible
@@ -264,6 +268,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
                 hasNext = playerState.queue.isNotEmpty(), hasPrevious = playerState.history.isNotEmpty(),
                 onNext = viewModel.player::playNext, onPrevious = viewModel.player::playPrevious,
                 onOpen = { navController.navigate(PlayerRoute(playing.videoId)) }, onClose = viewModel.player::stop,
+                tapOpens = app.freshtuber.ui.theme.LocalAppPreferences.current.enabled(app.freshtuber.data.settings.AppFeature.MiniPlayerTapOpens),
                 hidden = mineOpen, onRaised = { miniRaised = it },
                 modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)))
         }
@@ -297,6 +302,9 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
         if (classic) app.freshtuber.ui.classic.ClassicNavBar(currentTab, mineOpen, shortsEnabled, overVideo = true, onSelect = selectTab)
         else CompactDock(selected = currentTab, mineOpen = mineOpen, left = leftHanded, shorts = shortsEnabled, onSelect = selectTab)
     }
+    // Home's floating video needs a full-window surface after the system takes over.
+    if (inPictureInPicture && !onPlayer && !onShorts) app.freshtuber.ui.player.VideoSurface(
+        viewModel.player.player, Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black))
     app.freshtuber.ui.feed.FanOverlay(fanHost)
     app.freshtuber.ui.player.VideoFlightOverlay(handoff)
     }

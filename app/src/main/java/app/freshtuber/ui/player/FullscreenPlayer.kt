@@ -83,6 +83,7 @@ fun FullscreenPlayer(
     showRotateHint: Boolean,
     onExit: () -> Unit,
     onNext: () -> Unit,
+    onQuality: () -> Unit,
     onSpeed: () -> Unit,
     onCaptions: () -> Unit,
     onBoost: (Boolean) -> Unit,
@@ -333,10 +334,13 @@ fun FullscreenPlayer(
                 }
                 chip("exit", geo.position(geo.inner, 0.25f), 44f, { Icon(Icons.Rounded.FullscreenExit, stringResource(R.string.player_exit_fullscreen), Modifier.size(22.dp)) }, false, stage(210), onExit)
                 if (hasNext) chip("next", geo.position(geo.inner, 0.75f), 44f, { Icon(Icons.Rounded.SkipNext, stringResource(R.string.player_next), Modifier.size(22.dp)) }, false, stage(250), onNext)
-                if (!live) chip("speed", geo.position(geo.outer, 0.3f), 56f, {
+                chip("quality", geo.position(geo.outer, 0.5f), 48f, {
+                    Icon(Icons.Rounded.HighQuality, stringResource(R.string.player_quality), Modifier.size(22.dp))
+                }, false, stage(270), onQuality)
+                if (!live) chip("speed", geo.position(geo.outer, 0.15f), 56f, {
                     Text(if (ui.boost) "2×" else speedLabel(state.speed), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
                 }, ui.boost || state.speed != 1f, stage(250), onSpeed)
-                if (captionsAvailable) chip("cc", geo.position(geo.outer, 0.7f), 44f, {
+                if (captionsAvailable) chip("cc", geo.position(geo.outer, 0.85f), 44f, {
                     Icon(if (captionsOn) Icons.Rounded.ClosedCaption else Icons.Rounded.ClosedCaptionDisabled, stringResource(R.string.player_subtitles), Modifier.size(22.dp))
                 }, captionsOn, stage(290), onCaptions)
                 if (!live) Text(buildString {

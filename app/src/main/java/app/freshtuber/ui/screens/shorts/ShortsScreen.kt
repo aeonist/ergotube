@@ -2,6 +2,7 @@ package app.freshtuber.ui.screens.shorts
 
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.runtime.*
+import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
@@ -406,7 +407,7 @@ private fun ShortActions(id: String, viewModel: VideoViewModel, navigation: Feed
             ShortButton(Icons.Rounded.ChatBubbleOutline, stringResource(R.string.video_comments), null, false, details != null, glass, viewModel::openComments)
             ShortButton(if (disliked) Icons.Rounded.ThumbDown else Icons.Rounded.ThumbDownOffAlt, stringResource(R.string.video_dislike),
                 state.dislikes?.let { app.freshtuber.ui.components.compactNumber(it, locale) }, disliked, details != null, glass, viewModel::toggleDislike)
-            ShortButton(if (liked) Icons.Rounded.ThumbUp else Icons.Rounded.ThumbUpOffAlt, stringResource(R.string.video_like), likeCount, liked, details != null, glass, viewModel::toggleLike)
+            ShortButton(if (liked) Icons.Rounded.ThumbUp else Icons.Outlined.ThumbUp, stringResource(R.string.video_like), likeCount, liked, details != null, glass, viewModel::toggleLike)
             ShortButton(Icons.Rounded.MoreHoriz, stringResource(R.string.video_more), null, false, true, glass) { more = true }
         }
     }

@@ -32,9 +32,6 @@ import app.freshtuber.ui.components.Reach
 import app.freshtuber.ui.navigation.DockTab
 import app.freshtuber.ui.theme.BrandColors
 
-/** Tabs of the classic bar, left to right as in YouTube; search lives in the top bar. */
-val ClassicTabs = listOf(DockTab.Home, DockTab.Shorts, DockTab.Subscriptions, DockTab.Mine)
-
 /** YouTube's top bar: the logo on the left, search and settings on the right. */
 @Composable
 fun ClassicTopBar(onSearch: () -> Unit, onSettings: () -> Unit, modifier: Modifier = Modifier) {
@@ -69,14 +66,17 @@ fun ClassicLogo(modifier: Modifier = Modifier) {
  */
 @Composable
 fun ClassicNavBar(selected: DockTab?, mineOpen: Boolean, shorts: Boolean, overVideo: Boolean, onSelect: (DockTab) -> Unit, modifier: Modifier = Modifier) {
-    // Translucent, so the background light (when it is on) shows through like under the dock.
-    val background = if (overVideo) Color.Black else MaterialTheme.colorScheme.background.copy(alpha = 0.72f)
+    val preferences = app.freshtuber.ui.theme.LocalAppPreferences.current
+    val left = app.freshtuber.ui.components.LocalLeftHanded.current
+    val expanded = app.freshtuber.ui.components.isLargeScreen()
+    val background = Color.Transparent
     val content = if (overVideo) Color.White else MaterialTheme.colorScheme.onSurface
     Column(modifier.fillMaxWidth().background(background)) {
-        HorizontalDivider(color = if (overVideo) Color.White.copy(alpha = 0.12f) else MaterialTheme.colorScheme.outlineVariant, thickness = 0.5.dp)
-        Row(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)).fillMaxWidth().height(Reach.CompactDockHeight),
+        BoxWithConstraints(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal)).fillMaxWidth(),
+            contentAlignment = if (left) Alignment.CenterStart else Alignment.CenterEnd) {
+        Row(Modifier.width(app.freshtuber.ui.navigation.DockLayout.width(maxWidth.value, preferences.dockWidth, expanded).dp).height(Reach.CompactDockHeight),
             verticalAlignment = Alignment.CenterVertically) {
-            ClassicTabs.filter { shorts || it != DockTab.Shorts }.forEach { tab ->
+            app.freshtuber.ui.navigation.DockLayout.order(left, shorts).forEach { tab ->
                 val active = if (tab == DockTab.Mine) mineOpen || selected == DockTab.Mine else selected == tab && !mineOpen
                 val label = stringResource(tab.labelRes)
                 Column(Modifier.weight(1f).fillMaxHeight().testTag("dock:${tab.name}")
@@ -89,6 +89,7 @@ fun ClassicNavBar(selected: DockTab?, mineOpen: Boolean, shorts: Boolean, overVi
                         modifier = Modifier.padding(top = 2.dp))
                 }
             }
+        }
         }
         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
     }

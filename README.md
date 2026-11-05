@@ -4,24 +4,26 @@ English · [Русский](README.ru.md)
 
 ErgoTube is an Android YouTube client built for one-handed use. Everything you tap often sits in the lower part of the screen, next to your thumb, on the side of the hand you hold the phone with. You can sign in with your Google account without Google Play Services or microG, or use the app with no account at all. There are no ads, and playback continues in the background.
 
-Current build: **1.2 "liquid 10"** (versionCode 13), branch `liquid-light-ui`.
+Current build: **1.2 "liquid 11"** (versionCode 14), branch `liquid-light-ui`.
 
 > ErgoTube is an independent project. It is not affiliated with, endorsed by or connected to YouTube or Google. YouTube is a trademark of Google LLC.
 
 ## Features
 
 **Made for one hand**
-- A bottom dock on the side of your working hand: Home, Subscriptions, Shorts, Search and "Mine" (Watch later, Downloads, History, Playlists, Settings).
+- A bottom dock ordered left to right: Mine, Subscriptions, Search, Shorts, Home. Mine contains Watch later, Downloads, History, Playlists and Settings. Its width is adjustable; unfolded screens use the full width.
 - Every fixed control sits below 55% of the screen height. A test (`ReachRuleTest`) checks this for both hands.
 - No on-screen Back buttons. The system Back gesture and the dock are enough.
-- Hold a video card and flick it: up for Watch later, right to download, left for Not interested (with undo), down to share.
+- Hold a video card and flick toward Watch later, Download, Save, Share, Not interested (with undo) or Channel. Releasing in the centre cancels.
 - An optional classic layout that places buttons the way the official YouTube app does. Colours, effects and fonts stay configurable in both layouts.
 
 **Watching**
 - The portrait player keeps the video at the top and a control pad under your thumb: play/pause, ±10 seconds (taps add up), hold for 2×, and seeking with a frame preview that gets more precise as you move your finger up.
 - Fullscreen opens when you turn the phone, swipe up on the pad or tap a button. The controls gather in a fan in the bottom corner.
 - Background playback, picture-in-picture, and a floating mini-player you can drag to any corner or drop on a cross to close.
-- Quality (including Auto, which adapts to your connection), speed, subtitles, loop and a sleep timer.
+- Direct quality buttons in portrait and fullscreen, with separate Wi-Fi and mobile quality limits and Auto. Speed, subtitles, loop and a sleep timer.
+- Pinch to zoom and pan in the portrait player without changing playback; mini-player taps can open the portrait page or show controls.
+- Hollow like icons until a like is actually set, and a transparent navigation bar in the classic layout.
 - Fast start: one short request to YouTube before playback, and the next Short starts loading as soon as you lift your finger.
 - SponsorBlock with segments highlighted on the timeline, DeArrow titles and thumbnails, and Return YouTube Dislike. Each can be turned off.
 
@@ -77,7 +79,7 @@ A minified release build: `./gradlew assembleRelease`. Without your own signing 
 ./gradlew connectedDebugAndroidTest   # needs an emulator or a device
 ```
 
-InnerTube parsers are tested against saved responses in `app/src/test/resources/innertube`. Two download scenarios in the instrumentation tests use real public YouTube videos and need a network. Account checks use structural fixtures; automated tests never sign in to a personal account.
+InnerTube parsers are tested against saved responses in `app/src/test/resources/innertube`. Playback, picture-in-picture and download instrumentation scenarios use real public YouTube videos and need a network. Account checks use structural fixtures; automated tests never sign in to a personal account.
 
 ## Project layout
 

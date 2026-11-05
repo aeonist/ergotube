@@ -25,6 +25,9 @@ class AppSettings @Inject constructor(
         AppPreferences(features = AppFeature.entries.associateWith { data[booleanPreferencesKey(it.key)] ?: it.default },
             theme = runCatching { ThemeMode.valueOf(data[THEME] ?: "System") }.getOrDefault(ThemeMode.System),
             quality = data[QUALITY]?.coerceIn(144, 4320) ?: 1080,
+            wifiQuality = data[WIFI_QUALITY]?.let(::validQuality) ?: data[QUALITY] ?: 1080,
+            mobileQuality = data[MOBILE_QUALITY]?.let(::validQuality) ?: data[QUALITY] ?: 1080,
+            dockWidth = (data[DOCK_WIDTH] ?: 100).coerceIn(0, 100),
             downloadQuality = data[DOWNLOAD_QUALITY]?.coerceIn(144, 4320) ?: 720,
             motion = runCatching { BackgroundMotion.valueOf(data[MOTION] ?: "Always") }.getOrDefault(BackgroundMotion.Always),
             style = runCatching { UiStyle.valueOf(data[STYLE] ?: "Ergonomic") }.getOrDefault(UiStyle.Ergonomic))
@@ -38,6 +41,10 @@ class AppSettings @Inject constructor(
     suspend fun setTheme(theme: ThemeMode) { context.settingsStore.edit { it[THEME] = theme.name } }
     suspend fun setStyle(style: UiStyle) { context.settingsStore.edit { it[STYLE] = style.name } }
     suspend fun setDownloadQuality(height: Int) { context.settingsStore.edit { it[DOWNLOAD_QUALITY] = height.coerceIn(144, 4320) } }
+    suspend fun setDockWidth(percent: Int) { context.settingsStore.edit { it[DOCK_WIDTH] = percent.coerceIn(0, 100) } }
+    suspend fun setPlaybackQuality(wifi: Boolean, height: Int) {
+        context.settingsStore.edit { it[if (wifi) WIFI_QUALITY else MOBILE_QUALITY] = validQuality(height) }
+    }
     suspend fun resetHiddenVideos() { context.settingsStore.edit { it.remove(HIDDEN_VIDEOS) } }
 
     val notificationsEnabled: Flow<Boolean> = context.settingsStore.data.map { it[NOTIFICATIONS] ?: true }
@@ -97,7 +104,12 @@ class AppSettings @Inject constructor(
     }
     suspend fun unhideVideo(id: String) { context.settingsStore.edit { it[HIDDEN_VIDEOS] = (it[HIDDEN_VIDEOS].orEmpty() - id) } }
 
+    private fun validQuality(height: Int) = if (height == 0) 0 else height.coerceIn(144, 4320)
+
     private companion object {
+        val WIFI_QUALITY = intPreferencesKey("wifi_quality")
+        val MOBILE_QUALITY = intPreferencesKey("mobile_quality")
+        val DOCK_WIDTH = intPreferencesKey("dock_width")
         val THEME = stringPreferencesKey("theme_mode")
         val STYLE = stringPreferencesKey("ui_style")
         val MOTION = stringPreferencesKey("liquid_motion")

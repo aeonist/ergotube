@@ -101,6 +101,7 @@ fun PlayerPad(
     onPrevious: () -> Unit,
     onMinimize: () -> Unit,
     onFullscreen: () -> Unit,
+    onQuality: () -> Unit,
     onSpeed: () -> Unit,
     onCaptions: () -> Unit,
     onBoost: (Boolean) -> Unit,
@@ -256,12 +257,13 @@ fun PlayerPad(
                             modifier = Modifier.padding(start = if (live) 8.dp else 0.dp))
                     }
                 },
+                { PadButton(Icons.Rounded.HighQuality, stringResource(R.string.player_quality), Modifier.button("quality"), small = true, onClick = onQuality) },
                 { if (captionsAvailable) PadButton(if (captionsOn) Icons.Rounded.ClosedCaption else Icons.Rounded.ClosedCaptionDisabled,
                     stringResource(R.string.player_subtitles), Modifier.button("cc"), selected = captionsOn, small = true, onClick = onCaptions) },
                 { if (!live) SpeedChip(if (ui.boost) "2×" else speedLabel(speed), selected = ui.boost || speed != 1f, Modifier.button("speed"), onClick = onSpeed) },
                 { PadButton(Icons.Rounded.Fullscreen, stringResource(R.string.player_fullscreen), Modifier.button("fs"), small = true, onClick = onFullscreen) },
             )
-            Row(Modifier.fillMaxWidth().height(38.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
                 (if (left) top.reversed() else top).forEach { it() }
             }
             Track(if (durationMs > 0) shownMs.toFloat() / durationMs else 0f, chapters, durationMs, scrubbing = ui.scrubMs != null,
@@ -291,7 +293,7 @@ fun Bubble(text: String, modifier: Modifier = Modifier) {
 @Composable
 private fun PadButton(icon: ImageVector, label: String, modifier: Modifier = Modifier, selected: Boolean = false, enabled: Boolean = true,
     small: Boolean = false, onClick: () -> Unit) {
-    IconButton(onClick, modifier.size(if (small) 40.dp else 44.dp), enabled = enabled, colors = if (selected) IconButtonDefaults.iconButtonColors(
+    IconButton(onClick, modifier.size(48.dp), enabled = enabled, colors = if (selected) IconButtonDefaults.iconButtonColors(
         containerColor = MaterialTheme.colorScheme.onSurface, contentColor = MaterialTheme.colorScheme.surface) else IconButtonDefaults.iconButtonColors()) {
         Icon(icon, label)
     }

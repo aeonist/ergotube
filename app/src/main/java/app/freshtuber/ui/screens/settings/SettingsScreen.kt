@@ -59,7 +59,8 @@ class SettingsViewModel @Inject constructor(private val settings: AppSettings,
     fun theme(mode: app.freshtuber.data.settings.ThemeMode) = update { settings.setTheme(mode) }
     fun style(style: app.freshtuber.data.settings.UiStyle) = update { settings.setStyle(style) }
     fun motion(motion: app.freshtuber.data.settings.BackgroundMotion) = update { settings.setMotion(motion) }
-    fun quality(height: Int) = update { settings.setPreferredQuality(height) }
+    fun quality(wifi: Boolean, height: Int) = update { settings.setPlaybackQuality(wifi, height) }
+    fun dockWidth(percent: Int) = update { settings.setDockWidth(percent) }
     fun downloadQuality(height: Int) = update { settings.setDownloadQuality(height) }
     fun channelNotifications(channel: app.freshtuber.data.subscriptions.LocalChannel, enabled: Boolean) = update {
         local.notify(app.freshtuber.domain.model.ChannelSummary(channel.id, channel.name, channel.avatarUrl), enabled)
@@ -127,7 +128,7 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
         SettingsGroup.Look -> resources.getString(R.string.settings_hand_value, resources.getString(if (left) R.string.radial_left else R.string.radial_right)) +
             " · " + themeNames[preferences.theme.ordinal]
         SettingsGroup.Energy -> resources.getString(if (preferences.enabled(AppFeature.LiquidFlat)) R.string.settings_flat else R.string.settings_live_light)
-        SettingsGroup.Player -> resources.getString(R.string.quality_resolution, preferences.quality)
+        SettingsGroup.Player -> resources.getString(R.string.settings_quality_networks)
         SettingsGroup.Feeds -> resources.getString(R.string.settings_group_feeds_hint)
         SettingsGroup.Notifications -> if (notificationsOn) on else off
         SettingsGroup.Storage -> resources.getString(R.string.quality_resolution, preferences.downloadQuality)
@@ -164,6 +165,14 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
             // Inside a sheet the most used rows come last, nearest the thumb.
             when (group) {
                 SettingsGroup.Look -> {
+                    Text(stringResource(R.string.settings_dock_width), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(horizontal = 16.dp))
+                    var width by remember(preferences.dockWidth) { mutableFloatStateOf(preferences.dockWidth.toFloat()) }
+                    Slider(value = width, onValueChange = { width = it }, valueRange = 0f..100f,
+                        onValueChangeFinished = { viewModel.dockWidth(width.toInt()) }, modifier = Modifier.padding(horizontal = 16.dp))
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(stringResource(R.string.settings_dock_compact), style = MaterialTheme.typography.labelSmall)
+                        Text(stringResource(R.string.settings_dock_full), style = MaterialTheme.typography.labelSmall)
+                    }
                     SettingsToggle(stringResource(R.string.settings_dynamic_color), stringResource(R.string.settings_dynamic_color_hint), preferences.enabled(AppFeature.DynamicColor)) { viewModel.feature(AppFeature.DynamicColor, it) }
                     SettingsChoice(stringResource(R.string.settings_font), listOf(stringResource(R.string.settings_font_serif), stringResource(R.string.settings_font_sans)),
                         if (preferences.enabled(AppFeature.SerifFont)) 0 else 1, left) { viewModel.feature(AppFeature.SerifFont, it == 0) }
@@ -189,10 +198,17 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
                         Triple(AppFeature.Gestures, R.string.settings_gestures, R.string.settings_gestures_hint),
                         Triple(AppFeature.Autoplay, R.string.settings_autoplay, R.string.settings_autoplay_hint),
                         Triple(AppFeature.PictureInPicture, R.string.settings_pip, R.string.settings_pip_hint),
+                        Triple(AppFeature.MiniPlayerTapOpens, R.string.settings_mini_tap, R.string.settings_mini_tap_hint),
                         Triple(AppFeature.BackgroundPlayback, R.string.settings_background, R.string.settings_background_hint),
                     ).forEach { (feature, label, hint) -> SettingsToggle(stringResource(label), stringResource(hint), preferences.enabled(feature)) { viewModel.feature(feature, it) } }
-                    SettingsChoice(stringResource(R.string.settings_playback_quality), qualityOptions.map { stringResource(R.string.quality_resolution, it) },
-                        qualityOptions.indexOf(preferences.quality).coerceAtLeast(0), left) { viewModel.quality(qualityOptions[it]) }
+                    val streamingOptions = listOf(0) + qualityOptions
+                    val labels = streamingOptions.map { if (it == 0) stringResource(R.string.player_quality_auto) else stringResource(R.string.quality_resolution, it) }
+                    Text(stringResource(R.string.settings_quality_hint), style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(horizontal = 16.dp))
+                    SettingsChoice(stringResource(R.string.settings_quality_wifi), labels,
+                        streamingOptions.indexOf(preferences.wifiQuality).coerceAtLeast(0), left) { viewModel.quality(true, streamingOptions[it]) }
+                    SettingsChoice(stringResource(R.string.settings_quality_mobile), labels,
+                        streamingOptions.indexOf(preferences.mobileQuality).coerceAtLeast(0), left) { viewModel.quality(false, streamingOptions[it]) }
                 }
                 SettingsGroup.Feeds -> listOf(
                     Triple(AppFeature.ShortsInFeeds, R.string.settings_feed_shorts, R.string.settings_feed_shorts_hint),

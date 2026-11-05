@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material3.*
@@ -88,6 +89,7 @@ fun PlayerScreen(
     val left = LocalLeftHanded.current
     val messages = LocalAppMessages.current
     val resources = LocalResources.current
+    var qualityOpen by rememberSaveable { mutableStateOf(false) }
     var moreOpen by rememberSaveable { mutableStateOf(false) }
     var lock by rememberSaveable { mutableStateOf(OrientationLock.None) }
     var rotateHint by remember { mutableStateOf(false) }
@@ -227,6 +229,7 @@ fun PlayerScreen(
             if (!scrolls) 0 else if (listState.firstVisibleItemIndex == 0) -listState.firstVisibleItemScrollOffset else -videoHeightPx
         } }
         val big = fullscreen || inPip || tabletop
+        val zoom = remember(videoId, big) { VideoZoom() }
         // Where the picture sits on screen, for pictures flying in and out.
         val videoRect = if (tabletop && !inPip) {
             val areaH = fold.hingeTop.toFloat()
@@ -259,7 +262,7 @@ fun PlayerScreen(
         if (!big) Box(Modifier.width(paneWidth).fillMaxHeight()) {
             if (classic) ClassicPortraitPage(details, state, navigation, listState, viewModel, now, videoHeight, onSignIn, { moreOpen = true }, related = !twoPane)
             else PortraitPage(details, state, navigation, listState, padHide, padUi, playerState, viewModel, now, left, pinned, scrolls, videoHeight,
-                captionsOn, onSignIn, onBack, onNext, onPrevious, enterFullscreen, onSpeed, onCaptions, onBoost, { moreOpen = true }, pages, related = !twoPane)
+                captionsOn, onSignIn, onBack, onNext, onPrevious, enterFullscreen, onSpeed, onCaptions, onBoost, { qualityOpen = true }, { moreOpen = true }, pages, related = !twoPane)
         }
         if (twoPane && details != null) UpNextPane(details, navigation, Modifier.align(Alignment.TopEnd).width(maxWidth - paneWidth).fillMaxHeight())
         val fullControls: @Composable (Modifier, Boolean) -> Unit = { controlsModifier, below ->
@@ -267,7 +270,7 @@ fun PlayerScreen(
                 hasPrevious = playerState.history.isNotEmpty(), hasNext = playerState.queue.isNotEmpty(),
                 captionsOn = captionsOn, captionsAvailable = !now?.subtitles.isNullOrEmpty(),
                 onPrevious = onPrevious, onNext = onNext, onFullscreen = exitFullscreen,
-                onMinimize = onBack, onCaptions = { onCaptions() }, onMore = { moreOpen = true }, onRetry = viewModel::retryPlayback,
+                onMinimize = onBack, onCaptions = { onCaptions() }, onMore = { moreOpen = true }, onQuality = { qualityOpen = true }, onRetry = viewModel::retryPlayback,
                 title = now?.title ?: details?.title, alwaysShown = below, modifier = controlsModifier)
             else Box(controlsModifier) { FullscreenPlayer(
                 player = viewModel.player,
@@ -282,6 +285,7 @@ fun PlayerScreen(
                 showRotateHint = rotateHint && !below,
                 onExit = exitFullscreen,
                 onNext = onNext,
+                onQuality = { qualityOpen = true },
                 onSpeed = onSpeed,
                 onCaptions = onCaptions,
                 onBoost = onBoost,
@@ -296,6 +300,7 @@ fun PlayerScreen(
             .offset { androidx.compose.ui.unit.IntOffset(0, videoOffset) }.clipToBounds())
             // Hidden while its picture is still flying in, or once it has flown off to the floating window.
             .graphicsLayer { alpha = if (handoff != null && (handoff.awaiting(videoId, FlightTarget.Page) || handoff.departed(videoId, FlightTarget.Mini))) 0f else 1f }
+            .clipToBounds().videoZoom(zoom, enabled = !big, aspect = videoAspect)
             .background(Color.Black)
             .onGloballyPositioned { c ->
                 if (!big) {
@@ -303,7 +308,10 @@ fun PlayerScreen(
                     light?.setVideoRect(androidx.compose.ui.geometry.Rect(p.x, p.y, p.x + c.size.width, p.y + c.size.height))
                 }
             }) {
-            VideoSurface(viewModel.player, Modifier.fillMaxSize(), onFrame = if (big) null else grab,
+            VideoSurface(viewModel.player, Modifier.fillMaxSize().graphicsLayer {
+                scaleX = zoom.scale; scaleY = zoom.scale
+                translationX = zoom.offset.x; translationY = zoom.offset.y
+            }, texture = !big, onFrame = if (big) null else grab,
                 active = (settled || leaving || inPip) && !surfaceOff, poster = poster, mediaId = videoId, handle = surface,
                 posterScale = if (big) ContentScale.Fit else ContentScale.Crop)
             when {
@@ -314,7 +322,7 @@ fun PlayerScreen(
                     hasPrevious = playerState.history.isNotEmpty(), hasNext = playerState.queue.isNotEmpty(),
                     captionsOn = captionsOn, captionsAvailable = !now?.subtitles.isNullOrEmpty(),
                     onPrevious = onPrevious, onNext = onNext, onFullscreen = enterFullscreen,
-                    onMinimize = onBack, onCaptions = { onCaptions() }, onMore = { moreOpen = true }, onRetry = viewModel::retryPlayback)
+                    onMinimize = onBack, onCaptions = { onCaptions() }, onMore = { moreOpen = true }, onQuality = { qualityOpen = true }, onRetry = viewModel::retryPlayback)
                 else -> PortraitVideoLayer(viewModel.player, playerState, onMinimize = onBack, onRetry = viewModel::retryPlayback)
             }
         }
@@ -331,6 +339,7 @@ fun PlayerScreen(
     }
 
     if (inPip) return
+    if (qualityOpen) QualitySheet(playerState, controller) { qualityOpen = false }
     if (moreOpen) PlayerMoreSheet(playerState, state, controller, viewModel, navigation::openChannel) { moreOpen = false }
     if (comments.opened) CommentsSheet(comments, viewModel, navigation::openChannel)
     if (picker.opened) PlaylistPickerSheet(picker, viewModel)
@@ -343,7 +352,7 @@ private fun PortraitPage(
     padHide: ScrollHide, padUi: PadUi, playerState: app.freshtuber.player.PlayerState, viewModel: VideoViewModel,
     now: app.freshtuber.player.NowPlaying?, left: Boolean, pinned: Boolean, scrolls: Boolean, videoHeight: androidx.compose.ui.unit.Dp,
     captionsOn: Boolean, onSignIn: () -> Unit, onBack: () -> Unit, onNext: () -> Unit, onPrevious: () -> Unit, onFullscreen: () -> Unit,
-    onSpeed: () -> Unit, onCaptions: () -> Unit, onBoost: (Boolean) -> Unit, onMore: () -> Unit, pages: StoryboardPages,
+    onSpeed: () -> Unit, onCaptions: () -> Unit, onBoost: (Boolean) -> Unit, onQuality: () -> Unit, onMore: () -> Unit, pages: StoryboardPages,
     related: Boolean = true,
 ) {
     val statusBar = WindowInsets.statusBars
@@ -400,6 +409,7 @@ private fun PortraitPage(
                     onPrevious = onPrevious,
                     onMinimize = onBack,
                     onFullscreen = onFullscreen,
+                    onQuality = onQuality,
                     onSpeed = onSpeed,
                     onCaptions = onCaptions,
                     onBoost = onBoost,
@@ -423,7 +433,7 @@ private fun PlayerActions(state: VideoUiState, viewModel: VideoViewModel, left: 
     val likeLabel = stringResource(R.string.video_like)
     val dislikeLabel = stringResource(R.string.video_dislike)
     val actions = listOf(
-        Action(if (liked) Icons.Rounded.ThumbUp else Icons.Rounded.ThumbUpOffAlt, likeCount ?: likeLabel, likeLabel, liked, details != null, viewModel::toggleLike),
+        Action(if (liked) Icons.Rounded.ThumbUp else Icons.Outlined.ThumbUp, likeCount ?: likeLabel, likeLabel, liked, details != null, viewModel::toggleLike),
         Action(if (disliked) Icons.Rounded.ThumbDown else Icons.Rounded.ThumbDownOffAlt,
             state.dislikes?.let { compactNumber(it, locale) } ?: dislikeLabel, dislikeLabel, disliked, details != null, viewModel::toggleDislike),
         Action(Icons.Rounded.ChatBubbleOutline, stringResource(R.string.player_comments_short), stringResource(R.string.video_comments), false, details != null, viewModel::openComments),
@@ -686,6 +696,7 @@ private fun ClassicActions(state: VideoUiState, viewModel: VideoViewModel, onMor
     val liked = state.likeStatus == LikeStatus.Like
     val disliked = state.likeStatus == LikeStatus.Dislike
     val likeCount = (if (liked) details?.likeCountTextLiked ?: details?.likeCountText else details?.likeCountText)?.takeIf { it.any(Char::isDigit) }
+    val resources = LocalResources.current
     val context = androidx.compose.ui.platform.LocalContext.current
     val shareTitle = stringResource(R.string.video_share)
     val download = app.freshtuber.ui.components.rememberNotificationPermission { viewModel.download() }
@@ -696,7 +707,7 @@ private fun ClassicActions(state: VideoUiState, viewModel: VideoViewModel, onMor
             Row(Modifier.height(36.dp).clip(RoundedCornerShape(18.dp)).background(pill), verticalAlignment = Alignment.CenterVertically) {
                 Row(Modifier.fillMaxHeight().clickable(enabled = details != null, onClick = viewModel::toggleLike).padding(start = 12.dp, end = 10.dp)
                     .semantics { contentDescription = "${likeCount ?: ""}"; selected = liked }, verticalAlignment = Alignment.CenterVertically) {
-                    Icon(if (liked) Icons.Rounded.ThumbUp else Icons.Rounded.ThumbUpOffAlt, stringResource(R.string.video_like), Modifier.size(20.dp))
+                    Icon(if (liked) Icons.Rounded.ThumbUp else Icons.Outlined.ThumbUp, stringResource(R.string.video_like), Modifier.size(20.dp))
                     likeCount?.let { Text(it, style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(start = 6.dp)) }
                 }
                 Box(Modifier.width(1.dp).height(20.dp).background(MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)))
@@ -709,9 +720,9 @@ private fun ClassicActions(state: VideoUiState, viewModel: VideoViewModel, onMor
         }
         val pills = listOf(
             Triple(Icons.Rounded.Share, shareTitle) { app.freshtuber.ui.feed.shareVideo(context, viewModel.videoId, shareTitle) },
-            Triple(Icons.AutoMirrored.Rounded.PlaylistAdd, context.getString(R.string.video_save)) { viewModel.openPlaylistPicker() },
-            Triple(Icons.Rounded.Download, context.getString(R.string.feed_download)) { download() },
-            Triple(Icons.Rounded.MoreHoriz, context.getString(R.string.video_more), onMore),
+            Triple(Icons.AutoMirrored.Rounded.PlaylistAdd, resources.getString(R.string.video_save)) { viewModel.openPlaylistPicker() },
+            Triple(Icons.Rounded.Download, resources.getString(R.string.feed_download)) { download() },
+            Triple(Icons.Rounded.MoreHoriz, resources.getString(R.string.video_more), onMore),
         )
         items(pills.size, key = { "p$it" }) { index ->
             val (icon, label, onClick) = pills[index]

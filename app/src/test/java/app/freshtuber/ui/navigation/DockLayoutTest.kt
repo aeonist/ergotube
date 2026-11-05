@@ -4,19 +4,26 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class DockLayoutTest {
-    @Test fun rightHandPutsHomeUnderTheThumbAndMineAfterTheTabs() {
-        assertEquals(listOf(DockTab.Mine, DockTab.Search, DockTab.Shorts, DockTab.Subscriptions, DockTab.Home),
+    @Test fun requestedVisualOrder() {
+        assertEquals(listOf(DockTab.Mine, DockTab.Subscriptions, DockTab.Search, DockTab.Shorts, DockTab.Home),
             DockLayout.order(left = false, shorts = true))
     }
 
-    @Test fun leftHandMirrorsTheOrder() {
-        assertEquals(listOf(DockTab.Home, DockTab.Subscriptions, DockTab.Shorts, DockTab.Search, DockTab.Mine),
+    @Test fun leftHandKeepsTheRequestedOrder() {
+        assertEquals(listOf(DockTab.Mine, DockTab.Subscriptions, DockTab.Search, DockTab.Shorts, DockTab.Home),
             DockLayout.order(left = true, shorts = true))
     }
 
     @Test fun hiddenShortsKeepsTheRestInPlace() {
-        assertEquals(listOf(DockTab.Mine, DockTab.Search, DockTab.Subscriptions, DockTab.Home), DockLayout.order(left = false, shorts = false))
-        assertEquals(listOf(DockTab.Home, DockTab.Subscriptions, DockTab.Search, DockTab.Mine), DockLayout.order(left = true, shorts = false))
+        assertEquals(listOf(DockTab.Mine, DockTab.Subscriptions, DockTab.Search, DockTab.Home), DockLayout.order(left = false, shorts = false))
+        assertEquals(listOf(DockTab.Mine, DockTab.Subscriptions, DockTab.Search, DockTab.Home), DockLayout.order(left = true, shorts = false))
+    }
+
+    @Test fun expandedScreenAlwaysUsesFullWidth() {
+        assertEquals(300f, DockLayout.width(400f, 0, false))
+        assertEquals(400f, DockLayout.width(400f, 100, false))
+        assertEquals(840f, DockLayout.width(840f, 0, true))
+        assertEquals(280f, DockLayout.width(280f, 0, false))
     }
 
     @Test fun mineTilesPutTheMostUsedLowestOnTheHandSide() {

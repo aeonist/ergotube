@@ -62,6 +62,7 @@ fun ClassicVideoControls(
     onMinimize: () -> Unit,
     onCaptions: () -> Unit,
     onMore: () -> Unit,
+    onQuality: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
     title: String? = null,
@@ -129,6 +130,7 @@ fun ClassicVideoControls(
                     Text(if (live) stringResource(R.string.search_live) else "${formatDuration(shown / 1000)} / ${formatDuration(progress.durationMs / 1000)}",
                         color = Color.White, style = MaterialTheme.typography.labelMedium)
                     Spacer(Modifier.weight(1f))
+                    OverlayIcon(Icons.Rounded.HighQuality, stringResource(R.string.player_quality), tag = "player:quality", onClick = onQuality)
                     OverlayIcon(if (fullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
                         stringResource(if (fullscreen) R.string.player_exit_fullscreen else R.string.player_fullscreen), tag = "classic:fullscreen", onClick = onFullscreen)
                 }

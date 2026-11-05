@@ -136,6 +136,7 @@ class PlayerController @Inject constructor(
     private val videos: VideoRepository,
     private val accounts: AccountRepository,
     private val downloads: app.freshtuber.data.downloads.Downloads,
+    private val network: app.freshtuber.core.connectivity.NetworkMonitor,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -212,9 +213,12 @@ class PlayerController @Inject constructor(
      * count, not a flag: the next page appears before the previous one is gone.
      */
     private val screensShowingVideo = java.util.concurrent.atomic.AtomicInteger(0)
+    private val _videoVisible = MutableStateFlow(false)
+    val videoVisible: StateFlow<Boolean> = _videoVisible.asStateFlow()
     val videoOnScreen: Boolean get() = screensShowingVideo.get() > 0
     fun setVideoScreen(shown: Boolean) {
         if (shown) screensShowingVideo.incrementAndGet() else screensShowingVideo.updateAndGet { (it - 1).coerceAtLeast(0) }
+        _videoVisible.value = videoOnScreen
     }
 
     /** Next or previous Short asked for from outside the pager (the floating window's buttons). */
@@ -253,6 +257,16 @@ class PlayerController @Inject constructor(
     private var forceProgressive = false
     /** The preferred quality: the highest the player picks on its own. */
     private var qualityCap = 1080
+    init {
+        scope.launch {
+            kotlinx.coroutines.flow.combine(settings.preferences, network.wifi) { preferences, wifi ->
+                preferences.playbackQuality(wifi).takeIf { it > 0 } ?: 4320
+            }.collect { cap ->
+                qualityCap = cap
+                if (dashActive && _state.value.nowPlaying?.qualityAuto == true) limitQuality()
+            }
+        }
+    }
     private var extrasJob: Job? = null
     private var nextWarmed: String? = null
     private var prefetchId: String? = null
@@ -369,7 +383,7 @@ class PlayerController @Inject constructor(
                 reportedWatch = false
                 nextWarmed = null
                 val tracks = tracksOf(video)
-                val cap = settings.preferredQuality.first()
+                val cap = settings.preferences.first().playbackQuality(network.wifi.value).takeIf { it > 0 } ?: 4320
                 qualityCap = cap
                 val qualityIndex = StreamChoice.pick(tracks, cap)
                 val nowPlaying = NowPlaying(
@@ -472,7 +486,7 @@ class PlayerController @Inject constructor(
                 // Resolve while the current clip starts, but reserve bandwidth for its first frame.
                 while (player.playbackState != Player.STATE_READY) delay(100)
                 val tracks = tracksOf(video)
-                val track = tracks.getOrNull(StreamChoice.pick(tracks, settings.preferredQuality.first()))
+                val track = tracks.getOrNull(StreamChoice.pick(tracks, settings.preferences.first().playbackQuality(network.wifi.value).takeIf { it > 0 } ?: 4320))
                 val urls = if (track != null && video.audioUrl != null)
                     listOf(track.url to 512L * 1024, video.audioUrl to 128L * 1024)
                 else listOfNotNull(video.muxedUrl?.let { it to 640L * 1024 })
@@ -507,7 +521,6 @@ class PlayerController @Inject constructor(
         val now = _state.value.nowPlaying ?: return
         if (index !in now.qualities.indices || (index == now.qualityIndex && !now.qualityAuto)) return
         val track = now.qualities[index]
-        scope.launch { settings.setPreferredQuality(track.height) }
         // In a manifest the choice is instant: the player keeps its buffer and switches over.
         if (dashActive && track.codecMime == dashFamily && pinVideoTrack(track.itag)) {
             _state.update { it.copy(nowPlaying = now.copy(qualityIndex = index, qualityAuto = false), error = null) }

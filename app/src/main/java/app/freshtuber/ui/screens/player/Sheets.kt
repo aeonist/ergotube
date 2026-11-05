@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.ThumbUp
@@ -199,7 +200,7 @@ private fun CommentItem(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onLike) {
                     Icon(
-                        if (liked) Icons.Rounded.ThumbUp else Icons.Rounded.ThumbUpOffAlt,
+                        if (liked) Icons.Rounded.ThumbUp else Icons.Outlined.ThumbUp,
                         contentDescription = stringResource(R.string.video_like),
                         modifier = Modifier.size(18.dp),
                     )

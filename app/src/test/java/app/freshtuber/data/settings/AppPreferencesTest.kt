@@ -12,6 +12,12 @@ class AppPreferencesTest {
         assertEquals(720, settings.downloadQuality)
         assertEquals(ThemeMode.System, settings.theme)
     }
+    @Test fun `network preferences are independent and support auto`() {
+        val settings = AppPreferences(wifiQuality = 0, mobileQuality = 480)
+        assertEquals(0, settings.playbackQuality(wifi = true))
+        assertEquals(480, settings.playbackQuality(wifi = false))
+        assertTrue(settings.enabled(AppFeature.MiniPlayerTapOpens))
+    }
     @Test fun `feature settings have independent persisted keys`() {
         assertEquals(AppFeature.entries.size, AppFeature.entries.map { it.key }.toSet().size)
         val changed = AppPreferences().copy(features = AppPreferences().features + (AppFeature.SponsorBlock to false))

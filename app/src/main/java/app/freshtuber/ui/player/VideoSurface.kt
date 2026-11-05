@@ -11,6 +11,8 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.viewinterop.AndroidView
@@ -22,6 +24,7 @@ import kotlinx.coroutines.delay
 
 /** True while the app is a floating picture-in-picture window. */
 val LocalInPictureInPicture = compositionLocalOf { false }
+val LocalVideoBounds = compositionLocalOf<(android.graphics.Rect) -> Unit> { {} }
 
 /**
  * The video picture with subtitles; controls are drawn in Compose on top of it.
@@ -39,7 +42,13 @@ fun VideoSurface(player: Player, modifier: Modifier = Modifier, zoomToFill: Bool
     val ownHandle = remember { VideoSurfaceHandle() }
     val surfaceHandle = handle ?: ownHandle
     var firstFrame by remember(player, mediaId) { mutableStateOf(false) }
-    androidx.compose.foundation.layout.Box(modifier) {
+    val reportBounds = LocalVideoBounds.current
+    androidx.compose.foundation.layout.Box(modifier.onGloballyPositioned {
+        if (active) {
+            val bounds = it.boundsInWindow()
+            reportBounds(android.graphics.Rect(bounds.left.toInt(), bounds.top.toInt(), bounds.right.toInt(), bounds.bottom.toInt()))
+        }
+    }) {
         if (active) {
             if (onFrame != null) FrameGrabber(player, surfaceHandle, onFrame)
             androidx.compose.runtime.DisposableEffect(player, mediaId) {

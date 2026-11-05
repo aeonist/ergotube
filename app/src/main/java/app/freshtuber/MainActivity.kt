@@ -45,6 +45,15 @@ class MainActivity : ComponentActivity() {
     private var pipOnLeave = true
     private var backgroundPlayback = true
     private var leftPictureInPicture = false
+    private var videoBounds: android.graphics.Rect? = null
+    private val reportVideoBounds: (android.graphics.Rect) -> Unit = { bounds ->
+        if (!isInPictureInPictureMode && lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED) &&
+            bounds.left >= 0 && bounds.top >= 0 && bounds.right <= window.decorView.width && bounds.bottom <= window.decorView.height &&
+            bounds.width() > 0 && bounds.height() > 0 && bounds != videoBounds) {
+            videoBounds = bounds
+            refreshPictureInPicture()
+        }
+    }
 
     /** Buttons of the floating window: previous, play/pause, next. */
     private val pipReceiver = object : android.content.BroadcastReceiver() {
@@ -57,7 +66,7 @@ class MainActivity : ComponentActivity() {
         }
     }
     private val pipPlayerListener = object : androidx.media3.common.Player.Listener {
-        override fun onIsPlayingChanged(isPlaying: Boolean) = refreshPictureInPicture()
+        override fun onEvents(player: androidx.media3.common.Player, events: androidx.media3.common.Player.Events) = refreshPictureInPicture()
         override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) = refreshPictureInPicture()
     }
 
@@ -69,11 +78,12 @@ class MainActivity : ComponentActivity() {
         // activity sees even when the Application context does not.
         val uiLocale = ConfigurationCompat.getLocales(resources.configuration)[0] ?: Locale.getDefault()
         NewPipeInitializer.updateLocale(uiLocale)
-        lifecycleScope.launch { settings.pipOnLeave.collect { pipOnLeave = it } }
+        lifecycleScope.launch { settings.pipOnLeave.collect { pipOnLeave = it; refreshPictureInPicture() } }
         lifecycleScope.launch { settings.backgroundPlayback.collect { backgroundPlayback = it } }
         androidx.core.content.ContextCompat.registerReceiver(this, pipReceiver, android.content.IntentFilter(PIP_ACTION),
             androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
         playerController.player.addListener(pipPlayerListener)
+        lifecycleScope.launch { playerController.videoVisible.collect { refreshPictureInPicture() } }
         // Previous / next turn on and off with the queue.
         lifecycleScope.launch { playerController.state.collect { refreshPictureInPicture() } }
 
@@ -89,6 +99,7 @@ class MainActivity : ComponentActivity() {
                 androidx.compose.runtime.CompositionLocalProvider(app.freshtuber.ui.theme.LocalAppPreferences provides preferences,
                     app.freshtuber.ui.liquid.LocalLiquidLight provides light,
                     app.freshtuber.ui.components.LocalClassic provides preferences.classicLayout,
+                    app.freshtuber.ui.player.LocalVideoBounds provides reportVideoBounds,
                     app.freshtuber.ui.components.LocalFoldPosture provides app.freshtuber.ui.components.rememberFoldPosture(this)) {
                     AppRoot(inPictureInPicture = inPictureInPicture, openVideo = externalVideoId, onVideoOpened = { externalVideoId = null })
                 }
@@ -116,11 +127,17 @@ class MainActivity : ComponentActivity() {
     /** Leaving the app while a video plays on screen turns it into a floating window. */
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        val player = playerController.player
-        val canPip = packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
-        if (canPip && pipOnLeave && playerController.videoOnScreen && player.isPlaying) {
+        // Android 12+ enters automatically during the Home gesture; older versions need this.
+        if (android.os.Build.VERSION.SDK_INT < 31 && canEnterPictureInPicture()) {
             runCatching { enterPictureInPictureMode(pictureInPictureParams()) }
         }
+    }
+
+    private fun canEnterPictureInPicture(): Boolean {
+        val player = playerController.player
+        return packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE) && pipOnLeave &&
+            playerController.videoOnScreen && player.playWhenReady &&
+            player.playbackState != androidx.media3.common.Player.STATE_IDLE && player.playbackState != androidx.media3.common.Player.STATE_ENDED
     }
 
     private fun pictureInPictureParams(): PictureInPictureParams {
@@ -141,12 +158,15 @@ class MainActivity : ComponentActivity() {
                 if (playing) R.string.player_pause else R.string.player_play),
             action(PIP_NEXT, R.drawable.ic_pip_next, R.string.player_next, enabled = short || state.queue.isNotEmpty()),
         )
-        return PictureInPictureParams.Builder().setAspectRatio(ratio.clamped()).setActions(actions).build()
+        return PictureInPictureParams.Builder().setAspectRatio(ratio.clamped()).setActions(actions).apply {
+            videoBounds?.let { setSourceRectHint(it) }
+            if (android.os.Build.VERSION.SDK_INT >= 31) setAutoEnterEnabled(canEnterPictureInPicture())
+        }.build()
     }
 
     /** Keeps the floating window's buttons (pause/play, next) in step with the player. */
     private fun refreshPictureInPicture() {
-        if (!isInPictureInPictureMode) return
+        if (!packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) return
         runCatching { setPictureInPictureParams(pictureInPictureParams()) }
     }
 

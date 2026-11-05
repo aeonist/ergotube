@@ -57,13 +57,15 @@ enum class MineItem(val icon: ImageVector, @param:StringRes val labelRes: Int, @
 }
 
 object DockLayout {
-    /**
-     * Visual left-to-right order. Home is outermost on the working-hand side, right under the
-     * thumb; «Моё» follows the other tabs on the inner side, not across the screen.
-     */
+    /** Compact still leaves five readable 56dp slots; the setting interpolates to full width. */
+    fun width(available: Float, percent: Int, expanded: Boolean): Float {
+        val minimum = minOf(available, 300f)
+        return if (expanded) available else minimum + (available - minimum) * percent.coerceIn(0, 100) / 100f
+    }
+    /** Fixed visual order chosen by the user, independent of the working hand. */
     fun order(left: Boolean, shorts: Boolean): List<DockTab> {
-        val handFirst = DockTab.entries.filter { shorts || it != DockTab.Shorts }
-        return if (left) handFirst else handFirst.reversed()
+        return listOf(DockTab.Mine, DockTab.Subscriptions, DockTab.Search, DockTab.Shorts, DockTab.Home)
+            .filter { shorts || it != DockTab.Shorts }
     }
 
 }
@@ -77,12 +79,16 @@ fun AppDock(selected: DockTab?, mineOpen: Boolean, left: Boolean, shorts: Boolea
     val light = app.freshtuber.ui.liquid.LocalLiquidLight.current
     val radius = with(androidx.compose.ui.platform.LocalDensity.current) { 34.dp.toPx() }
     DisposableEffect(light) { onDispose { light?.setDrop(0, null, 0f) } }
-    // On a wide unfolded screen the drop stays thumb-sized at the working-hand side.
+    val preferences = app.freshtuber.ui.theme.LocalAppPreferences.current
+    val expanded = app.freshtuber.ui.components.isLargeScreen()
+    // Expanded inner screens always use the whole width; phone width is a personal setting.
     Column(modifier.fillMaxWidth(), horizontalAlignment = if (left) Alignment.Start else Alignment.End) {
+        BoxWithConstraints(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+            .padding(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 14.dp).fillMaxWidth(),
+            contentAlignment = if (left) Alignment.CenterStart else Alignment.CenterEnd) {
+        val width = DockLayout.width(maxWidth.value, preferences.dockWidth, expanded).dp
         Row(
-            Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
-                .padding(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 14.dp)
-                .widthIn(max = 560.dp).fillMaxWidth().height(Reach.DockHeight)
+            Modifier.width(width).height(Reach.DockHeight)
                 .onGloballyPositioned { light?.setDrop(0, it.boundsInRoot(), radius) }
                 .padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -91,6 +97,7 @@ fun AppDock(selected: DockTab?, mineOpen: Boolean, left: Boolean, shorts: Boolea
                 val active = if (tab == DockTab.Mine) mineOpen || (selected == DockTab.Mine) else selected == tab && !mineOpen
                 DockButton(tab, active, Modifier.weight(1f)) { onSelect(tab) }
             }
+        }
         }
         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
     }
@@ -104,9 +111,12 @@ fun AppDock(selected: DockTab?, mineOpen: Boolean, left: Boolean, shorts: Boolea
 fun CompactDock(selected: DockTab?, mineOpen: Boolean, left: Boolean, shorts: Boolean, onSelect: (DockTab) -> Unit, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxWidth().background(androidx.compose.ui.graphics.Brush.verticalGradient(
         listOf(androidx.compose.ui.graphics.Color.Transparent, androidx.compose.ui.graphics.Color(0x8C000000))))) {
+        val preferences = app.freshtuber.ui.theme.LocalAppPreferences.current
+        val expanded = app.freshtuber.ui.components.isLargeScreen()
+        BoxWithConstraints(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
+            .padding(horizontal = 14.dp).fillMaxWidth(), contentAlignment = if (left) Alignment.CenterStart else Alignment.CenterEnd) {
         Row(
-            Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
-                .padding(horizontal = 14.dp).fillMaxWidth().height(Reach.CompactDockHeight),
+            Modifier.width(DockLayout.width(maxWidth.value, preferences.dockWidth, expanded).dp).height(Reach.CompactDockHeight),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             DockLayout.order(left, shorts).forEach { tab ->
@@ -124,6 +134,7 @@ fun CompactDock(selected: DockTab?, mineOpen: Boolean, left: Boolean, shorts: Bo
                         .background(androidx.compose.ui.graphics.Color.White, androidx.compose.foundation.shape.CircleShape))
                 }
             }
+        }
         }
         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
     }

@@ -271,4 +271,13 @@
     <string name="sponsor_interaction">Reminder to subscribe</string>
     <string name="sponsor_intro">Intro</string>
     <string name="sponsor_outro">Ending</string>
+    <string name="settings_dock_width">Bottom menu width</string>
+    <string name="settings_dock_compact">Compact</string>
+    <string name="settings_dock_full">Full width</string>
+    <string name="settings_mini_tap">Open video on a mini-player tap</string>
+    <string name="settings_mini_tap_hint">On: opens the portrait player. Off: shows mini-player controls.</string>
+    <string name="settings_quality_networks">Wi-Fi and mobile data</string>
+    <string name="settings_quality_wifi">Default quality on Wi-Fi</string>
+    <string name="settings_quality_mobile">Default quality on mobile data</string>
+    <string name="settings_quality_hint">Auto follows your connection speed. A resolution sets the maximum quality.</string>
 </resources>

@@ -106,6 +106,7 @@ fun rememberCardActions(video: VideoSummary, actions: FeedVideoActions?, onHide:
                 }
                 FanAction.Download -> { downloadNotifications(); actions?.download(video, report) }
                 FanAction.Share -> shareVideo(context, video.id, shareTitle)
+                FanAction.Save, FanAction.Channel -> Unit // Routed by the card to the picker or channel.
                 FanAction.NotInterested -> {
                     onHide(true)
                     actions?.hideVideo(video.id)
@@ -121,7 +122,7 @@ fun rememberCardActions(video: VideoSummary, actions: FeedVideoActions?, onHide:
 /** The normal video menu: a short sheet of tiles, the most used one under the thumb. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun FeedVideoMenu(video: VideoSummary, recommendation: Boolean, act: (FanAction) -> Unit, onChannel: ((String) -> Unit)?, onDismiss: () -> Unit) {
+fun FeedVideoMenu(video: VideoSummary, recommendation: Boolean, act: (FanAction) -> Unit, onChannel: ((String) -> Unit)?, saveOnly: Boolean = false, onDismiss: () -> Unit) {
     val factory: FeedVideoActions = hiltViewModel()
     val owner = remember { object : ViewModelStoreOwner { override val viewModelStore = ViewModelStore() } }
     DisposableEffect(owner) { onDispose { owner.viewModelStore.clear() } }
@@ -130,14 +131,17 @@ fun FeedVideoMenu(video: VideoSummary, recommendation: Boolean, act: (FanAction)
     val message by actions.message.collectAsStateWithLifecycle()
     val messages = LocalAppMessages.current
     val resources = LocalResources.current
-    var sheetOpen by remember { mutableStateOf(true) }
+    var sheetOpen by remember { mutableStateOf(!saveOnly) }
+    var pickerSeen by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { if (saveOnly) actions.openPlaylistPicker() }
+    LaunchedEffect(picker.opened) { if (picker.opened) pickerSeen = true }
     LaunchedEffect(message) {
         val current = message ?: return@LaunchedEffect
         messages?.show(resources.getString(if (current == VideoMessage.NeedsSignIn) R.string.feed_save_sign_in else current.textRes()))
         actions.consumeMessage()
         if (!sheetOpen) onDismiss()
     }
-    LaunchedEffect(picker.opened) { if (!sheetOpen && !picker.opened && message == null) onDismiss() }
+    LaunchedEffect(picker.opened) { if (!sheetOpen && pickerSeen && !picker.opened && message == null) onDismiss() }
     val left = LocalLeftHanded.current
     if (sheetOpen) ModalBottomSheet(onDismissRequest = onDismiss) {
         Text(video.title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,

@@ -27,8 +27,8 @@ android {
         minSdk = 26
         targetSdk = 37
         // Test build number: bump with every build handed to the user (file name and Settings show it).
-        versionCode = 13
-        versionName = "1.2 liquid 10 · " + gitShortHash()
+        versionCode = 14
+        versionName = "1.2 liquid 11 · " + gitShortHash()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Schedule
@@ -44,20 +46,21 @@ import kotlin.math.hypot
 import kotlin.math.sin
 
 /**
- * Hold a video and flick. Directions are fixed and the same for both hands, as in the mockup:
- * up = later, right = download, left = not interested, down = share.
+ * Hold a video and flick toward one of six equally spaced actions. Both hands share the order.
  */
 enum class FanAction(val icon: ImageVector, @param:StringRes val labelRes: Int, val degrees: Float) {
     WatchLater(Icons.Rounded.Schedule, R.string.mine_later, 90f),
-    Download(Icons.Rounded.Download, R.string.feed_download, 0f),
-    NotInterested(Icons.Rounded.Block, R.string.feed_not_interested, 180f),
+    Download(Icons.Rounded.Download, R.string.feed_download, 30f),
+    NotInterested(Icons.Rounded.Block, R.string.feed_not_interested, 210f),
     Share(Icons.Rounded.Share, R.string.video_share, 270f),
+    Save(Icons.AutoMirrored.Rounded.PlaylistAdd, R.string.video_save, 330f),
+    Channel(Icons.Rounded.AccountCircle, R.string.channel_group, 150f),
 }
 
 /** Pure fan geometry, in any one unit (the app passes pixels). */
 object FanMath {
-    /** Default tolerance: generous, so a flick does not need to be precise (about 43°). */
-    const val TOLERANCE = 0.75f
+    /** Leave a narrow neutral gap between the six 60-degree sectors. */
+    const val TOLERANCE = 0.49f
 
     /**
      * The action the finger points at from the fan [center], or null inside the dead zone or
@@ -96,8 +99,6 @@ object FanMath {
 /** What a released hold means. */
 sealed interface FanResult {
     data class Picked(val action: FanAction) : FanResult
-    /** Held and released without moving: open the normal video menu. */
-    data object Still : FanResult
     /** Moved away but not onto an action, or the touch was cancelled. */
     data object None : FanResult
 }
@@ -130,7 +131,7 @@ class FanHost {
         val s = session ?: return false
         s.pointer = rootPoint
         if ((rootPoint - s.start).getDistance() > dead) s.moved = true
-        val pick = if (s.moved) FanMath.pick(rootPoint.x - s.center.x, rootPoint.y - s.center.y, dead, available = s.available) else null
+        val pick = if (s.moved) FanMath.pick(rootPoint.x - s.start.x, rootPoint.y - s.start.y, dead, available = s.available) else null
         val changed = pick != s.selected
         s.selected = pick
         return changed && pick != null
@@ -142,7 +143,6 @@ class FanHost {
         return when {
             cancelled -> FanResult.None
             s.selected != null -> FanResult.Picked(s.selected!!)
-            !s.moved -> FanResult.Still
             else -> FanResult.None
         }
     }

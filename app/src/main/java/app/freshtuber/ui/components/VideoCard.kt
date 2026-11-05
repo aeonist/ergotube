@@ -68,11 +68,19 @@ fun VideoCard(
     val effectiveBranding = if (app.freshtuber.ui.theme.LocalAppPreferences.current.enabled(app.freshtuber.data.settings.AppFeature.DeArrow)) branding else null
     var hidden by remember(video.id) { mutableStateOf(false) }
     var menuOpen by remember(video.id) { mutableStateOf(false) }
+    var saveOpen by remember(video.id) { mutableStateOf(false) }
     val feedActions: app.freshtuber.ui.feed.FeedVideoActions? = if (enableMenu) androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel() else null
     val hiddenIds = if (recommendation) feedActions?.hiddenVideos?.collectAsStateWithLifecycle()?.value.orEmpty() else emptySet()
-    val act = app.freshtuber.ui.feed.rememberCardActions(video, feedActions) { hidden = it }
+    val quickAct = app.freshtuber.ui.feed.rememberCardActions(video, feedActions) { hidden = it }
+    val act: (app.freshtuber.ui.feed.FanAction) -> Unit = { action -> when (action) {
+        app.freshtuber.ui.feed.FanAction.Save -> saveOpen = true
+        app.freshtuber.ui.feed.FanAction.Channel -> video.channelId?.let { onChannelClick?.invoke(it) }
+        else -> quickAct(action)
+    } }
     if (hidden || video.id in hiddenIds) return
     if (menuOpen) app.freshtuber.ui.feed.FeedVideoMenu(video, recommendation, act, onChannelClick) { menuOpen = false }
+    if (saveOpen) app.freshtuber.ui.feed.FeedVideoMenu(video, recommendation, act, onChannelClick, saveOnly = true) { saveOpen = false }
+    val currentAct by rememberUpdatedState(act)
     val fan = app.freshtuber.ui.feed.LocalFanHost.current
     var coordinates by remember { mutableStateOf<androidx.compose.ui.layout.LayoutCoordinates?>(null) }
     // Where the thumbnail is on screen, so a tap sends it flying into the player.
@@ -87,15 +95,18 @@ fun VideoCard(
                 app.freshtuber.ui.player.FlightTarget.Page, thumbnailForFlight)
         onClick()
     }
-    val available = remember(recommendation) {
-        app.freshtuber.ui.feed.FanAction.entries.filter { recommendation || it != app.freshtuber.ui.feed.FanAction.NotInterested }.toSet()
+    val available = remember(recommendation, video.channelId, onChannelClick != null) {
+        app.freshtuber.ui.feed.FanAction.entries.filter {
+            (recommendation || it != app.freshtuber.ui.feed.FanAction.NotInterested) &&
+                (it != app.freshtuber.ui.feed.FanAction.Channel || (video.channelId != null && onChannelClick != null))
+        }.toSet()
     }
     Column(
         modifier
             .fillMaxWidth()
             .onGloballyPositioned { coordinates = it }
             .then(if (enableMenu && fan != null) Modifier.pointerInput(video.id, available) {
-                // Hold, then flick toward an action; hold and release still for the menu.
+                // Hold, then flick toward an action; releasing in the centre cancels.
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
                     val long = awaitLongPressOrCancellation(down.id) ?: return@awaitEachGesture
@@ -106,12 +117,11 @@ fun VideoCard(
                     while (true) {
                         val change = awaitPointerEvent().changes.firstOrNull { it.id == long.id } ?: break
                         change.consume()
-                        if (!change.pressed) { released = true; break }
                         fan.move(coords.localToRoot(change.position))
+                        if (!change.pressed) { released = true; break }
                     }
                     when (val result = fan.finish(cancelled = !released)) {
-                        is app.freshtuber.ui.feed.FanResult.Picked -> act(result.action)
-                        app.freshtuber.ui.feed.FanResult.Still -> menuOpen = true
+                        is app.freshtuber.ui.feed.FanResult.Picked -> currentAct(result.action)
                         app.freshtuber.ui.feed.FanResult.None -> Unit
                     }
                 }

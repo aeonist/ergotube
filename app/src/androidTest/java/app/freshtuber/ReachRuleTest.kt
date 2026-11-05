@@ -15,6 +15,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import app.freshtuber.data.settings.AppSettings
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.flow.first
+import app.freshtuber.data.settings.AppFeature
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -39,7 +41,9 @@ class ReachRuleTest {
     private fun checkAllScreens(left: Boolean) {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val settings = AppSettings(context)
+        val original = runBlocking { settings.preferences.first() }
         runBlocking {
+            settings.setFeature(AppFeature.LiquidFlat, true)
             settings.markWelcomeDone()
             settings.setLeftHanded(left)
         }
@@ -75,6 +79,7 @@ class ReachRuleTest {
             Thread.sleep(6_000)
             check("Player")
         }
+        runBlocking { settings.setFeature(AppFeature.LiquidFlat, original.enabled(AppFeature.LiquidFlat)) }
         assertTrue(violations.joinToString("\n"), violations.isEmpty())
     }
 

@@ -146,6 +146,7 @@ class VideoSurfaceHandle {
         internal set
 
     /** A copy of what the surface shows now, at half size; null if it shows nothing yet. */
+    @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     suspend fun capture(): ImageBitmap? {
         val surface = view?.videoSurfaceView ?: return null
         if (surface.width <= 1 || surface.height <= 1) return null

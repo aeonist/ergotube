@@ -271,4 +271,13 @@
     <string name="sponsor_interaction">Просьба подписаться</string>
     <string name="sponsor_intro">Заставка</string>
     <string name="sponsor_outro">Концовка</string>
+    <string name="settings_dock_width">Ширина нижнего меню</string>
+    <string name="settings_dock_compact">Компактное</string>
+    <string name="settings_dock_full">Во всю ширину</string>
+    <string name="settings_mini_tap">Разворачивать мини-плеер нажатием</string>
+    <string name="settings_mini_tap_hint">Включено: открывает вертикальный плеер. Выключено: показывает кнопки мини-плеера.</string>
+    <string name="settings_quality_networks">Wi-Fi и мобильная сеть</string>
+    <string name="settings_quality_wifi">Качество по Wi-Fi</string>
+    <string name="settings_quality_mobile">Качество в мобильной сети</string>
+    <string name="settings_quality_hint">Авто подбирает качество по скорости сети. Выбранное разрешение задаёт верхний предел.</string>
 </resources>
