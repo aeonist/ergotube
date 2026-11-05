@@ -78,6 +78,17 @@ class MainActivity : ComponentActivity() {
         override fun onEvents(player: androidx.media3.common.Player, events: androidx.media3.common.Player.Events) = refreshPictureInPicture()
         override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) = refreshPictureInPicture()
     }
+    /** Keeps the screen awake only while playback is actually running (any player surface, fullscreen or Shorts). */
+    private val keepScreenOnListener = object : androidx.media3.common.Player.Listener {
+        override fun onIsPlayingChanged(isPlaying: Boolean) = updateKeepScreenOn()
+        override fun onEvents(player: androidx.media3.common.Player, events: androidx.media3.common.Player.Events) = updateKeepScreenOn()
+    }
+
+    private fun updateKeepScreenOn() {
+        val playing = playerController.player.isPlaying
+        if (playing) window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        else window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -92,6 +103,8 @@ class MainActivity : ComponentActivity() {
         androidx.core.content.ContextCompat.registerReceiver(this, pipReceiver, android.content.IntentFilter(PIP_ACTION),
             androidx.core.content.ContextCompat.RECEIVER_NOT_EXPORTED)
         playerController.player.addListener(pipPlayerListener)
+        playerController.player.addListener(keepScreenOnListener)
+        updateKeepScreenOn()
         lifecycleScope.launch { playerController.videoVisible.collect { refreshPictureInPicture() } }
         // Previous / next turn on and off with the queue.
         lifecycleScope.launch { playerController.state.collect { refreshPictureInPicture() } }
@@ -184,6 +197,8 @@ class MainActivity : ComponentActivity() {
     override fun onDestroy() {
         if (wasInPictureInPicture && !isChangingConfigurations && !audioOnlyRequested) playerController.stop()
         playerController.player.removeListener(pipPlayerListener)
+        playerController.player.removeListener(keepScreenOnListener)
+        window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         runCatching { unregisterReceiver(pipReceiver) }
         super.onDestroy()
     }
