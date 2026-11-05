@@ -18,7 +18,15 @@ import app.freshtuber.R
 import app.freshtuber.data.settings.AppSettings
 import app.freshtuber.ui.components.*
 import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BackHand
+import androidx.compose.material.icons.rounded.BatterySaver
+import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.PlayCircle
+import androidx.compose.material.icons.rounded.SdStorage
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.saveable.rememberSaveable
+import app.freshtuber.data.settings.AppFeature
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.asSharedFlow
 import androidx.compose.material.icons.rounded.DeleteOutline
@@ -66,6 +74,21 @@ class SettingsViewModel @Inject constructor(private val settings: AppSettings,
     }
 }
 
+/** The six settings sections, most used first: item 0 lands under the thumb. */
+private enum class SettingsGroup(val icon: androidx.compose.ui.graphics.vector.ImageVector, val title: Int) {
+    Look(androidx.compose.material.icons.Icons.Rounded.BackHand, R.string.settings_group_look),
+    Energy(androidx.compose.material.icons.Icons.Rounded.BatterySaver, R.string.settings_group_energy),
+    Player(androidx.compose.material.icons.Icons.Rounded.PlayCircle, R.string.settings_group_player),
+    Feeds(androidx.compose.material.icons.Icons.Rounded.AutoAwesome, R.string.settings_group_feeds),
+    Notifications(androidx.compose.material.icons.Icons.Rounded.Notifications, R.string.settings_group_notifications),
+    Storage(androidx.compose.material.icons.Icons.Rounded.SdStorage, R.string.settings_group_storage),
+}
+
+/**
+ * Settings, built from the thumb up: the title, the account and six section tiles sit low on
+ * the screen; a tile opens its switches in a sheet at the bottom. Choices are chips in place,
+ * never a dialog in the middle of the screen.
+ */
 @Composable
 fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
     val preferences by viewModel.preferences.collectAsStateWithLifecycle()
@@ -85,91 +108,128 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
     }
     val enableNotifications = app.freshtuber.ui.components.rememberNotificationPermission {
         systemNotifications = true
-        viewModel.feature(app.freshtuber.data.settings.AppFeature.Notifications, true)
+        viewModel.feature(AppFeature.Notifications, true)
     }
     LaunchedEffect(viewModel, resources) { viewModel.messages.collect { appMessages?.show(resources.getString(it)) } }
+    var open by rememberSaveable { mutableStateOf<SettingsGroup?>(null) }
     var clearHidden by remember { mutableStateOf(false) }
     var clearImages by remember { mutableStateOf(false) }
     var remove by remember { mutableStateOf<app.freshtuber.data.subscriptions.LocalChannel?>(null) }
     var about by remember { mutableStateOf(false) }
     val qualityOptions = listOf(144, 240, 360, 480, 720, 1080, 1440, 2160, 4320)
-    Column(Modifier.fillMaxSize()) {
-        androidx.compose.foundation.lazy.LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(bottom = app.freshtuber.ui.feed.LocalFeedBottomClearance.current)) {
-            item { ScreenHeader(stringResource(R.string.nav_settings), stringResource(R.string.settings_subtitle)) }
-            // The most used rows first, right under the header.
-            item {
-                val signed = account as? app.freshtuber.data.account.AccountState.SignedIn
-                ListItem(colors = ClearListItem, headlineContent = { Text(stringResource(R.string.nav_account)) },
-                    supportingContent = { Text(signed?.active?.let { it.name ?: it.email } ?: stringResource(R.string.settings_account_signed_out)) },
-                    leadingContent = { Icon(androidx.compose.material.icons.Icons.Rounded.AccountCircle, null) },
-                    modifier = Modifier.heightIn(min = 56.dp).clickable(onClick = onAccount))
+    val notificationsOn = preferences.enabled(AppFeature.Notifications) && systemNotifications
+    val themeNames = listOf(R.string.theme_system, R.string.theme_light, R.string.theme_dark, R.string.theme_amoled).map { stringResource(it) }
+    val on = stringResource(R.string.player_on)
+    val off = stringResource(R.string.player_off)
+
+    fun summary(group: SettingsGroup): String = when (group) {
+        SettingsGroup.Look -> resources.getString(R.string.settings_hand_value, resources.getString(if (left) R.string.radial_left else R.string.radial_right)) +
+            " · " + themeNames[preferences.theme.ordinal]
+        SettingsGroup.Energy -> resources.getString(if (preferences.enabled(AppFeature.LiquidFlat)) R.string.settings_flat else R.string.settings_live_light)
+        SettingsGroup.Player -> resources.getString(R.string.quality_resolution, preferences.quality)
+        SettingsGroup.Feeds -> resources.getString(R.string.settings_group_feeds_hint)
+        SettingsGroup.Notifications -> if (notificationsOn) on else off
+        SettingsGroup.Storage -> resources.getString(R.string.quality_resolution, preferences.downloadQuality)
+    }
+
+    // Pressed to the bottom; on a short screen (landscape) it scrolls instead of clipping.
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).heightIn(min = maxHeight).padding(bottom = 12.dp),
+        verticalArrangement = Arrangement.Bottom) {
+        ScreenHeader(stringResource(R.string.nav_settings), stringResource(R.string.settings_subtitle))
+        val signed = account as? app.freshtuber.data.account.AccountState.SignedIn
+        Surface(onClick = onAccount, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).heightIn(min = 56.dp),
+            shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.7f)) {
+            Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(androidx.compose.material.icons.Icons.Rounded.AccountCircle, null)
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.nav_account), style = MaterialTheme.typography.titleSmall)
+                    Text(signed?.active?.let { it.name ?: it.email } ?: stringResource(R.string.settings_account_signed_out),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                }
             }
-            item {
-                ListItem(colors = ClearListItem, headlineContent = { Text(stringResource(R.string.settings_hand)) },
-                    leadingContent = { Icon(androidx.compose.material.icons.Icons.Rounded.BackHand, null) },
-                    trailingContent = {
-                        SingleChoiceSegmentedButtonRow {
-                            listOf(true, false).forEachIndexed { index, hand ->
-                                SegmentedButton(selected = left == hand, onClick = { menu.setHand(hand) }, shape = SegmentedButtonDefaults.itemShape(index, 2),
-                                    modifier = Modifier.heightIn(min = 48.dp)) {
-                                    Text(stringResource(if (hand) R.string.radial_left else R.string.radial_right))
-                                }
-                            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            handGrid(SettingsGroup.entries, 2, left).chunked(2).forEach { row ->
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    row.forEach { group ->
+                        if (group == null) Spacer(Modifier.weight(1f))
+                        else GroupTile(group, summary(group), Modifier.weight(1f)) { open = group }
+                    }
+                }
+            }
+        }
+    }
+    }
+
+    open?.let { group ->
+        SettingsSheet(stringResource(group.title), onDismiss = { open = null }) {
+            // Inside a sheet the most used rows come last, nearest the thumb.
+            when (group) {
+                SettingsGroup.Look -> {
+                    SettingsToggle(stringResource(R.string.settings_dynamic_color), stringResource(R.string.settings_dynamic_color_hint), preferences.enabled(AppFeature.DynamicColor)) { viewModel.feature(AppFeature.DynamicColor, it) }
+                    SettingsChoice(stringResource(R.string.settings_font), listOf(stringResource(R.string.settings_font_serif), stringResource(R.string.settings_font_sans)),
+                        if (preferences.enabled(AppFeature.SerifFont)) 0 else 1, left) { viewModel.feature(AppFeature.SerifFont, it == 0) }
+                    SettingsChoice(stringResource(R.string.settings_theme), themeNames, preferences.theme.ordinal, left) { viewModel.theme(app.freshtuber.data.settings.ThemeMode.entries[it]) }
+                    SettingsChoice(stringResource(R.string.settings_hand), listOf(stringResource(R.string.radial_left), stringResource(R.string.radial_right)),
+                        if (left) 0 else 1, left) { menu.setHand(it == 0) }
+                }
+                SettingsGroup.Energy -> {
+                    SettingsChoice(stringResource(R.string.settings_motion), listOf(R.string.settings_motion_always, R.string.settings_motion_transition, R.string.settings_motion_off).map { stringResource(it) },
+                        preferences.motion.ordinal, left) { viewModel.motion(app.freshtuber.data.settings.BackgroundMotion.entries[it]) }
+                    listOf(
+                        Triple(AppFeature.LiquidRefraction, R.string.settings_refraction, R.string.settings_refraction_hint),
+                        Triple(AppFeature.LiquidGrain, R.string.settings_grain, R.string.settings_grain_hint),
+                        Triple(AppFeature.LiquidPowerSaver, R.string.settings_power_saver, R.string.settings_power_saver_hint),
+                        Triple(AppFeature.LiquidFlat, R.string.settings_flat, R.string.settings_flat_hint),
+                    ).forEach { (feature, label, hint) -> SettingsToggle(stringResource(label), stringResource(hint), preferences.enabled(feature)) { viewModel.feature(feature, it) } }
+                }
+                SettingsGroup.Player -> {
+                    listOf(
+                        Triple(AppFeature.SponsorBlock, R.string.settings_sponsorblock, R.string.settings_sponsorblock_hint),
+                        Triple(AppFeature.Gestures, R.string.settings_gestures, R.string.settings_gestures_hint),
+                        Triple(AppFeature.Autoplay, R.string.settings_autoplay, R.string.settings_autoplay_hint),
+                        Triple(AppFeature.PictureInPicture, R.string.settings_pip, R.string.settings_pip_hint),
+                        Triple(AppFeature.BackgroundPlayback, R.string.settings_background, R.string.settings_background_hint),
+                    ).forEach { (feature, label, hint) -> SettingsToggle(stringResource(label), stringResource(hint), preferences.enabled(feature)) { viewModel.feature(feature, it) } }
+                    SettingsChoice(stringResource(R.string.settings_playback_quality), qualityOptions.map { stringResource(R.string.quality_resolution, it) },
+                        qualityOptions.indexOf(preferences.quality).coerceAtLeast(0), left) { viewModel.quality(qualityOptions[it]) }
+                }
+                SettingsGroup.Feeds -> listOf(
+                    Triple(AppFeature.ShortsInFeeds, R.string.settings_feed_shorts, R.string.settings_feed_shorts_hint),
+                    Triple(AppFeature.ShortsTab, R.string.nav_shorts, R.string.settings_shorts_hint),
+                    Triple(AppFeature.Dislikes, R.string.settings_dislikes, R.string.settings_dislikes_hint),
+                    Triple(AppFeature.DeArrow, R.string.settings_dearrow, R.string.settings_dearrow_hint),
+                ).forEach { (feature, label, hint) -> SettingsToggle(stringResource(label), stringResource(hint), preferences.enabled(feature)) { viewModel.feature(feature, it) } }
+                SettingsGroup.Notifications -> {
+                    if (channels.isEmpty()) Text(stringResource(R.string.settings_no_local_channels), Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    channels.forEach { channel ->
+                        key(channel.id) {
+                            val grant = app.freshtuber.ui.components.rememberNotificationPermission { viewModel.channelNotifications(channel, true) }
+                            ListItem(colors = ClearListItem, headlineContent = { Text(channel.name, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                                supportingContent = { Text(stringResource(R.string.local_on_device)) },
+                                trailingContent = { Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Switch(checked = channel.notifications, onCheckedChange = { if (it) grant() else viewModel.channelNotifications(channel, false) })
+                                    IconButton(onClick = { remove = channel }) { Icon(androidx.compose.material.icons.Icons.Rounded.DeleteOutline, stringResource(R.string.local_remove_channel)) }
+                                } })
                         }
-                    })
+                    }
+                    SettingsToggle(stringResource(R.string.settings_notifications), stringResource(if (systemNotifications) R.string.settings_notifications_hint else R.string.notification_permission_hint), notificationsOn) {
+                        if (it) enableNotifications() else viewModel.feature(AppFeature.Notifications, false)
+                    }
+                }
+                SettingsGroup.Storage -> {
+                    ListItem(colors = ClearListItem, headlineContent = { Text(stringResource(R.string.settings_about)) }, supportingContent = { Text(stringResource(R.string.settings_version, app.freshtuber.BuildConfig.VERSION_NAME)) }, modifier = Modifier.clickable { about = true })
+                    ListItem(colors = ClearListItem, headlineContent = { Text(stringResource(R.string.settings_reset_hidden)) }, modifier = Modifier.clickable { clearHidden = true })
+                    ListItem(colors = ClearListItem, headlineContent = { Text(stringResource(R.string.settings_clear_images)) }, supportingContent = { Text(stringResource(R.string.settings_clear_images_hint)) }, modifier = Modifier.clickable { clearImages = true })
+                    SettingsToggle(stringResource(R.string.settings_download_wifi), stringResource(R.string.settings_download_wifi_hint), preferences.enabled(AppFeature.DownloadsWifi)) { viewModel.feature(AppFeature.DownloadsWifi, it) }
+                    SettingsChoice(stringResource(R.string.settings_download_quality), qualityOptions.map { stringResource(R.string.quality_resolution, it) },
+                        qualityOptions.indexOf(preferences.downloadQuality).coerceAtLeast(0), left) { viewModel.downloadQuality(qualityOptions[it]) }
+                }
             }
-            item { SettingsChoice(stringResource(R.string.settings_theme), listOf(R.string.theme_system, R.string.theme_light, R.string.theme_dark, R.string.theme_amoled).map { stringResource(it) }, preferences.theme.ordinal) { viewModel.theme(app.freshtuber.data.settings.ThemeMode.entries[it]) } }
-            item { SettingsSection(R.string.settings_playback) }
-            item { SettingsChoice(stringResource(R.string.settings_playback_quality), qualityOptions.map { stringResource(R.string.quality_resolution, it) }, qualityOptions.indexOf(preferences.quality).coerceAtLeast(0)) { viewModel.quality(qualityOptions[it]) } }
-            listOf(
-                Triple(app.freshtuber.data.settings.AppFeature.BackgroundPlayback, R.string.settings_background, R.string.settings_background_hint),
-                Triple(app.freshtuber.data.settings.AppFeature.PictureInPicture, R.string.settings_pip, R.string.settings_pip_hint),
-                Triple(app.freshtuber.data.settings.AppFeature.Autoplay, R.string.settings_autoplay, R.string.settings_autoplay_hint),
-                Triple(app.freshtuber.data.settings.AppFeature.Gestures, R.string.settings_gestures, R.string.settings_gestures_hint),
-                Triple(app.freshtuber.data.settings.AppFeature.SponsorBlock, R.string.settings_sponsorblock, R.string.settings_sponsorblock_hint),
-            ).forEach { (feature, label, hint) -> item { SettingsToggle(stringResource(label), stringResource(hint), preferences.enabled(feature)) { viewModel.feature(feature, it) } } }
-            item { SettingsSection(R.string.settings_recommendations) }
-            listOf(
-                Triple(app.freshtuber.data.settings.AppFeature.DeArrow, R.string.settings_dearrow, R.string.settings_dearrow_hint),
-                Triple(app.freshtuber.data.settings.AppFeature.Dislikes, R.string.settings_dislikes, R.string.settings_dislikes_hint),
-                Triple(app.freshtuber.data.settings.AppFeature.ShortsTab, R.string.nav_shorts, R.string.settings_shorts_hint),
-                Triple(app.freshtuber.data.settings.AppFeature.ShortsInFeeds, R.string.settings_feed_shorts, R.string.settings_feed_shorts_hint),
-            ).forEach { (feature, label, hint) -> item { SettingsToggle(stringResource(label), stringResource(hint), preferences.enabled(feature)) { viewModel.feature(feature, it) } } }
-            item { SettingsSection(R.string.settings_appearance) }
-            item { SettingsToggle(stringResource(R.string.settings_dynamic_color), stringResource(R.string.settings_dynamic_color_hint), preferences.enabled(app.freshtuber.data.settings.AppFeature.DynamicColor)) { viewModel.feature(app.freshtuber.data.settings.AppFeature.DynamicColor, it) } }
-            item { SettingsChoice(stringResource(R.string.settings_font), listOf(stringResource(R.string.settings_font_serif), stringResource(R.string.settings_font_sans)),
-                if (preferences.enabled(app.freshtuber.data.settings.AppFeature.SerifFont)) 0 else 1) { viewModel.feature(app.freshtuber.data.settings.AppFeature.SerifFont, it == 0) } }
-            item { SettingsSection(R.string.settings_energy) }
-            item { SettingsToggle(stringResource(R.string.settings_flat), stringResource(R.string.settings_flat_hint), preferences.enabled(app.freshtuber.data.settings.AppFeature.LiquidFlat)) { viewModel.feature(app.freshtuber.data.settings.AppFeature.LiquidFlat, it) } }
-            item { SettingsChoice(stringResource(R.string.settings_motion), listOf(R.string.settings_motion_always, R.string.settings_motion_transition, R.string.settings_motion_off).map { stringResource(it) },
-                preferences.motion.ordinal) { viewModel.motion(app.freshtuber.data.settings.BackgroundMotion.entries[it]) } }
-            listOf(
-                Triple(app.freshtuber.data.settings.AppFeature.LiquidRefraction, R.string.settings_refraction, R.string.settings_refraction_hint),
-                Triple(app.freshtuber.data.settings.AppFeature.LiquidGrain, R.string.settings_grain, R.string.settings_grain_hint),
-                Triple(app.freshtuber.data.settings.AppFeature.LiquidPowerSaver, R.string.settings_power_saver, R.string.settings_power_saver_hint),
-            ).forEach { (feature, label, hint) -> item { SettingsToggle(stringResource(label), stringResource(hint), preferences.enabled(feature)) { viewModel.feature(feature, it) } } }
-            item { SettingsSection(R.string.notification_new_videos) }
-            item { SettingsToggle(stringResource(R.string.settings_notifications), stringResource(if (systemNotifications) R.string.settings_notifications_hint else R.string.notification_permission_hint), preferences.enabled(app.freshtuber.data.settings.AppFeature.Notifications) && systemNotifications) {
-                if (it) enableNotifications() else viewModel.feature(app.freshtuber.data.settings.AppFeature.Notifications, false)
-            } }
-            if (channels.isEmpty()) item { Text(stringResource(R.string.settings_no_local_channels), Modifier.padding(16.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
-            items(channels.size, key = { channels[it].id }) { index ->
-                val channel = channels[index]
-                val grant = app.freshtuber.ui.components.rememberNotificationPermission { viewModel.channelNotifications(channel, true) }
-                ListItem(colors = ClearListItem, headlineContent = { Text(channel.name, maxLines = 2, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
-                    supportingContent = { Text(stringResource(R.string.local_on_device)) },
-                    trailingContent = { Row(verticalAlignment = Alignment.CenterVertically) {
-                        Switch(checked = channel.notifications, onCheckedChange = { if (it) grant() else viewModel.channelNotifications(channel, false) })
-                        IconButton(onClick = { remove = channel }) { Icon(androidx.compose.material.icons.Icons.Rounded.DeleteOutline, stringResource(R.string.local_remove_channel)) }
-                    } })
-            }
-            item { SettingsSection(R.string.library_downloads) }
-            item { SettingsChoice(stringResource(R.string.settings_download_quality), qualityOptions.map { stringResource(R.string.quality_resolution, it) }, qualityOptions.indexOf(preferences.downloadQuality).coerceAtLeast(0)) { viewModel.downloadQuality(qualityOptions[it]) } }
-            item { SettingsToggle(stringResource(R.string.settings_download_wifi), stringResource(R.string.settings_download_wifi_hint), preferences.enabled(app.freshtuber.data.settings.AppFeature.DownloadsWifi)) { viewModel.feature(app.freshtuber.data.settings.AppFeature.DownloadsWifi, it) } }
-            item { SettingsSection(R.string.settings_storage) }
-            item { ListItem(colors = ClearListItem, headlineContent = { Text(stringResource(R.string.settings_clear_images)) }, supportingContent = { Text(stringResource(R.string.settings_clear_images_hint)) }, modifier = Modifier.clickable { clearImages = true }) }
-            item { ListItem(colors = ClearListItem, headlineContent = { Text(stringResource(R.string.settings_reset_hidden)) }, modifier = Modifier.clickable { clearHidden = true }) }
-            item { ListItem(colors = ClearListItem, headlineContent = { Text(stringResource(R.string.settings_about)) }, supportingContent = { Text(stringResource(R.string.settings_version, app.freshtuber.BuildConfig.VERSION_NAME)) }, modifier = Modifier.clickable { about = true }) }
         }
     }
     if (clearHidden || clearImages) AlertDialog(onDismissRequest = { clearHidden = false; clearImages = false },
@@ -184,13 +244,40 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
         text = { Text(stringResource(R.string.settings_about_text)) }, confirmButton = { TextButton(onClick = { about = false }) { Text(stringResource(android.R.string.ok)) } })
 }
 
+/** A section tile: icon, title and what is set now. */
+@Composable
+private fun GroupTile(group: SettingsGroup, summary: String, modifier: Modifier, onClick: () -> Unit) {
+    Surface(onClick = onClick, modifier = modifier.heightIn(min = 92.dp), shape = RoundedCornerShape(22.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f),
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))) {
+        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.Center) {
+            Icon(group.icon, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+            Text(stringResource(group.title), style = MaterialTheme.typography.titleSmall, maxLines = 2,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, modifier = Modifier.padding(top = 8.dp))
+            Text(summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        }
+    }
+}
+
+/** A section's switches in a sheet at the bottom; long sections scroll, starting at the bottom. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SettingsSheet(title: String, onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        val scroll = rememberScrollState()
+        // Start scrolled to the end, so the most used rows are on screen under the thumb.
+        LaunchedEffect(scroll.maxValue) { if (scroll.value == 0) scroll.scrollTo(scroll.maxValue) }
+        Column(Modifier.fillMaxWidth().heightIn(max = 620.dp).verticalScroll(scroll).padding(bottom = 16.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
+            content()
+        }
+    }
+}
+
 /** List rows let the background light through. */
 private val ClearListItem @Composable get() = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent)
-
-@Composable
-private fun SettingsSection(label: Int) {
-    Text(stringResource(label), Modifier.padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 8.dp), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-}
 
 @Composable
 private fun SettingsToggle(label: String, hint: String, checked: Boolean, onChange: (Boolean) -> Unit) {
@@ -198,15 +285,11 @@ private fun SettingsToggle(label: String, hint: String, checked: Boolean, onChan
         modifier = Modifier.heightIn(min = 64.dp).clickable { onChange(!checked) })
 }
 
+/** A choice with its options as chips right there, starting at the working-hand edge. */
 @Composable
-private fun SettingsChoice(label: String, options: List<String>, selected: Int, onChange: (Int) -> Unit) {
-    var open by remember { mutableStateOf(false) }
-    ListItem(colors = ClearListItem, headlineContent = { Text(label) }, supportingContent = { Text(options[selected]) }, modifier = Modifier.clickable { open = true })
-    if (open) AlertDialog(onDismissRequest = { open = false }, title = { Text(label) }, text = {
-        Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) { options.forEachIndexed { index, title ->
-            Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clickable { onChange(index); open = false }, verticalAlignment = Alignment.CenterVertically) {
-                RadioButton(index == selected, onClick = { onChange(index); open = false }); Text(title)
-            }
-        } }
-    }, confirmButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.action_cancel)) } })
+private fun SettingsChoice(label: String, options: List<String>, selected: Int, left: Boolean, onChange: (Int) -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(horizontal = 16.dp))
+        HandChips(options.mapIndexed { index, title -> ChipItem(title, index == selected) { onChange(index) } }, left, natural = true)
+    }
 }

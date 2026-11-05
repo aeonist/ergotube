@@ -50,15 +50,23 @@ import coil3.compose.AsyncImage
 /** Clearance is scrollable content padding, never a permanent empty footer. */
 val LocalFeedBottomClearance = androidx.compose.runtime.staticCompositionLocalOf { 88.dp }
 
-/** The list fades out over its last 28 dp instead of ending at a hard edge. */
-fun Modifier.bottomFade(height: androidx.compose.ui.unit.Dp = 28.dp): Modifier =
+/**
+ * The list fades out over its last 28 dp instead of ending at a hard edge; [atTop] fades the
+ * top edge instead (lists that grow upward from the thumb).
+ */
+fun Modifier.bottomFade(height: androidx.compose.ui.unit.Dp = 28.dp, atTop: Boolean = false): Modifier =
     graphicsLayer { compositingStrategy = androidx.compose.ui.graphics.CompositingStrategy.Offscreen }
         .drawWithContent {
             drawContent()
             val fade = height.toPx()
-            drawRect(
-                androidx.compose.ui.graphics.Brush.verticalGradient(listOf(androidx.compose.ui.graphics.Color.Transparent, androidx.compose.ui.graphics.Color.Black),
-                    startY = size.height - fade, endY = size.height),
+            val clear = androidx.compose.ui.graphics.Color.Transparent
+            val black = androidx.compose.ui.graphics.Color.Black
+            if (atTop) drawRect(
+                androidx.compose.ui.graphics.Brush.verticalGradient(listOf(black, clear), startY = 0f, endY = fade),
+                size = androidx.compose.ui.geometry.Size(size.width, fade),
+                blendMode = androidx.compose.ui.graphics.BlendMode.DstOut,
+            ) else drawRect(
+                androidx.compose.ui.graphics.Brush.verticalGradient(listOf(clear, black), startY = size.height - fade, endY = size.height),
                 topLeft = androidx.compose.ui.geometry.Offset(0f, size.height - fade),
                 blendMode = androidx.compose.ui.graphics.BlendMode.DstOut,
             )
@@ -90,6 +98,11 @@ fun FeedList(
     onSignInAgain: (() -> Unit)? = null,
     header: (LazyListScope.() -> Unit)? = null,
     listState: androidx.compose.foundation.lazy.LazyListState = rememberLazyListState(),
+    /**
+     * Grows upward from the thumb like a messenger: the header and the first (newest) item sit
+     * right above the bottom bar, older ones are scrolled to upward.
+     */
+    fromBottom: Boolean = false,
 ) {
     val nearEnd by remember {
         derivedStateOf {
@@ -101,7 +114,8 @@ fun FeedList(
         if (nearEnd && state.items.isNotEmpty()) onLoadMore()
     }
 
-    LazyColumn(modifier.fillMaxSize().bottomFade(), state = listState, contentPadding = PaddingValues(bottom = LocalFeedBottomClearance.current)) {
+    LazyColumn(modifier.fillMaxSize().bottomFade(atTop = fromBottom), state = listState, reverseLayout = fromBottom,
+        contentPadding = PaddingValues(bottom = if (fromBottom) 8.dp else LocalFeedBottomClearance.current, top = if (fromBottom) 24.dp else 0.dp)) {
         header?.invoke(this)
         if (state.error != null && state.items.isNotEmpty()) item(key = "refresh-error") {
             LoadErrorState(state.error, onRetry, onSignInAgain, Modifier.padding(horizontal = 16.dp, vertical = 12.dp))

@@ -9,7 +9,16 @@
     <string name="nav_mine_description">Моё: Позже, Скачанное, История, Плейлисты, Настройки</string>
     <string name="mine_later">Позже</string>
     <string name="home_subtitle">Рекомендации для тебя</string>
-    <string name="settings_subtitle">Аккаунт, рука, тема, качество, дополнения</string>
+    <string name="settings_subtitle">Раздел откроется снизу, под пальцем</string>
+    <string name="settings_group_look">Рука и вид</string>
+    <string name="settings_group_energy">Фон и энергия</string>
+    <string name="settings_group_player">Плеер</string>
+    <string name="settings_group_feeds">Рекомендации</string>
+    <string name="settings_group_feeds_hint">DeArrow, дизлайки, Shorts</string>
+    <string name="settings_group_notifications">Уведомления</string>
+    <string name="settings_group_storage">Загрузки и память</string>
+    <string name="settings_live_light">Живой свет</string>
+    <string name="settings_hand_value">%1$s рукой</string>
     <string name="settings_account_signed_out">Вход не выполнен</string>
     <string name="settings_hand">Рабочая рука</string>
     <string name="list_play">Смотреть</string>

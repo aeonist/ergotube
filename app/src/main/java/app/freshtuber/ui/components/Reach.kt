@@ -131,11 +131,16 @@ fun <T> handGrid(items: List<T>, columns: Int, left: Boolean): List<T?> {
 
 data class ChipItem(val label: String, val selected: Boolean, val onClick: () -> Unit)
 
-/** A chip row that starts at the working-hand edge. */
+/**
+ * A chip row that starts at the working-hand edge. With [natural] the chips keep their reading
+ * order left to right (scales such as speeds or quality), still pressed to the hand edge.
+ */
 @Composable
-fun HandChips(chips: List<ChipItem>, left: Boolean, modifier: Modifier = Modifier) {
+fun HandChips(chips: List<ChipItem>, left: Boolean, modifier: Modifier = Modifier, natural: Boolean = false) {
+    val chips = if (natural && !left) chips.reversed() else chips
+    // A short row also sits at the hand edge, not across the screen.
     LazyRow(modifier.fillMaxWidth(), reverseLayout = !left, contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        horizontalArrangement = Arrangement.spacedBy(8.dp, if (left) Alignment.Start else Alignment.End)) {
         itemsIndexed(chips, key = { index, chip -> "$index:${chip.label}" }) { _, chip ->
             val bg = if (chip.selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surfaceContainerHigh
             val fg = if (chip.selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurface

@@ -179,10 +179,13 @@ fun ListScreen(
 
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f)) {
+            // Library lists and playlists grow upward from the thumb; channels read like a feed.
+            val fromBottom = !viewModel.isChannel
             if (needsAccount) Column(Modifier.fillMaxSize()) {
-                ScreenHeader(title)
                 MessageState(stringResource(R.string.action_needs_sign_in), Modifier.weight(1f))
+                ScreenHeader(title)
             } else FeedList(
+                fromBottom = fromBottom,
                 state = state,
                 navigation = navigation,
                 onRetry = viewModel.pager::refresh,

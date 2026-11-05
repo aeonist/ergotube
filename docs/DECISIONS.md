@@ -284,3 +284,10 @@ The user rejected the first HTML treatments as ordinary flat backgrounds: their 
 - Waiting for the user's choice (asked, not changed): the player's «Ещё» layout, Playlists/History/Watch later bottom-up layout, Settings page.
 
 Validation: release build, unit tests, ART verify pass on the API 37 emulator; More, comments, Shorts (forced fit path checked in a debug build), PiP buttons on a Short, mini-player controls and grip resize, «Моё» blur, flat background. APK: `apk/ErgoTube-liquid-04-shorts-mini-1104-2203.apk`.
+
+### Liquid 05 — three screens rebuilt from the thumb up (5 Nov 2026)
+The user picked the recommended option for all three questions (1А 2А 3А).
+- **Player «Ещё».** Lowest row, under the thumb: Save, Download, Share, Sleep timer (big, hand-first). Above: switches for Quality, Speed, Subtitles, Repeat showing the current value; tapping one opens its choices inline as a chip strip right above (no separate pages), picking applies and closes the strip, the sheet stays. Top, small: the channel (opens it) and its notification bell. Strips read in natural order left to right (quality low→high) and are pressed to the hand edge.
+- **Lists grow from the bottom.** Watch later, History, Playlists, Liked, single playlists and Downloads use a reversed list: the header and the newest item sit right above the bottom bar, older ones are scrolled to upward like a messenger; the fade moves to the top edge. Channel pages stay top-down (they read like a feed).
+- **Settings.** Title, account strip and six tiles (Hand and look, Background and energy, Player, Recommendations, Notifications, Downloads and storage) pressed to the bottom, hand-first bottom-up grid with a one-line summary each. A tile opens its switches in a bottom sheet that starts scrolled to its end, with the most used rows last. Choices are chip rows in place instead of centered dialogs; only the destructive confirmations stay dialogs.
+- `HandChips` now presses short rows to the hand edge and can keep the natural reading order (`natural`).
