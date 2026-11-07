@@ -62,12 +62,14 @@ object DockLayout {
         val minimum = minOf(available, 300f)
         return if (expanded) available else minimum + (available - minimum) * percent.coerceIn(0, 100) / 100f
     }
-    /** Fixed visual order chosen by the user, independent of the working hand. */
+    /**
+     * Row order. Reflects around the centre button when Mine and Home are inverted,
+     * swapping adjacent outer buttons as well.
+     */
     fun order(left: Boolean, shorts: Boolean, swapHomeMine: Boolean = false): List<DockTab> {
-        val first = if (swapHomeMine) DockTab.Home else DockTab.Mine
-        val last = if (swapHomeMine) DockTab.Mine else DockTab.Home
-        return listOf(first, DockTab.Subscriptions, DockTab.Search, DockTab.Shorts, last)
+        val base = listOf(DockTab.Mine, DockTab.Subscriptions, DockTab.Search, DockTab.Shorts, DockTab.Home)
             .filter { shorts || it != DockTab.Shorts }
+        return if (swapHomeMine) base.reversed() else base
     }
 
 }
