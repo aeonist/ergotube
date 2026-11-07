@@ -31,6 +31,7 @@ class PlaybackService : MediaSessionService() {
     private var session: MediaSession? = null
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val next = SessionCommand("app.freshtuber.NEXT", Bundle.EMPTY)
+    private val previous = SessionCommand("app.freshtuber.PREVIOUS", Bundle.EMPTY)
 
     override fun onCreate() {
         super.onCreate()
@@ -43,23 +44,39 @@ class PlaybackService : MediaSessionService() {
             .setCallback(object : MediaSession.Callback {
                 override fun onConnect(session: MediaSession, info: MediaSession.ControllerInfo): MediaSession.ConnectionResult =
                     MediaSession.ConnectionResult.AcceptedResultBuilder(session)
-                        .setAvailableSessionCommands(MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon().add(next).build())
+                        .setAvailableSessionCommands(
+                            MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
+                                .add(next)
+                                .add(previous)
+                                .build()
+                        )
                         .build()
 
                 override fun onCustomCommand(
                     session: MediaSession, info: MediaSession.ControllerInfo, command: SessionCommand, args: Bundle,
                 ): ListenableFuture<SessionResult> {
-                    if (command.customAction != next.customAction) {
-                        return Futures.immediateFuture(SessionResult(androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED))
+                    return when (command.customAction) {
+                        next.customAction -> {
+                            controller.playNext()
+                            Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+                        }
+                        previous.customAction -> {
+                            controller.playPrevious()
+                            Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+                        }
+                        else -> Futures.immediateFuture(SessionResult(androidx.media3.session.SessionError.ERROR_NOT_SUPPORTED))
                     }
-                    controller.playNext()
-                    return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
                 }
             })
             .build()
         scope.launch {
             controller.state.collect { state ->
                 session?.setMediaButtonPreferences(listOf(
+                    CommandButton.Builder(CommandButton.ICON_PREVIOUS)
+                        .setDisplayName(getString(R.string.player_previous))
+                        .setSessionCommand(previous)
+                        .setEnabled(state.history.isNotEmpty())
+                        .setSlots(CommandButton.SLOT_OVERFLOW).build(),
                     CommandButton.Builder(CommandButton.ICON_SKIP_BACK_10)
                         .setDisplayName(getString(R.string.player_back_10))
                         .setPlayerCommand(Player.COMMAND_SEEK_BACK)
