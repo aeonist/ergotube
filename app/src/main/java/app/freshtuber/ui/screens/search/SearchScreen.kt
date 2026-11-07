@@ -58,8 +58,10 @@ fun SearchScreen(
     var query by rememberSaveable { mutableStateOf("") }
     var submitted by rememberSaveable { mutableStateOf("") }
     var focused by remember { mutableStateOf(false) }
+    val preferences = app.freshtuber.ui.theme.LocalAppPreferences.current
+    val fromBottom = !preferences.enabled(app.freshtuber.data.settings.AppFeature.TraditionalScroll)
     // Categories and the field slide away while results are read downward, and return on the way up.
-    val hide = rememberScrollHide()
+    val hide = rememberScrollHide(inverted = fromBottom)
     val keyboard = LocalSoftwareKeyboardController.current
     val run: (String) -> Unit = { text ->
         query = text
@@ -92,6 +94,7 @@ fun SearchScreen(
                 MessageState(stringResource(R.string.search_idle))
             } else {
                 FeedList(
+                    fromBottom = fromBottom,
                     state = state,
                     navigation = navigation,
                     onRetry = viewModel::retry,

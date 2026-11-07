@@ -8,6 +8,7 @@ class AppPreferencesTest {
         val settings = AppPreferences()
         assertTrue(settings.enabled(AppFeature.DownloadsWifi))
         assertFalse(settings.enabled(AppFeature.ShortsInFeeds))
+        assertFalse(settings.enabled(AppFeature.TraditionalScroll))
         assertTrue(settings.enabled(AppFeature.ShortsTab))
         assertEquals(720, settings.downloadQuality)
         assertEquals(ThemeMode.System, settings.theme)

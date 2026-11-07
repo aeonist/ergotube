@@ -135,8 +135,10 @@ fun SubscriptionsScreen(
     val shown = selectedChannel?.let { id -> source.copy(items = source.items.filter { (it as? FeedItem.Video)?.video?.channelId == id }) } ?: source
     val selectedName = strip.firstOrNull { it.id == selectedChannel }?.name
 
+    val preferences = app.freshtuber.ui.theme.LocalAppPreferences.current
+    val fromBottom = !preferences.enabled(app.freshtuber.data.settings.AppFeature.TraditionalScroll)
     // The strip slides away while reading down and comes back on the way up.
-    val hide = rememberScrollHide()
+    val hide = rememberScrollHide(inverted = fromBottom)
 
     val classic = app.freshtuber.ui.components.LocalClassic.current
     Column(Modifier.fillMaxSize()) {
@@ -146,6 +148,7 @@ fun SubscriptionsScreen(
                 onList = { listOpen = true })
         }
         FeedList(
+            fromBottom = fromBottom,
             state = shown,
             navigation = navigation,
             onRetry = { if (localMode) viewModel.refreshLocal() else { viewModel.feed.refresh() } },

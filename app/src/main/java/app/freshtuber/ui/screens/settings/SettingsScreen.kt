@@ -167,6 +167,8 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
                 SettingsGroup.Look -> {
                     SettingsToggle(stringResource(R.string.settings_swap_home_mine), stringResource(R.string.settings_swap_home_mine_hint),
                         preferences.enabled(AppFeature.SwapHomeMine)) { viewModel.feature(AppFeature.SwapHomeMine, it) }
+                    SettingsToggle(stringResource(R.string.settings_traditional_scroll), stringResource(R.string.settings_traditional_scroll_hint),
+                        preferences.enabled(AppFeature.TraditionalScroll)) { viewModel.feature(AppFeature.TraditionalScroll, it) }
                     Text(stringResource(R.string.settings_dock_width), style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(horizontal = 16.dp))
                     var width by remember(preferences.dockWidth) { mutableFloatStateOf(preferences.dockWidth.toFloat()) }
                     Slider(value = width, onValueChange = { width = it }, valueRange = 0f..100f,

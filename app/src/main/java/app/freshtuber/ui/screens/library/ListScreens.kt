@@ -183,7 +183,8 @@ fun ListScreen(
     val firstVideo = state.items.firstNotNullOfOrNull { (it as? app.freshtuber.domain.model.FeedItem.Video)?.video?.id }
 
     Column(Modifier.fillMaxSize()) {
-        val fromBottom = !viewModel.isChannel
+        val preferences = app.freshtuber.ui.theme.LocalAppPreferences.current
+        val fromBottom = !preferences.enabled(app.freshtuber.data.settings.AppFeature.TraditionalScroll)
         val hide = rememberScrollHide(inverted = fromBottom)
         Box(Modifier.weight(1f)) {
             // Library lists, history and playlists grow upward from the thumb, newest right above

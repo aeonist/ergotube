@@ -44,19 +44,22 @@ fun DownloadsScreen(onVideo: (String) -> Unit, onSearch: () -> Unit, viewModel: 
     val items by viewModel.items.collectAsStateWithLifecycle()
     var deleting by remember { mutableStateOf<Download?>(null) }
     val left = app.freshtuber.ui.components.LocalLeftHanded.current
+    val preferences = app.freshtuber.ui.theme.LocalAppPreferences.current
+    val fromBottom = !preferences.enabled(app.freshtuber.data.settings.AppFeature.TraditionalScroll)
     Column(Modifier.fillMaxSize()) {
         // Grows upward from the thumb: the title and the newest download sit right above the bar.
         if (items.isEmpty()) Column(Modifier.weight(1f).fillMaxWidth()) {
-            Column(Modifier.weight(1f).fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
+            if (!fromBottom) app.freshtuber.ui.components.ScreenHeader(stringResource(R.string.library_downloads))
+            Column(Modifier.weight(1f).fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = if (fromBottom) Arrangement.Bottom else Arrangement.Center) {
                 Icon(Icons.Rounded.Download, null, Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(16.dp))
                 Text(stringResource(R.string.download_empty), style = MaterialTheme.typography.titleMedium)
                 Spacer(Modifier.height(8.dp))
                 Text(stringResource(R.string.download_empty_hint), style = MaterialTheme.typography.bodyMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
-            app.freshtuber.ui.components.ScreenHeader(stringResource(R.string.library_downloads))
-        } else LazyColumn(Modifier.weight(1f).fillMaxWidth().bottomFade(atTop = true), reverseLayout = true,
-            contentPadding = PaddingValues(bottom = 8.dp, top = 24.dp)) {
+            if (fromBottom) app.freshtuber.ui.components.ScreenHeader(stringResource(R.string.library_downloads))
+        } else LazyColumn(Modifier.weight(1f).fillMaxWidth().bottomFade(atTop = fromBottom), reverseLayout = fromBottom,
+            contentPadding = PaddingValues(bottom = if (fromBottom) 8.dp else 24.dp, top = if (fromBottom) 24.dp else 8.dp)) {
             item { app.freshtuber.ui.components.ScreenHeader(stringResource(R.string.library_downloads), stringResource(R.string.download_storage_hint)) }
             items(items, key = { it.videoId }) { item ->
                 Column(Modifier.fillMaxWidth().clickable(enabled = item.state == DownloadStatus.Complete) { onVideo(item.videoId) }.padding(horizontal = 16.dp, vertical = 12.dp)) {
