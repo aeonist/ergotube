@@ -440,6 +440,7 @@ private fun PortraitPage(
 private fun PlayerActions(state: VideoUiState, viewModel: VideoViewModel, left: Boolean, pinned: Boolean, onPin: () -> Unit, onMore: () -> Unit) {
     val locale = LocalConfiguration.current.locales[0]
     val details = state.details
+    val activity = LocalActivity.current
     val liked = state.likeStatus == LikeStatus.Like
     val disliked = state.likeStatus == LikeStatus.Dislike
     val likeCount = (if (liked) details?.likeCountTextLiked ?: details?.likeCountText else details?.likeCountText)?.takeIf { it.any(Char::isDigit) }
@@ -458,6 +459,9 @@ private fun PlayerActions(state: VideoUiState, viewModel: VideoViewModel, left: 
             stringResource(if (subscribed) R.string.channel_unsubscribe else R.string.channel_subscribe), subscribed, details?.channel != null, viewModel::toggleSubscription),
         Action(if (pinned) Icons.Rounded.PushPin else Icons.Outlined.PushPin, stringResource(R.string.player_pin_short),
             stringResource(if (pinned) R.string.player_unpin else R.string.player_pin), pinned, true, onPin),
+        Action(Icons.Rounded.Headphones, stringResource(R.string.player_background_short), stringResource(R.string.player_audio_only), false, true) {
+            viewModel.playBackground(activity)
+        },
         Action(Icons.Rounded.MoreHoriz, stringResource(R.string.player_more), stringResource(R.string.video_more), false, true, onMore),
     )
     Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp)) {
@@ -714,6 +718,7 @@ private fun ClassicActions(state: VideoUiState, viewModel: VideoViewModel, onMor
     val likeCount = (if (liked) details?.likeCountTextLiked ?: details?.likeCountText else details?.likeCountText)?.takeIf { it.any(Char::isDigit) }
     val resources = LocalResources.current
     val context = androidx.compose.ui.platform.LocalContext.current
+    val activity = LocalActivity.current
     val shareTitle = stringResource(R.string.video_share)
     val download = app.freshtuber.ui.components.rememberNotificationPermission { viewModel.download() }
     val pill = MaterialTheme.colorScheme.surfaceContainerHigh
@@ -735,6 +740,7 @@ private fun ClassicActions(state: VideoUiState, viewModel: VideoViewModel, onMor
             }
         }
         val pills = listOf(
+            Triple(Icons.Rounded.Headphones, resources.getString(R.string.player_audio_only)) { viewModel.playBackground(activity) },
             Triple(Icons.Rounded.Share, shareTitle) { app.freshtuber.ui.feed.shareVideo(context, viewModel.videoId, shareTitle) },
             Triple(Icons.AutoMirrored.Rounded.PlaylistAdd, resources.getString(R.string.video_save)) { viewModel.openPlaylistPicker() },
             Triple(Icons.Rounded.Download, resources.getString(R.string.feed_download)) { download() },

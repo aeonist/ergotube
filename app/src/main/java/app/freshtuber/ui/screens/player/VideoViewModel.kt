@@ -127,6 +127,11 @@ class VideoViewModel @Inject constructor(
         controller.setVideoScreen(onScreen)
     }
 
+    fun playBackground(activity: android.app.Activity?) {
+        controller.enterAudioOnly()
+        activity?.moveTaskToBack(true)
+    }
+
     fun playNext() = controller.playNext()
     fun playPrevious() = controller.playPrevious()
 

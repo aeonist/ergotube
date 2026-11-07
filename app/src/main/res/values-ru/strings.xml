@@ -283,4 +283,5 @@
     <string name="settings_swap_home_mine">Поменять «Моё» и «Главная» местами</string>
     <string name="settings_swap_home_mine_hint">«Главная» слева, «Моё» справа.</string>
     <string name="player_audio_only">Слушать в фоне</string>
+    <string name="player_background_short">В фон</string>
 </resources>
