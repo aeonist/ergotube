@@ -42,6 +42,22 @@ class StreamChoiceTest {
         assertEquals(2, StreamChoice.pick(tracks, 144))
         assertEquals(-1, StreamChoice.pick(emptyList(), 1080))
     }
+
+    @Test
+    fun `pick works for vertical Shorts tracks`() {
+        val vertical1080 = VideoTrack(1920, 30, "u-1080", null, StreamChoice.label(1920, 30, 1080), avc, 1, width = 1080)
+        val vertical720 = VideoTrack(1280, 30, "u-720", null, StreamChoice.label(1280, 30, 720), avc, 1, width = 720)
+        val vertical480 = VideoTrack(854, 30, "u-480", null, StreamChoice.label(854, 30, 480), avc, 1, width = 480)
+        val tracks = listOf(vertical1080, vertical720, vertical480)
+
+        assertEquals("1080p", vertical1080.label)
+        assertEquals("720p", vertical720.label)
+        assertEquals("480p", vertical480.label)
+
+        assertEquals(0, StreamChoice.pick(tracks, 1080))
+        assertEquals(1, StreamChoice.pick(tracks, 720))
+        assertEquals(2, StreamChoice.pick(tracks, 480))
+    }
 }
 
 class SponsorBlockRulesTest {

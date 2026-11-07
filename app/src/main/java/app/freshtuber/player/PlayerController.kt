@@ -559,9 +559,11 @@ class PlayerController @Inject constructor(
 
     /** Auto quality: anything up to the preferred lines, chosen by the player from the measured speed. */
     private fun limitQuality() {
+        val cap = if (dashActive && qualityCap > 0) qualityCap else Int.MAX_VALUE
+        val maxDim = if (cap < Int.MAX_VALUE) maxOf(cap, (cap * 16) / 9) else Int.MAX_VALUE
         player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
             .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
-            .setMaxVideoSize(Int.MAX_VALUE, if (dashActive) qualityCap else Int.MAX_VALUE)
+            .setMaxVideoSize(maxDim, maxDim)
             .build()
     }
 

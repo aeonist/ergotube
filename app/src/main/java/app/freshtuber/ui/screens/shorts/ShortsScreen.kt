@@ -281,7 +281,7 @@ private fun ShortPage(
     val grab: ((android.graphics.Bitmap) -> Unit)? = if (active) light?.let { l -> { bitmap -> l.pushVideoFrame(bitmap) } } else null
     val density = androidx.compose.ui.platform.LocalDensity.current
     val statusTop = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
-    val surface = remember { VideoSurfaceHandle() }
+    val surface = remember(item.videoId) { VideoSurfaceHandle() }
     BoxWithConstraints(
         Modifier
             .fillMaxSize()
@@ -319,7 +319,8 @@ private fun ShortPage(
                 active = settled || inPip, mediaId = item.videoId, handle = surface)
             // The thumbnail stays in one place above the surface until the video's first frame,
             // so swiping to a Short never flashes black.
-            val showsVideo = player != null && surface.firstFrame
+            val isCurrentPlaying = player != null && player.currentMediaItem?.mediaId == item.videoId && (player.isPlaying || player.currentPosition > 0)
+            val showsVideo = player != null && (surface.firstFrame || isCurrentPlaying)
             val cover by androidx.compose.animation.core.animateFloatAsState(if (showsVideo) 0f else 1f,
                 if (showsVideo) androidx.compose.animation.core.tween(280, 40) else androidx.compose.animation.core.snap(), label = "shortCover")
             VideoPicture(item.thumbnailUrl, Modifier.fillMaxSize().graphicsLayer { alpha = cover })

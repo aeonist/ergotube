@@ -301,7 +301,7 @@ object QuickStart {
             .mapNotNull { format ->
                 val family = StreamChoice.codecMime(format.codecs)
                 if (family != null && !canDecode(family)) return@mapNotNull null
-                VideoTrack(format.height, format.fps, url(format), format.mimeType, StreamChoice.label(format.height, format.fps),
+                VideoTrack(format.height, format.fps, url(format), format.mimeType, StreamChoice.label(format.height, format.fps, format.width),
                     family, format.bitrate, format.width, format.itag, format.codecs, ranges(format))
             }
         // The original-language track (dubbed and described ones are not default), highest peak
@@ -357,7 +357,7 @@ object StreamChoice {
                     fps = it.fps,
                     url = it.content,
                     mimeType = it.format?.mimeType,
-                    label = label(it.height, it.fps),
+                    label = label(it.height, it.fps, it.width),
                     codecMime = codecMime(it.codec),
                     bitrate = it.bitrate,
                     width = it.width,
@@ -402,21 +402,45 @@ object StreamChoice {
 
     const val VP9 = "video/x-vnd.on2.vp9"
 
+    /** Resolution tier of the track: for vertical videos (Shorts), this is the width / shorter side. */
+    fun resolution(track: VideoTrack): Int =
+        if (track.width > 0 && track.height > track.width) track.width
+        else if (track.width > 0 && track.width > track.height) track.height
+        else when (track.height) {
+            1920 -> 1080
+            1280 -> 720
+            854 -> 480
+            640 -> 360
+            426 -> 240
+            else -> track.height
+        }
+
     /**
      * The tracks the player adapts between on its own: those of the codec used up to 1080p
      * (switching codecs mid-video would restart the decoder). Others are picked by hand.
      */
     fun adaptiveSet(tracks: List<VideoTrack>): List<VideoTrack> {
-        val family = (tracks.firstOrNull { it.height <= 1080 } ?: tracks.lastOrNull())?.codecMime ?: return emptyList()
+        val family = (tracks.firstOrNull { resolution(it) <= 1080 } ?: tracks.lastOrNull())?.codecMime ?: return emptyList()
         return tracks.filter { it.codecMime == family }
     }
 
-    fun label(height: Int, fps: Int): String = if (fps > 30) "${height}p$fps" else "${height}p"
+    fun label(height: Int, fps: Int, width: Int = 0): String {
+        val res = if (width > 0 && height > width) width
+        else when (height) {
+            1920 -> 1080
+            1280 -> 720
+            854 -> 480
+            640 -> 360
+            426 -> 240
+            else -> height
+        }
+        return if (fps > 30) "${res}p$fps" else "${res}p"
+    }
 
     /** Index of the track closest to [preferredHeight] without going over it, else the lowest. */
     fun pick(tracks: List<VideoTrack>, preferredHeight: Int): Int {
         if (tracks.isEmpty()) return -1
-        val index = tracks.indexOfFirst { it.height <= preferredHeight }
+        val index = tracks.indexOfFirst { resolution(it) <= preferredHeight }
         return if (index >= 0) index else tracks.lastIndex
     }
 

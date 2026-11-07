@@ -41,7 +41,10 @@ fun VideoSurface(player: Player, modifier: Modifier = Modifier, zoomToFill: Bool
     handle: VideoSurfaceHandle? = null, posterScale: androidx.compose.ui.layout.ContentScale = androidx.compose.ui.layout.ContentScale.Crop) {
     val ownHandle = remember { VideoSurfaceHandle() }
     val surfaceHandle = handle ?: ownHandle
-    var firstFrame by remember(player, mediaId) { mutableStateOf(false) }
+    var firstFrame by remember(player, mediaId) {
+        val isCurrent = mediaId == null || player.currentMediaItem?.mediaId == mediaId
+        mutableStateOf(isCurrent && (player.isPlaying || player.currentPosition > 0))
+    }
     val reportBounds = LocalVideoBounds.current
     androidx.compose.foundation.layout.Box(modifier.onGloballyPositioned {
         if (active) {
@@ -52,13 +55,24 @@ fun VideoSurface(player: Player, modifier: Modifier = Modifier, zoomToFill: Bool
         if (active) {
             if (onFrame != null) FrameGrabber(player, surfaceHandle, onFrame)
             androidx.compose.runtime.DisposableEffect(player, mediaId) {
-                firstFrame = false
+                val isCurrent = mediaId == null || player.currentMediaItem?.mediaId == mediaId
+                if (isCurrent && (player.isPlaying || player.currentPosition > 0)) {
+                    firstFrame = true
+                }
                 val listener = object : Player.Listener {
                     override fun onRenderedFirstFrame() {
                         if (mediaId == null || player.currentMediaItem?.mediaId == mediaId) firstFrame = true
                     }
                     override fun onMediaItemTransition(mediaItem: androidx.media3.common.MediaItem?, reason: Int) {
                         if (mediaId != null && mediaItem?.mediaId != mediaId) firstFrame = false
+                    }
+                    override fun onIsPlayingChanged(isPlaying: Boolean) {
+                        if (isPlaying && (mediaId == null || player.currentMediaItem?.mediaId == mediaId)) firstFrame = true
+                    }
+                    override fun onPlaybackStateChanged(playbackState: Int) {
+                        if (playbackState == Player.STATE_READY && (mediaId == null || player.currentMediaItem?.mediaId == mediaId) && player.currentPosition > 0) {
+                            firstFrame = true
+                        }
                     }
                 }
                 player.addListener(listener)
