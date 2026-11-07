@@ -213,8 +213,10 @@ fun FullscreenPlayer(
                         val (r, u) = geo.polar(change.position.x / density, change.position.y / density)
                         val nowFine = r - r0 > FanGeometry.FINE_DISTANCE
                         if (nowFine != fine) { fine = nowFine; haptics.performHapticFeedback(HapticFeedbackType.SegmentTick) }
-                        seconds = if (onArc && !fine) FanGeometry.fromArc(u) * durationSeconds
-                        else (seconds + (u - lastU) * (if (onArc) durationSeconds else Scrub.spanSeconds(durationSeconds)) * (if (fine) Scrub.FINE_FACTOR else 1f))
+                        seconds = if (onArc && !fine) {
+                            val zoomFactor = if (durationSeconds > 60f) 3.5f else 1.5f
+                            (startSeconds + (u - u0) * (durationSeconds / zoomFactor)).coerceIn(0f, durationSeconds)
+                        } else (seconds + (u - lastU) * (if (onArc) durationSeconds else Scrub.spanSeconds(durationSeconds)) * (if (fine) Scrub.FINE_FACTOR else 1f))
                             .coerceIn(0f, durationSeconds)
                         lastU = u
                         ui.fine = if (onArc && !fine) null else fine
@@ -286,6 +288,7 @@ fun FullscreenPlayer(
             val arcIn = stage(40, 300)
             val sweep = app.freshtuber.ui.motion.Motion.Decelerate.transform(arcIn)
             val dotIn = FanOvershoot.transform(stage(260, 200))
+            val scrubZoom by animateFloatAsState(if (ui.scrubMs != null) 1f else 0f, label = "arcScrubZoom")
             if (arcIn > 0f) Canvas(Modifier.fillMaxSize().graphicsLayer {
                 alpha = (arcIn * 3f).coerceAtMost(1f)
                 val s = 0.86f + 0.14f * sweep
@@ -317,9 +320,24 @@ fun FullscreenPlayer(
                     val ua = FanGeometry.toArc(a); val ub = FanGeometry.toArc(end)
                     drawArc(color, base + ua * 90f, (ub - ua) * 90f, false, box.topLeft, box.size, style = Stroke(5.dp.toPx(), cap = StrokeCap.Butt))
                 }
+                if (!live && scrubZoom > 0f) {
+                    val scrubU = FanGeometry.toArc(fraction)
+                    val spanU = 0.10f * scrubZoom
+                    val uStart = (scrubU - spanU).coerceAtLeast(FanGeometry.U0)
+                    val uEnd = (scrubU + spanU).coerceAtMost(sweep)
+                    val magR = r + 4.dp.toPx() * scrubZoom
+                    val magBox = Rect(corner - Offset(magR, magR), Size(2 * magR, 2 * magR))
+                    val magStroke = Stroke((5.dp + 5.dp * scrubZoom).toPx(), cap = StrokeCap.Round)
+                    if (scrubU > uStart) {
+                        drawArc(BrandColors.Red, base + uStart * 90f, (scrubU - uStart) * 90f, false, magBox.topLeft, magBox.size, style = magStroke)
+                    }
+                    if (uEnd > scrubU) {
+                        drawArc(Color.White.copy(alpha = 0.6f), base + scrubU * 90f, (uEnd - scrubU) * 90f, false, magBox.topLeft, magBox.size, style = magStroke)
+                    }
+                }
                 if (!live && dotIn > 0f) {
-                    val p = geo.position(geo.track, FanGeometry.toArc(fraction))
-                    drawCircle(BrandColors.Red, (if (ui.scrubMs != null) 11.dp else 8.dp).toPx() * dotIn, Offset(p.x.dp.toPx(), p.y.dp.toPx()))
+                    val p = geo.position(geo.track + 4f * scrubZoom, FanGeometry.toArc(fraction))
+                    drawCircle(BrandColors.Red, (if (ui.scrubMs != null) 13.dp else 8.dp).toPx() * dotIn, Offset(p.x.dp.toPx(), p.y.dp.toPx()))
                 }
             }
             fun Modifier.at(p: Offset, size: Float) = offset { IntOffset(((p.x - size / 2).dp).roundToPx(), ((p.y - size / 2).dp).roundToPx()) }

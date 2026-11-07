@@ -224,8 +224,9 @@ fun PlayerPad(
                     endY = change.position.y
                     if (move == PadMove.Seek) {
                         if (onTrack) {
-                            val rootX = coords.localToRoot(change.position).x
-                            scrubSeconds = ((rootX - trackBounds.left) / trackBounds.width).coerceIn(0f, 1f) * durationSeconds
+                            val delta = (change.position.x - last.x) / trackBounds.width
+                            val zoomFactor = if (durationSeconds > 60f) 3.5f else 1.5f
+                            scrubSeconds = (scrubSeconds + delta * (durationSeconds / zoomFactor)).coerceIn(0f, durationSeconds)
                             ui.fine = null
                         } else {
                             val nowFine = Scrub.isFine(start.y, change.position.y, liftPx)
@@ -341,19 +342,27 @@ fun Track(fraction: Float, chapters: List<Chapter>, durationMs: Long, scrubbing:
     background: Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f), gap: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
     segments: List<app.freshtuber.data.extras.SkipSegment> = emptyList(), stroke: androidx.compose.ui.unit.Dp = 4.dp) {
     val spans = remember(segments, durationMs) { SegmentMarks.spans(segments, durationMs) }
-    val dot by animateFloatAsState(if (scrubbing) 9.5f else 7f, label = "dot")
+    val dot by animateFloatAsState(if (scrubbing) 11f else 7f, label = "dot")
+    val scrubZoom by animateFloatAsState(if (scrubbing) 1f else 0f, label = "trackZoom")
     Canvas(modifier) {
         val y = size.height / 2
-        val stroke = stroke.toPx()
-        drawLine(background, Offset(0f, y), Offset(size.width, y), stroke, StrokeCap.Round)
+        val strokePx = stroke.toPx()
+        drawLine(background, Offset(0f, y), Offset(size.width, y), strokePx, StrokeCap.Round)
         if (live) return@Canvas
         val f = fraction.coerceIn(0f, 1f)
-        drawLine(BrandColors.Red, Offset(0f, y), Offset(size.width * f, y), stroke, StrokeCap.Round)
+        drawLine(BrandColors.Red, Offset(0f, y), Offset(size.width * f, y), strokePx, StrokeCap.Round)
         // Sponsor and intro marks lie over both the played and the unplayed part.
-        spans.forEach { (a, b, color) -> drawLine(color, Offset(size.width * a, y), Offset(size.width * b, y), stroke, StrokeCap.Butt) }
+        spans.forEach { (a, b, color) -> drawLine(color, Offset(size.width * a, y), Offset(size.width * b, y), strokePx, StrokeCap.Butt) }
         if (durationMs > 0) chapters.drop(1).forEach { c ->
             val x = size.width * (c.startSeconds * 1000f / durationMs)
             drawLine(gap, Offset(x, y - 4.dp.toPx()), Offset(x, y + 4.dp.toPx()), 3.dp.toPx())
+        }
+        if (scrubZoom > 0f) {
+            val cx = size.width * f
+            val span = 32.dp.toPx() * scrubZoom
+            val magStroke = strokePx + 4.dp.toPx() * scrubZoom
+            drawLine(BrandColors.Red, Offset((cx - span).coerceAtLeast(0f), y), Offset(cx, y), magStroke, StrokeCap.Round)
+            drawLine(background, Offset(cx, y), Offset((cx + span).coerceAtMost(size.width), y), magStroke, StrokeCap.Round)
         }
         drawCircle(BrandColors.Red, dot.dp.toPx(), Offset(size.width * f, y))
     }
