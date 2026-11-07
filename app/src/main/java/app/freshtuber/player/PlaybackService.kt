@@ -4,6 +4,7 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.os.Bundle
 import androidx.annotation.OptIn
+import androidx.media3.common.ForwardingPlayer
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.CommandButton
@@ -39,7 +40,39 @@ class PlaybackService : MediaSessionService() {
             this, 0, Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
-        session = MediaSession.Builder(this, controller.player)
+        val forwardingPlayer = object : ForwardingPlayer(controller.player) {
+            override fun getAvailableCommands(): Player.Commands =
+                super.getAvailableCommands().buildUpon()
+                    .add(Player.COMMAND_SEEK_TO_PREVIOUS)
+                    .add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+                    .add(Player.COMMAND_SEEK_TO_NEXT)
+                    .add(Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+                    .build()
+
+            override fun isCommandAvailable(command: Int): Boolean =
+                command == Player.COMMAND_SEEK_TO_PREVIOUS ||
+                command == Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM ||
+                command == Player.COMMAND_SEEK_TO_NEXT ||
+                command == Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM ||
+                super.isCommandAvailable(command)
+
+            override fun seekToPrevious() {
+                controller.playPrevious()
+            }
+
+            override fun seekToPreviousMediaItem() {
+                controller.playPrevious()
+            }
+
+            override fun seekToNext() {
+                controller.playNext()
+            }
+
+            override fun seekToNextMediaItem() {
+                controller.playNext()
+            }
+        }
+        session = MediaSession.Builder(this, forwardingPlayer)
             .setSessionActivity(openApp)
             .setCallback(object : MediaSession.Callback {
                 override fun onConnect(session: MediaSession, info: MediaSession.ControllerInfo): MediaSession.ConnectionResult =
@@ -51,6 +84,20 @@ class PlaybackService : MediaSessionService() {
                                 .build()
                         )
                         .build()
+
+                override fun onPlayerCommandRequest(
+                    session: MediaSession, controller: MediaSession.ControllerInfo, playerCommand: Int
+                ): Int {
+                    if (playerCommand == Player.COMMAND_SEEK_TO_PREVIOUS || playerCommand == Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM) {
+                        this@PlaybackService.controller.playPrevious()
+                        return SessionResult.RESULT_SUCCESS
+                    }
+                    if (playerCommand == Player.COMMAND_SEEK_TO_NEXT || playerCommand == Player.COMMAND_SEEK_TO_NEXT_MEDIA_ITEM) {
+                        this@PlaybackService.controller.playNext()
+                        return SessionResult.RESULT_SUCCESS
+                    }
+                    return super.onPlayerCommandRequest(session, controller, playerCommand)
+                }
 
                 override fun onCustomCommand(
                     session: MediaSession, info: MediaSession.ControllerInfo, command: SessionCommand, args: Bundle,
@@ -71,12 +118,24 @@ class PlaybackService : MediaSessionService() {
             .build()
         scope.launch {
             controller.state.collect { state ->
+                session?.setCustomLayout(listOf(
+                    CommandButton.Builder(CommandButton.ICON_PREVIOUS)
+                        .setDisplayName(getString(R.string.player_previous))
+                        .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                        .setEnabled(true)
+                        .build(),
+                    CommandButton.Builder(CommandButton.ICON_NEXT)
+                        .setDisplayName(getString(R.string.player_next))
+                        .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                        .setEnabled(true)
+                        .build(),
+                ))
                 session?.setMediaButtonPreferences(listOf(
                     CommandButton.Builder(CommandButton.ICON_PREVIOUS)
                         .setDisplayName(getString(R.string.player_previous))
-                        .setSessionCommand(previous)
-                        .setEnabled(state.history.isNotEmpty())
-                        .setSlots(CommandButton.SLOT_OVERFLOW).build(),
+                        .setPlayerCommand(Player.COMMAND_SEEK_TO_PREVIOUS)
+                        .setEnabled(true)
+                        .setSlots(CommandButton.SLOT_BACK).build(),
                     CommandButton.Builder(CommandButton.ICON_SKIP_BACK_10)
                         .setDisplayName(getString(R.string.player_back_10))
                         .setPlayerCommand(Player.COMMAND_SEEK_BACK)
@@ -87,9 +146,9 @@ class PlaybackService : MediaSessionService() {
                         .setSlots(CommandButton.SLOT_FORWARD).build(),
                     CommandButton.Builder(CommandButton.ICON_NEXT)
                         .setDisplayName(getString(R.string.player_next))
-                        .setSessionCommand(next)
-                        .setEnabled(state.queue.isNotEmpty())
-                        .setSlots(CommandButton.SLOT_OVERFLOW).build(),
+                        .setPlayerCommand(Player.COMMAND_SEEK_TO_NEXT)
+                        .setEnabled(true)
+                        .setSlots(CommandButton.SLOT_FORWARD).build(),
                 ))
             }
         }

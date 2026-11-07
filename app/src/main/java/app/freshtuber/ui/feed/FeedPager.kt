@@ -36,6 +36,7 @@ data class FeedUiState(
     val items: List<FeedItem> = emptyList(),
     val filters: List<FeedFilter> = emptyList(),
     val loading: Boolean = true,
+    val refreshing: Boolean = false,
     val loadingMore: Boolean = false,
     /** Error of the first load; the list is empty then. */
     val error: LoadError? = null,
@@ -105,7 +106,14 @@ class FeedPager(
         job?.cancel()
         val keepItems = filterToken == null && !keepFilters
         _state.update {
-            it.copy(loading = !keepItems || it.items.isEmpty(), error = null, items = if (keepItems) it.items else emptyList(), moreFailed = false, endReached = false)
+            it.copy(
+                loading = !keepItems || it.items.isEmpty(),
+                refreshing = keepItems && it.items.isNotEmpty(),
+                error = null,
+                items = if (keepItems) it.items else emptyList(),
+                moreFailed = false,
+                endReached = false,
+            )
         }
         job = scope.launch {
             try {
@@ -116,6 +124,7 @@ class FeedPager(
                         items = page.items,
                         filters = if (keepFilters || page.filters.isEmpty()) it.filters.ifEmpty { page.filters } else page.filters,
                         loading = false,
+                        refreshing = false,
                         endReached = page.continuation == null,
                     )
                 }
@@ -123,7 +132,7 @@ class FeedPager(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                _state.update { it.copy(loading = false, error = e.toLoadError()) }
+                _state.update { it.copy(loading = false, refreshing = false, error = e.toLoadError()) }
             }
         }
     }

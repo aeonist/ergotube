@@ -80,6 +80,7 @@ class SubscriptionsViewModel @Inject constructor(
     val localChannels = local.channels.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val localState = kotlinx.coroutines.flow.combine(local.videos, refreshing, failure, settings.shortsInFeeds) { videos, loading, failed, shorts ->
         app.freshtuber.ui.feed.FeedUiState(items = videos.filter { shorts || !it.isShort }.map { FeedItem.Video(it.summary()) }, loading = loading && videos.isEmpty(),
+            refreshing = loading && videos.isNotEmpty(),
             error = if (failed && videos.isEmpty()) app.freshtuber.ui.feed.LoadError.Network else null)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, app.freshtuber.ui.feed.FeedUiState())
     fun refreshLocal() { if (refreshing.value) return; viewModelScope.launch {

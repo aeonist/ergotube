@@ -343,7 +343,6 @@ fun Track(fraction: Float, chapters: List<Chapter>, durationMs: Long, scrubbing:
     segments: List<app.freshtuber.data.extras.SkipSegment> = emptyList(), stroke: androidx.compose.ui.unit.Dp = 4.dp) {
     val spans = remember(segments, durationMs) { SegmentMarks.spans(segments, durationMs) }
     val dot by animateFloatAsState(if (scrubbing) 11f else 7f, label = "dot")
-    val scrubZoom by animateFloatAsState(if (scrubbing) 1f else 0f, label = "trackZoom")
     Canvas(modifier) {
         val y = size.height / 2
         val strokePx = stroke.toPx()
@@ -356,13 +355,6 @@ fun Track(fraction: Float, chapters: List<Chapter>, durationMs: Long, scrubbing:
         if (durationMs > 0) chapters.drop(1).forEach { c ->
             val x = size.width * (c.startSeconds * 1000f / durationMs)
             drawLine(gap, Offset(x, y - 4.dp.toPx()), Offset(x, y + 4.dp.toPx()), 3.dp.toPx())
-        }
-        if (scrubZoom > 0f) {
-            val cx = size.width * f
-            val span = 32.dp.toPx() * scrubZoom
-            val magStroke = strokePx + 4.dp.toPx() * scrubZoom
-            drawLine(BrandColors.Red, Offset((cx - span).coerceAtLeast(0f), y), Offset(cx, y), magStroke, StrokeCap.Round)
-            drawLine(background, Offset(cx, y), Offset((cx + span).coerceAtMost(size.width), y), magStroke, StrokeCap.Round)
         }
         drawCircle(BrandColors.Red, dot.dp.toPx(), Offset(size.width * f, y))
     }

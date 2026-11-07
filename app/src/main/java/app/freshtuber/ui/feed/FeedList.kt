@@ -30,7 +30,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -123,9 +126,19 @@ fun FeedList(
 
     val columns = app.freshtuber.ui.components.feedColumns()
     val rows = remember(state.items, shortsShelf, columns) { FeedRows.grid(FeedRows.of(state.items, shortsShelf), columns) }
+    var localRefreshing by remember { mutableStateOf(false) }
+    LaunchedEffect(state.refreshing) {
+        if (!state.refreshing && localRefreshing) {
+            delay(500)
+            localRefreshing = false
+        }
+    }
     PullToRefreshBox(
-        isRefreshing = state.loading && state.items.isNotEmpty(),
-        onRefresh = onRetry,
+        isRefreshing = state.refreshing || localRefreshing,
+        onRefresh = {
+            localRefreshing = true
+            onRetry()
+        },
         modifier = modifier.fillMaxSize(),
     ) {
         LazyColumn(Modifier.fillMaxSize().bottomFade(atTop = fromBottom), state = listState, reverseLayout = fromBottom,

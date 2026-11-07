@@ -334,7 +334,7 @@ fun PlayerScreen(
             .onGloballyPositioned { c ->
                 if (!inPip) {
                     val p = c.positionInRoot()
-                    light?.setVideoRect(androidx.compose.ui.geometry.Rect(p.x, p.y, p.x + c.size.width, p.y + c.size.height))
+                    light?.setVideoRect(if (fullscreen) videoRect else androidx.compose.ui.geometry.Rect(p.x, p.y, p.x + c.size.width, p.y + c.size.height))
                 }
             }) {
             VideoSurface(viewModel.player, Modifier.fillMaxSize().graphicsLayer {
@@ -532,7 +532,7 @@ private fun FullscreenEffect(fullscreen: Boolean, lock: OrientationLock, upright
         val insets = WindowCompat.getInsetsController(window, window.decorView)
         val oldCutout = if (android.os.Build.VERSION.SDK_INT >= 28) window.attributes.layoutInDisplayCutoutMode else 0
         val oldStatusIcons = insets.isAppearanceLightStatusBars
-        window.setBackgroundDrawable(ColorDrawable(android.graphics.Color.BLACK))
+        window.setBackgroundDrawable(ColorDrawable(android.graphics.Color.TRANSPARENT))
         insets.isAppearanceLightStatusBars = false
         if (fullscreen) {
             if (android.os.Build.VERSION.SDK_INT >= 28) window.attributes = window.attributes.apply {

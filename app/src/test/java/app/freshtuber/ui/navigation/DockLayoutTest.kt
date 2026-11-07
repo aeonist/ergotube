@@ -9,19 +9,19 @@ class DockLayoutTest {
             DockLayout.order(left = false, shorts = true))
     }
 
-    @Test fun leftHandKeepsTheRequestedOrder() {
-        assertEquals(listOf(DockTab.Mine, DockTab.Subscriptions, DockTab.Search, DockTab.Shorts, DockTab.Home),
+    @Test fun leftHandInvertsTheOrder() {
+        assertEquals(listOf(DockTab.Home, DockTab.Shorts, DockTab.Search, DockTab.Subscriptions, DockTab.Mine),
             DockLayout.order(left = true, shorts = true))
     }
 
     @Test fun hiddenShortsKeepsTheRestInPlace() {
         assertEquals(listOf(DockTab.Mine, DockTab.Subscriptions, DockTab.Search, DockTab.Home), DockLayout.order(left = false, shorts = false))
-        assertEquals(listOf(DockTab.Mine, DockTab.Subscriptions, DockTab.Search, DockTab.Home), DockLayout.order(left = true, shorts = false))
+        assertEquals(listOf(DockTab.Home, DockTab.Search, DockTab.Subscriptions, DockTab.Mine), DockLayout.order(left = true, shorts = false))
     }
 
     @Test fun swappingInvertsTheWholeRowAroundTheCentre() {
         assertEquals(listOf(DockTab.Home, DockTab.Shorts, DockTab.Search, DockTab.Subscriptions, DockTab.Mine), DockLayout.order(false, true, swapHomeMine = true))
-        assertEquals(listOf(DockTab.Home, DockTab.Search, DockTab.Subscriptions, DockTab.Mine), DockLayout.order(true, false, swapHomeMine = true))
+        assertEquals(listOf(DockTab.Mine, DockTab.Subscriptions, DockTab.Search, DockTab.Home), DockLayout.order(true, false, swapHomeMine = true))
     }
 
     @Test fun expandedScreenAlwaysUsesFullWidth() {

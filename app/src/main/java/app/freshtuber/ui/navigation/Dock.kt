@@ -69,7 +69,8 @@ object DockLayout {
     fun order(left: Boolean, shorts: Boolean, swapHomeMine: Boolean = false): List<DockTab> {
         val base = listOf(DockTab.Mine, DockTab.Subscriptions, DockTab.Search, DockTab.Shorts, DockTab.Home)
             .filter { shorts || it != DockTab.Shorts }
-        return if (swapHomeMine) base.reversed() else base
+        val inverted = left xor swapHomeMine
+        return if (inverted) base.reversed() else base
     }
 
 }

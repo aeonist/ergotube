@@ -88,6 +88,7 @@ fun VideoSurface(player: Player, modifier: Modifier = Modifier, zoomToFill: Bool
                         setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
                         setKeepContentOnPlayerReset(true)
                         setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
+                        setBackgroundColor(android.graphics.Color.TRANSPARENT)
                         this.player = player
                     } else PlayerView(context).apply {
                         layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
@@ -95,6 +96,7 @@ fun VideoSurface(player: Player, modifier: Modifier = Modifier, zoomToFill: Bool
                         setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
                         setKeepContentOnPlayerReset(true)
                         setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
+                        setBackgroundColor(android.graphics.Color.TRANSPARENT)
                         this.player = player
                     }
                 },
