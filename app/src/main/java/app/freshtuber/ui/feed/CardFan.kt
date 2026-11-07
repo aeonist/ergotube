@@ -32,6 +32,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
@@ -213,8 +214,8 @@ fun FanOverlay(host: FanHost) {
             }
         }
         Box(Modifier.offset { IntOffset((session.center.x - 26.dp.toPx()).toInt(), (session.center.y - 26.dp.toPx()).toInt()) }
-            .size(52.dp).background(BrandColors.Red, CircleShape), contentAlignment = Alignment.Center) {
-            Icon(Icons.Rounded.SmartDisplay, null, tint = Color.White)
+            .size(52.dp).background(Color(0xFF572A35), CircleShape), contentAlignment = Alignment.Center) {
+            Icon(painterResource(R.drawable.ic_brand), contentDescription = null, tint = Color(0xFFF3C39E), modifier = Modifier.size(32.dp))
         }
         }
     }
