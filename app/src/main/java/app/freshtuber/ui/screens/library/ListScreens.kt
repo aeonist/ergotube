@@ -1,5 +1,9 @@
 package app.freshtuber.ui.screens.library
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -179,10 +183,11 @@ fun ListScreen(
     val firstVideo = state.items.firstNotNullOfOrNull { (it as? app.freshtuber.domain.model.FeedItem.Video)?.video?.id }
 
     Column(Modifier.fillMaxSize()) {
+        val fromBottom = !viewModel.isChannel
+        val hide = rememberScrollHide(inverted = fromBottom)
         Box(Modifier.weight(1f)) {
             // Library lists, history and playlists grow upward from the thumb, newest right above
             // the bottom bar; channels read like a feed, newest at the top.
-            val fromBottom = !viewModel.isChannel
             if (needsAccount) Column(Modifier.fillMaxSize()) {
                 if (!fromBottom) ScreenHeader(title)
                 MessageState(stringResource(R.string.library_needs_account), Modifier.weight(1f))
@@ -196,6 +201,7 @@ fun ListScreen(
                 emptyMessage = stringResource(R.string.feed_empty),
                 showChannel = header == null,
                 onSignInAgain = onSignIn,
+                modifier = Modifier.nestedScroll(hide.connection),
                 // History gathers its Shorts into shelves like YouTube, even a single one.
                 shortsShelf = if (viewModel.isHistory) 1 else 2,
                 header = {
@@ -206,7 +212,7 @@ fun ListScreen(
             )
         }
         val channel = header
-        ContextBar(buildList {
+        val actions = buildList {
             if (needsAccount) add(ContextAction(Icons.AutoMirrored.Rounded.Login, stringResource(R.string.welcome_sign_in), primary = true, onClick = onSignIn))
             else {
                 if ((viewModel.isWatchLater || viewModel.isPlaylist) && firstVideo != null)
@@ -218,7 +224,12 @@ fun ListScreen(
                     stringResource(if (channel.subscribed == true) R.string.channel_subscribed else R.string.channel_subscribe),
                     primary = channel.subscribed != true, onClick = viewModel::toggleSubscription))
             }
-        }, left)
+        }
+        if (actions.isNotEmpty()) {
+            AnimatedVisibility(hide.visible, enter = expandVertically(), exit = shrinkVertically()) {
+                ContextBar(actions, left)
+            }
+        }
     }
 }
 

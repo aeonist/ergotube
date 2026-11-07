@@ -245,18 +245,19 @@ fun ChoiceRows(options: List<String>, selected: Int, onPick: (Int) -> Unit) {
  * Hides a bar while the list is read downward and brings it back on the way up. Attach
  * [connection] with nestedScroll to the list; read [visible].
  */
-class ScrollHide {
+class ScrollHide(private val inverted: Boolean = false) {
     var visible by mutableStateOf(true)
     val connection = object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
         override fun onPreScroll(available: androidx.compose.ui.geometry.Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): androidx.compose.ui.geometry.Offset {
-            if (available.y < -6f) visible = false else if (available.y > 6f) visible = true
+            val delta = if (inverted) -available.y else available.y
+            if (delta < -6f) visible = false else if (delta > 6f) visible = true
             return androidx.compose.ui.geometry.Offset.Zero
         }
     }
 }
 
 @Composable
-fun rememberScrollHide(): ScrollHide = remember { ScrollHide() }
+fun rememberScrollHide(inverted: Boolean = false): ScrollHide = remember(inverted) { ScrollHide(inverted) }
 
 /**
  * A section tile, as on the Settings page and in «Моё»: icon, title and one line on what is
