@@ -20,8 +20,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -85,6 +87,7 @@ interface FeedNavigation {
  * A YouTube list with first-load, empty, error and load-more states.
  * [header] scrolls with the list; [emptyMessage] shows when there is nothing at all.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedList(
     state: FeedUiState,
@@ -120,8 +123,13 @@ fun FeedList(
 
     val columns = app.freshtuber.ui.components.feedColumns()
     val rows = remember(state.items, shortsShelf, columns) { FeedRows.grid(FeedRows.of(state.items, shortsShelf), columns) }
-    LazyColumn(modifier.fillMaxSize().bottomFade(atTop = fromBottom), state = listState, reverseLayout = fromBottom,
-        contentPadding = PaddingValues(bottom = if (fromBottom) 8.dp else LocalFeedBottomClearance.current, top = if (fromBottom) 24.dp else 0.dp)) {
+    PullToRefreshBox(
+        isRefreshing = state.loading && state.items.isNotEmpty(),
+        onRefresh = onRetry,
+        modifier = modifier.fillMaxSize(),
+    ) {
+        LazyColumn(Modifier.fillMaxSize().bottomFade(atTop = fromBottom), state = listState, reverseLayout = fromBottom,
+            contentPadding = PaddingValues(bottom = if (fromBottom) 8.dp else LocalFeedBottomClearance.current, top = if (fromBottom) 24.dp else 0.dp)) {
         header?.invoke(this)
         if (state.error != null && state.items.isNotEmpty()) item(key = "refresh-error") {
             LoadErrorState(state.error, onRetry, onSignInAgain, Modifier.padding(horizontal = 16.dp, vertical = 12.dp))
@@ -189,6 +197,7 @@ fun FeedList(
             }
         }
     }
+}
 }
 
 @Composable
