@@ -237,8 +237,20 @@ fun PlayerScreen(
         // Unpinned, the video is the list's first row: it scrolls away and returns at the top.
         // The surface itself never moves in the composition, only its offset, so it never goes black.
         val scrolls = !pinned && details != null && !twoPane
-        // Adding or removing the video row keeps the old first row in place; start from the top instead.
-        LaunchedEffect(scrolls) { listState.scrollToItem(0) }
+        // Preserves scroll position when the unpinned video row is added or removed from the top of the list.
+        var lastScrolls by remember { mutableStateOf(scrolls) }
+        LaunchedEffect(scrolls) {
+            if (lastScrolls != scrolls) {
+                val index = listState.firstVisibleItemIndex
+                val offset = listState.firstVisibleItemScrollOffset
+                if (scrolls) {
+                    if (index > 0 || offset > 0) listState.scrollToItem(index + 1, offset)
+                } else {
+                    if (index > 0) listState.scrollToItem(index - 1, offset) else listState.scrollToItem(0, 0)
+                }
+                lastScrolls = scrolls
+            }
+        }
         val videoOffset by remember(scrolls, videoHeightPx) { derivedStateOf {
             if (!scrolls) 0 else if (listState.firstVisibleItemIndex == 0) -listState.firstVisibleItemScrollOffset else -videoHeightPx
         } }
