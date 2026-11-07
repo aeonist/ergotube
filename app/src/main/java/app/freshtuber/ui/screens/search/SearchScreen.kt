@@ -4,7 +4,11 @@ import android.content.Intent
 import android.speech.RecognizerIntent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.clickable
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -54,6 +58,8 @@ fun SearchScreen(
     var query by rememberSaveable { mutableStateOf("") }
     var submitted by rememberSaveable { mutableStateOf("") }
     var focused by remember { mutableStateOf(false) }
+    // Categories and the field slide away while results are read downward, and return on the way up.
+    val hide = rememberScrollHide()
     val keyboard = LocalSoftwareKeyboardController.current
     val run: (String) -> Unit = { text ->
         query = text
@@ -159,18 +165,23 @@ fun SearchScreen(
     }
     val suggestionsVisible = (focused || !hasQuery) && shownSuggestions.isNotEmpty() && (focused || query.isEmpty())
     if (classic) Column(Modifier.fillMaxSize()) {
-        field()
-        if (suggestionsVisible) Box(Modifier.weight(1f)) { suggestionRows() }
-        else {
-            if (hasQuery && state.filters.size > 1) chips()
-            results(Modifier.weight(1f))
+        AnimatedVisibility(hide.visible || focused, enter = expandVertically(), exit = shrinkVertically()) {
+            Column {
+                field()
+                if (!suggestionsVisible && hasQuery && state.filters.size > 1) chips()
+            }
         }
+        if (suggestionsVisible) Box(Modifier.weight(1f)) { suggestionRows() }
+        else results(Modifier.weight(1f).nestedScroll(hide.connection))
     } else Column(Modifier.fillMaxSize()) {
-        results(Modifier.weight(1f))
-        BottomBar {
-            if (showSuggestions) suggestionRows()
-            else if (hasQuery && state.filters.size > 1) chips()
-            field()
+        results(Modifier.weight(1f).nestedScroll(hide.connection))
+        // Hidden while reading down; typing keeps the field on screen.
+        AnimatedVisibility(hide.visible || focused, enter = expandVertically(), exit = shrinkVertically()) {
+            BottomBar {
+                if (showSuggestions) suggestionRows()
+                else if (hasQuery && state.filters.size > 1) chips()
+                field()
+            }
         }
     }
 }
