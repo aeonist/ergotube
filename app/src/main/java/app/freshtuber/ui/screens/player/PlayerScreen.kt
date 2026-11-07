@@ -66,7 +66,7 @@ fun PlayerScreen(
     navigation: FeedNavigation,
     onBack: () -> Unit,
     onSignIn: () -> Unit,
-    onAdvanced: (String) -> Unit,
+    onAdvanced: (String, Boolean) -> Unit,
     /** The page has fully arrived (the video surface can appear). */
     settled: Boolean = true,
     /** The page is on its way out. */
@@ -92,7 +92,8 @@ fun PlayerScreen(
     var qualityAnchor by remember { mutableStateOf<androidx.compose.ui.geometry.Rect?>(null) }
     var qualityOpen by rememberSaveable { mutableStateOf(false) }
     var moreOpen by rememberSaveable { mutableStateOf(false) }
-    var lock by rememberSaveable { mutableStateOf(OrientationLock.None) }
+    val initialFullscreen = viewModel.initialFullscreen
+    val large = isLargeScreen()
     var rotateHint by remember { mutableStateOf(false) }
     var videoAspect by remember(viewModel.player, viewModel.videoId) { mutableFloatStateOf(16f / 9f) }
     DisposableEffect(viewModel.player, viewModel.videoId) {
@@ -109,12 +110,12 @@ fun PlayerScreen(
     }
     // A vertical video goes full screen upright, like YouTube, instead of turning the phone.
     val vertical = videoAspect < 0.9f
-    var uprightFull by rememberSaveable { mutableStateOf(false) }
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-    // An unfolded foldable or a tablet is wide in either orientation: turning it shows the page in
-    // two panes, and full screen comes only from the button, without turning the screen.
-    val large = isLargeScreen()
-    var largeFull by rememberSaveable { mutableStateOf(false) }
+    var lock by rememberSaveable {
+        mutableStateOf(if (initialFullscreen && !large && !vertical) OrientationLock.Landscape else OrientationLock.None)
+    }
+    var uprightFull by rememberSaveable { mutableStateOf(initialFullscreen && vertical && !large) }
+    var largeFull by rememberSaveable { mutableStateOf(initialFullscreen && large) }
     // Turning the phone opens fullscreen like YouTube; the button and the pad swipe ask for it.
     val fullscreen = if (large) largeFull else uprightFull || lock == OrientationLock.Landscape || (landscape && lock != OrientationLock.Portrait)
     val enterFullscreen = {
@@ -126,8 +127,11 @@ fun PlayerScreen(
     val fold = LocalFoldPosture.current
     // A half-open phone with a horizontal fold: the video above the fold, the controls below.
     val tabletop = fold.tabletop && fold.hingeTop > 0 && !LocalInPictureInPicture.current
-    // The next video is wide: it turns the phone like any other.
-    LaunchedEffect(vertical) { if (uprightFull && !vertical) { uprightFull = false; lock = OrientationLock.Landscape } }
+    // The next video is wide: it turns the phone like any other; a vertical one stays upright.
+    LaunchedEffect(vertical) {
+        if (uprightFull && !vertical) { uprightFull = false; lock = OrientationLock.Landscape }
+        else if (lock == OrientationLock.Landscape && vertical) { lock = OrientationLock.None; uprightFull = true }
+    }
     val padUi = remember { PadUi() }
     val pages = remember { StoryboardPages() }
     var lastSubtitle by remember(playerState.nowPlaying?.videoId) { mutableIntStateOf(-1) }
@@ -145,7 +149,7 @@ fun PlayerScreen(
         viewModel.playerEvents.collect { event ->
             when (event) {
                 is PlayerEvent.SegmentSkipped -> messages?.show(resources.getString(R.string.player_sponsor_skipped))
-                is PlayerEvent.Advanced -> onAdvanced(event.videoId)
+                is PlayerEvent.Advanced -> onAdvanced(event.videoId, fullscreen)
             }
         }
     }

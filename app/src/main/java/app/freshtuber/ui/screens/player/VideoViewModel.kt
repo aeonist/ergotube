@@ -89,6 +89,7 @@ class VideoViewModel @Inject constructor(
 ) : ViewModel() {
 
     val videoId: String = savedState.get<String>("videoId") ?: savedState.toRoute<PlayerRoute>().videoId
+    val initialFullscreen: Boolean = runCatching { savedState.toRoute<PlayerRoute>().fullscreen }.getOrDefault(false)
 
     private val remembered = videos.cachedDetails(videoId)
     private val _state = MutableStateFlow(VideoUiState(details = remembered, loading = remembered == null,

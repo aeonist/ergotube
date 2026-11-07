@@ -239,7 +239,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
                         navigation,
                         onBack = { navController.popBackStack() },
                         onSignIn = signIn,
-                        onAdvanced = { next -> navController.navigate(PlayerRoute(next)) { popUpTo<PlayerRoute> { inclusive = true } } },
+                        onAdvanced = { next, keepFull -> navController.navigate(PlayerRoute(next, fullscreen = keepFull)) { popUpTo<PlayerRoute> { inclusive = true } } },
                         settled = settled,
                         leaving = leaving,
                     )

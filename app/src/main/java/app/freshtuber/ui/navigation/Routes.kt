@@ -9,7 +9,7 @@ import kotlinx.serialization.Serializable
 @Serializable data object DownloadsRoute
 @Serializable data object AccountRoute
 @Serializable data object SettingsRoute
-@Serializable data class PlayerRoute(val videoId: String)
+@Serializable data class PlayerRoute(val videoId: String, val fullscreen: Boolean = false)
 @Serializable data object WelcomeRoute
 @Serializable data object LoginRoute
 @Serializable data class LibraryListRoute(val section: String)
