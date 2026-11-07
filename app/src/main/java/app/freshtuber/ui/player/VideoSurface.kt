@@ -70,6 +70,10 @@ fun VideoSurface(player: Player, modifier: Modifier = Modifier, zoomToFill: Bool
                     // A texture view can be clipped and dragged around; the default surface view is cheaper.
                     if (texture) (android.view.LayoutInflater.from(context).inflate(app.freshtuber.R.layout.texture_player_view, android.widget.FrameLayout(context), false) as PlayerView).apply {
                         layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+                        useController = false
+                        setShowBuffering(PlayerView.SHOW_BUFFERING_NEVER)
+                        setKeepContentOnPlayerReset(true)
+                        setShutterBackgroundColor(android.graphics.Color.TRANSPARENT)
                         this.player = player
                     } else PlayerView(context).apply {
                         layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)

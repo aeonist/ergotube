@@ -7,4 +7,5 @@
     app:surface_type="texture_view"
     app:use_controller="false"
     app:show_buffering="never"
+    app:shutter_background_color="@android:color/transparent"
     app:keep_content_on_player_reset="true" />

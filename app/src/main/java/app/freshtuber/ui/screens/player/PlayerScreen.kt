@@ -185,7 +185,7 @@ fun PlayerScreen(
     val onBoost: (Boolean) -> Unit = { on -> viewModel.player.setPlaybackSpeed(if (on) 2f else playerState.speed) }
     val onNext: () -> Unit = { if (playerState.queue.isNotEmpty()) viewModel.playNext() }
     val onPrevious: () -> Unit = { if (playerState.history.isNotEmpty()) viewModel.playPrevious() }
-    SideEffect { light?.setPlayerCovered(fullscreen && !inPip) }
+    SideEffect { light?.setPlayerCovered(inPip) }
 
     // The picture shown until this page's surface has the video: the frame or thumbnail it flew
     // in with, else the video's thumbnail.
@@ -207,7 +207,7 @@ fun PlayerScreen(
     val statusTop = WindowInsets.statusBars.getTop(density)
 
     CompositionLocalProvider(LocalQualityAnchor provides { qualityAnchor = it }) {
-    BoxWithConstraints(Modifier.fillMaxSize().then(if (fullscreen || inPip || tabletop) Modifier.background(Color.Black) else Modifier)) {
+    BoxWithConstraints(Modifier.fillMaxSize().then(if (inPip || tabletop) Modifier.background(Color.Black) else Modifier)) {
         val details = state.details
         val pageHeight = maxHeight - with(density) { statusTop.toDp() }
         // A wide page (unfolded foldable held sideways, tablet): the video and its details on the
@@ -314,9 +314,9 @@ fun PlayerScreen(
                 if (classic) point.y < viewport.y - with(density) { 72.dp.toPx() } else !fullscreen || !FanGeometry(viewport.x / density.density, viewport.y / density.density, left)
                     .inFan(point.x / density.density, point.y / density.density)
             })
-            .background(Color.Black)
+            .background(if (inPip || tabletop) Color.Black else Color.Transparent)
             .onGloballyPositioned { c ->
-                if (!big) {
+                if (!inPip) {
                     val p = c.positionInRoot()
                     light?.setVideoRect(androidx.compose.ui.geometry.Rect(p.x, p.y, p.x + c.size.width, p.y + c.size.height))
                 }
@@ -324,7 +324,7 @@ fun PlayerScreen(
             VideoSurface(viewModel.player, Modifier.fillMaxSize().graphicsLayer {
                 scaleX = zoom.scale; scaleY = zoom.scale
                 translationX = zoom.offset.x; translationY = zoom.offset.y
-            }, texture = true, onFrame = if (big) null else grab,
+            }, texture = true, onFrame = if (inPip) null else grab,
                 active = (resuming || settled || leaving || inPip) && !surfaceOff, poster = poster, mediaId = videoId, handle = surface,
                 posterScale = if (big) ContentScale.Fit else ContentScale.Crop)
             when {
