@@ -65,11 +65,7 @@ class MainActivity : ComponentActivity() {
                 PIP_PREVIOUS -> playerController.skipBack()
                 PIP_TOGGLE -> playerController.togglePlayPause()
                 PIP_NEXT -> playerController.skipForward()
-                PIP_BACKGROUND -> {
-                    audioOnlyRequested = true
-                    playerController.enterAudioOnly()
-                    finish()
-                }
+                PIP_BACKGROUND -> playInBackground()
                 PIP_CLOSE -> { playerController.stop(); finishAndRemoveTask() }
             }
         }
@@ -194,6 +190,21 @@ class MainActivity : ComponentActivity() {
         runCatching { setPictureInPictureParams(pictureInPictureParams()) }
     }
 
+    fun playInBackground() {
+        if (playerController.state.value.nowPlaying == null) return
+        audioOnlyRequested = true
+        playerController.enterAudioOnly()
+        refreshPictureInPicture()
+        if (isInPictureInPictureMode) finish()
+        else if (!moveTaskToBack(true)) resumeVideo()
+    }
+
+    private fun resumeVideo() {
+        audioOnlyRequested = false
+        playerController.exitAudioOnly()
+        refreshPictureInPicture()
+    }
+
     override fun onDestroy() {
         if (wasInPictureInPicture && !isChangingConfigurations && !audioOnlyRequested) playerController.stop()
         playerController.player.removeListener(pipPlayerListener)
@@ -219,6 +230,7 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         leftPictureInPicture = false
         if (!isInPictureInPictureMode) wasInPictureInPicture = false
+        if (audioOnlyRequested && !isInPictureInPictureMode) resumeVideo()
     }
 
     /** Closing the floating window stops the video, as YouTube does. */

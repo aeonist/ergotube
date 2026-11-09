@@ -376,15 +376,15 @@ object StreamChoice {
     fun videoTracks(candidates: List<VideoTrack>, blocked: Set<String> = emptySet(), vp9First: Boolean = false): List<VideoTrack> =
         candidates
             .filter { it.codecMime == null || it.codecMime !in blocked }
-            .groupBy { it.height }
-            .map { (height, sameHeight) ->
-                sameHeight.sortedWith(
-                    compareBy<VideoTrack> { if (vp9First && it.codecMime == VP9) -1 else codecRank(it.codecMime, height) }
+            .groupBy(::resolution)
+            .map { (lines, sameResolution) ->
+                sameResolution.sortedWith(
+                    compareBy<VideoTrack> { if (vp9First && it.codecMime == VP9) -1 else codecRank(it.codecMime, lines) }
                         .thenByDescending { it.fps }
                         .thenByDescending { it.bitrate },
                 ).first()
             }
-            .sortedByDescending { it.height }
+            .sortedByDescending(::resolution)
 
     /** The original-language track at the highest bitrate, preferring AAC for compatibility. */
     fun bestAudio(streams: List<AudioStream>): AudioStream? =
@@ -403,17 +403,9 @@ object StreamChoice {
     const val VP9 = "video/x-vnd.on2.vp9"
 
     /** Resolution tier of the track: for vertical videos (Shorts), this is the width / shorter side. */
-    fun resolution(track: VideoTrack): Int =
-        if (track.width > 0 && track.height > track.width) track.width
-        else if (track.width > 0 && track.width > track.height) track.height
-        else when (track.height) {
-            1920 -> 1080
-            1280 -> 720
-            854 -> 480
-            640 -> 360
-            426 -> 240
-            else -> track.height
-        }
+    fun resolution(track: VideoTrack): Int = resolution(track.height, track.width)
+
+    private fun resolution(height: Int, width: Int): Int = if (width > 0) minOf(height, width) else height
 
     /**
      * The tracks the player adapts between on its own: those of the codec used up to 1080p
@@ -425,15 +417,7 @@ object StreamChoice {
     }
 
     fun label(height: Int, fps: Int, width: Int = 0): String {
-        val res = if (width > 0 && height > width) width
-        else when (height) {
-            1920 -> 1080
-            1280 -> 720
-            854 -> 480
-            640 -> 360
-            426 -> 240
-            else -> height
-        }
+        val res = resolution(height, width)
         return if (fps > 30) "${res}p$fps" else "${res}p"
     }
 

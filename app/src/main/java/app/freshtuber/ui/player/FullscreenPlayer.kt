@@ -136,10 +136,11 @@ fun FullscreenPlayer(
         val boxHeight = maxHeight
         val durationMs = progress.durationMs
         val shownMs = ui.scrubMs ?: progress.positionMs
-        val fraction = if (durationMs > 0) shownMs.toFloat() / durationMs else 0f
+        val timeline = ui.timeline
+        val fraction = if (durationMs > 0) timeline.positionOf(shownMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
         val toggle = { if (progress.ended) { player.seekTo(0); player.play() } else if (player.isPlaying) player.pause() else player.play() }
 
-        Box(Modifier.fillMaxSize().pointerInput(geo, live, gesturesEnabled, awake) {
+        Box(Modifier.fillMaxSize().pointerInput(geo, live, gesturesEnabled, awake, durationMs) {
             var pending: Job? = null
             var lastSide = 0
             var lastAt = 0L
@@ -153,7 +154,7 @@ fun FullscreenPlayer(
                     val woke = awake
                     touching = true
                     wake()
-                    val onArc = geo.onTrack(r0) && !live
+                    val onArc = geo.onTrack(r0) && !live && durationMs > 0
                     var cancelled = false
                     var move = false
                     var lifted: PointerInputChange? = null
@@ -202,21 +203,20 @@ fun FullscreenPlayer(
                     var lastU = u0
                     var fine = false
                     ui.hush()
+                    if (onArc) ui.timeline = TimelineWindow.zoomAt(FanGeometry.fromArc(u0), durationMs)
                     while (true) {
                         val event = awaitPointerEvent()
                         if (event.changes.any { it.isConsumed } || event.changes.size > 1) {
-                            ui.scrubMs = null; ui.fine = null; touching = false
+                            ui.scrubMs = null; ui.fine = null; ui.timeline = TimelineWindow.Full; touching = false
                             return@awaitEachGesture
                         }
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
                         change.consume()
                         val (r, u) = geo.polar(change.position.x / density, change.position.y / density)
-                        val nowFine = r - r0 > FanGeometry.FINE_DISTANCE
+                        val nowFine = !onArc && r - r0 > FanGeometry.FINE_DISTANCE
                         if (nowFine != fine) { fine = nowFine; haptics.performHapticFeedback(HapticFeedbackType.SegmentTick) }
-                        seconds = if (onArc && !fine) {
-                            val zoomFactor = if (durationSeconds > 60f) 3.5f else 1.5f
-                            (startSeconds + (u - u0) * (durationSeconds / zoomFactor)).coerceIn(0f, durationSeconds)
-                        } else (seconds + (u - lastU) * (if (onArc) durationSeconds else Scrub.spanSeconds(durationSeconds)) * (if (fine) Scrub.FINE_FACTOR else 1f))
+                        seconds = if (onArc) ui.timeline.fractionAt(FanGeometry.fromArc(u)) * durationSeconds
+                        else (seconds + (u - lastU) * Scrub.spanSeconds(durationSeconds) * (if (fine) Scrub.FINE_FACTOR else 1f))
                             .coerceIn(0f, durationSeconds)
                         lastU = u
                         ui.fine = if (onArc && !fine) null else fine
@@ -225,7 +225,7 @@ fun FullscreenPlayer(
                     }
                     val target = (seconds * 1000).toLong()
                     player.seekTo(target)
-                    ui.scrubMs = null; ui.fine = null
+                    ui.scrubMs = null; ui.fine = null; ui.timeline = TimelineWindow.Full
                     ui.say("${signedSeek((seconds - startSeconds).toLong())}  →  ${formatDuration(target / 1000)}")
                     touching = false
                     wake()
@@ -299,7 +299,10 @@ fun FullscreenPlayer(
                 val box = Rect(corner - Offset(r, r), Size(2 * r, 2 * r))
                 val base = if (left) 270f else 180f
                 val stroke = Stroke(5.dp.toPx())
-                val cuts = if (live || durationMs <= 0) listOf(0f, 1f) else (chapters.map { it.startSeconds * 1000f / durationMs } + 1f).let { if (it.first() > 0f) listOf(0f) + it else it }
+                val chapterCuts = if (live || durationMs <= 0) emptyList() else chapters
+                    .map { timeline.positionOf(it.startSeconds * 1000f / durationMs) }
+                    .filter { it > 0f && it < 1f }
+                val cuts = listOf(0f) + chapterCuts + 1f
                 val gap = if (cuts.size > 2) 0.014f else 0f
                 for (i in 0 until cuts.lastIndex) {
                     val a = cuts[i] + if (i > 0) gap / 2 else 0f
@@ -314,9 +317,10 @@ fun FullscreenPlayer(
                 }
                 // Sponsor and intro marks over the arc, cut to the part already drawn in.
                 spans.forEach { (a, b, color) ->
-                    val end = minOf(b, sweep)
-                    if (end <= a) return@forEach
-                    val ua = FanGeometry.toArc(a); val ub = FanGeometry.toArc(end)
+                    val start = timeline.positionOf(a).coerceAtLeast(0f)
+                    val end = minOf(timeline.positionOf(b), sweep)
+                    if (end <= start) return@forEach
+                    val ua = FanGeometry.toArc(start); val ub = FanGeometry.toArc(end)
                     drawArc(color, base + ua * 90f, (ub - ua) * 90f, false, box.topLeft, box.size, style = Stroke(5.dp.toPx(), cap = StrokeCap.Butt))
                 }
                 if (!live && dotIn > 0f) {

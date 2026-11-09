@@ -233,15 +233,22 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
             composable<ChannelRoute> { Box(docked.then(transitionBlur())) { ListScreen(navigation, onSignIn = signIn) } }
             composable<AccountRoute> { Box(docked.then(transitionBlur())) { AccountScreen(onSignIn = signIn) } }
             composable<SettingsRoute> { Box(docked.then(transitionBlur())) { SettingsScreen(onAccount = { navController.navigate(AccountRoute) }) } }
-            composable<PlayerRoute> {
+            composable<PlayerRoute> { entry ->
                 Box(Modifier.fillMaxSize().then(transitionBlur(28.dp))) {
                     PlayerScreen(
                         navigation,
                         onBack = { navController.popBackStack() },
                         onSignIn = signIn,
-                        onAdvanced = { next, keepFull -> navController.navigate(PlayerRoute(next, fullscreen = keepFull)) { popUpTo<PlayerRoute> { inclusive = true } } },
+                        onAdvanced = { next, keepFull ->
+                            if (navController.currentBackStackEntry?.id == entry.id) {
+                                navController.navigate(PlayerRoute(next, fullscreen = keepFull)) {
+                                    popUpTo<PlayerRoute> { inclusive = true }
+                                }
+                            }
+                        },
                         settled = settled,
-                        leaving = leaving,
+                        currentPage = backStackEntry?.id == entry.id,
+                        departureCommitted = leaving && backStackEntry?.id != entry.id,
                     )
                 }
             }

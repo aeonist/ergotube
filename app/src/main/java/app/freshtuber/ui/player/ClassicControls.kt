@@ -73,6 +73,7 @@ fun ClassicVideoControls(
     val progress = rememberProgress(player)
     val hide = rememberAutoHide(3_000)
     var scrub by remember { mutableStateOf<Float?>(null) }
+    var timeline by remember { mutableStateOf(TimelineWindow.Full) }
     SideEffect { onScrubPosition(scrub?.let { (it * progress.durationMs).toLong() }) }
     val live = state.nowPlaying?.isLive == true
     hide.Run(keepVisible = alwaysShown || scrub != null || (!progress.isPlaying && !progress.buffering && state.loadingId == null))
@@ -162,15 +163,24 @@ fun ClassicVideoControls(
                 .then(if (active) Modifier.testTag("classic:seek").pointerInput(progress.durationMs) {
                     fun at(x: Float) = (x / size.width).coerceIn(0f, 1f)
                     detectHorizontalDragGestures(
-                        onDragStart = { scrub = at(it.x) },
-                        onDragEnd = { scrub?.let { player.seekTo((it * player.duration.coerceAtLeast(0)).toLong()) }; scrub = null; hide.poke() },
-                        onDragCancel = { scrub = null },
-                    ) { change, _ -> scrub = at(change.position.x) }
+                        onDragStart = {
+                            val touch = at(it.x)
+                            timeline = TimelineWindow.zoomAt(touch, progress.durationMs)
+                            scrub = touch
+                        },
+                        onDragEnd = {
+                            scrub?.let { player.seekTo((it * progress.durationMs).toLong()) }
+                            scrub = null
+                            timeline = TimelineWindow.Full
+                            hide.poke()
+                        },
+                        onDragCancel = { scrub = null; timeline = TimelineWindow.Full },
+                    ) { change, _ -> scrub = timeline.fractionAt(at(change.position.x)) }
                 }.pointerInput(progress.durationMs) {
                     detectTapGestures { player.seekTo((it.x / size.width * player.duration.coerceAtLeast(0)).toLong()); hide.poke() }
                 } else Modifier)) {
                 SeekLine(fraction, (progress.bufferedMs.toFloat() / progress.durationMs).coerceIn(0f, 1f), spans, thick = active,
-                    dot = active, grown = scrub != null, modifier = Modifier.fillMaxSize())
+                    dot = active, grown = scrub != null, modifier = Modifier.fillMaxSize(), timeline = timeline)
             }
         }
     }
@@ -178,15 +188,21 @@ fun ClassicVideoControls(
 
 /** A straight seek line: buffered and played parts, SponsorBlock marks and an optional dot. */
 @Composable
-fun SeekLine(fraction: Float, buffered: Float, spans: List<Triple<Float, Float, Color>>, thick: Boolean, dot: Boolean, grown: Boolean, modifier: Modifier = Modifier) {
+fun SeekLine(fraction: Float, buffered: Float, spans: List<Triple<Float, Float, Color>>, thick: Boolean, dot: Boolean, grown: Boolean,
+    modifier: Modifier = Modifier, timeline: TimelineWindow = TimelineWindow.Full) {
     Canvas(modifier) {
         val h = (if (thick) 3.dp else 3.dp).toPx()
         val y = if (thick) size.height / 2 else size.height - h / 2
-        val f = fraction.coerceIn(0f, 1f)
+        val f = timeline.positionOf(fraction).coerceIn(0f, 1f)
+        val b = timeline.positionOf(buffered).coerceIn(0f, 1f)
         drawRect(Color.White.copy(alpha = 0.3f), Offset(0f, y - h / 2), Size(size.width, h))
-        drawRect(Color.White.copy(alpha = 0.45f), Offset(0f, y - h / 2), Size(size.width * buffered, h))
+        drawRect(Color.White.copy(alpha = 0.45f), Offset(0f, y - h / 2), Size(size.width * b, h))
         drawRect(BrandColors.Red, Offset(0f, y - h / 2), Size(size.width * f, h))
-        spans.forEach { (a, b, color) -> drawRect(color, Offset(size.width * a, y - h / 2), Size(size.width * (b - a), h)) }
+        spans.forEach { (start, end, color) ->
+            val from = timeline.positionOf(start).coerceIn(0f, 1f)
+            val to = timeline.positionOf(end).coerceIn(0f, 1f)
+            if (to > from) drawRect(color, Offset(size.width * from, y - h / 2), Size(size.width * (to - from), h))
+        }
         if (dot) drawCircle(BrandColors.Red, (if (grown) 9.dp else 6.dp).toPx(), Offset(size.width * f, y))
     }
 }

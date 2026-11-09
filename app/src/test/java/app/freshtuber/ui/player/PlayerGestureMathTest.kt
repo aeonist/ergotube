@@ -25,6 +25,15 @@ class PlayerGestureMathTest {
         assertEquals(600f, Scrub.spanSeconds(10_800f), 0.01f)
     }
 
+    @Test fun timelineZoomKeepsTheTouchAnchoredAndShowsALargerScale() {
+        val touch = 0.7f
+        val zoom = TimelineWindow.zoomAt(touch, 180_000)
+        assertEquals(touch, zoom.fractionAt(touch), 0.0001f)
+        assertEquals(0.1f, zoom.positionOf(touch + 0.1f / 3.5f) - touch, 0.0001f)
+        assertEquals(0f, TimelineWindow.zoomAt(0f, 180_000).fractionAt(0f), 0.0001f)
+        assertEquals(1f, TimelineWindow.zoomAt(1f, 180_000).fractionAt(1f), 0.0001f)
+    }
+
     @Test fun liftingTheFingerScrubsFiveTimesFiner() {
         val coarse = Scrub.step(100f, 100f, 1000f, 1000f, fine = false)
         val fine = Scrub.step(100f, 100f, 1000f, 1000f, fine = true)

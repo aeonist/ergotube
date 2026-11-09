@@ -30,6 +30,7 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.stringResource
@@ -63,9 +64,11 @@ fun SearchScreen(
     // Categories and the field slide away while results are read downward, and return on the way up.
     val hide = rememberScrollHide(inverted = fromBottom)
     val keyboard = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
     val run: (String) -> Unit = { text ->
         query = text
         keyboard?.hide()
+        focusManager.clearFocus()
         submitted = text.trim()
         viewModel.search(text)
     }

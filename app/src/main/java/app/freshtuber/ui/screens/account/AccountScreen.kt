@@ -142,8 +142,10 @@ private fun SignedInContent(
     onSwitchChannel: (ChannelIdentity) -> Unit,
 ) {
     val active = state.active
+    val preferences = app.freshtuber.ui.theme.LocalAppPreferences.current
+    val fromBottom = !preferences.enabled(app.freshtuber.data.settings.AppFeature.TraditionalScroll)
 
-    LazyColumn(Modifier.fillMaxSize()) {
+    LazyColumn(Modifier.fillMaxSize(), reverseLayout = fromBottom) {
         item {
             Row(
                 modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 12.dp),

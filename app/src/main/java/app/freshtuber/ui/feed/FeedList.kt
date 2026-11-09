@@ -120,14 +120,14 @@ fun FeedList(
             last >= listState.layoutInfo.totalItemsCount - 4
         }
     }
-    LaunchedEffect(nearEnd, state.items.size) {
-        if (nearEnd && state.items.isNotEmpty()) onLoadMore()
+    LaunchedEffect(nearEnd, state.items.size, state.refreshing) {
+        if (nearEnd && state.items.isNotEmpty() && !state.refreshing && state.error == null) onLoadMore()
     }
 
     val columns = app.freshtuber.ui.components.feedColumns()
     val rows = remember(state.items, shortsShelf, columns) { FeedRows.grid(FeedRows.of(state.items, shortsShelf), columns) }
     var localRefreshing by remember { mutableStateOf(false) }
-    LaunchedEffect(state.refreshing) {
+    LaunchedEffect(state.refreshing, localRefreshing) {
         if (!state.refreshing && localRefreshing) {
             delay(500)
             localRefreshing = false

@@ -221,11 +221,14 @@ class PlayerController @Inject constructor(
         audioOnly = true
         player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, true).build()
     }
+    fun exitAudioOnly() {
+        if (!audioOnly) return
+        audioOnly = false
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, false).build()
+    }
+
     fun setVideoScreen(shown: Boolean) {
-        if (shown && audioOnly) {
-            audioOnly = false
-            player.trackSelectionParameters = player.trackSelectionParameters.buildUpon().setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, false).build()
-        }
+        if (shown) exitAudioOnly()
         if (shown) screensShowingVideo.incrementAndGet() else screensShowingVideo.updateAndGet { (it - 1).coerceAtLeast(0) }
         _videoVisible.value = videoOnScreen
     }
@@ -559,11 +562,9 @@ class PlayerController @Inject constructor(
 
     /** Auto quality: anything up to the preferred lines, chosen by the player from the measured speed. */
     private fun limitQuality() {
-        val cap = if (dashActive && qualityCap > 0) qualityCap else Int.MAX_VALUE
-        val maxDim = if (cap < Int.MAX_VALUE) maxOf(cap, (cap * 16) / 9) else Int.MAX_VALUE
         player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
             .clearOverridesOfType(C.TRACK_TYPE_VIDEO)
-            .setMaxVideoSize(maxDim, maxDim)
+            .setMaxVideoSize(Int.MAX_VALUE, if (dashActive) qualityCap else Int.MAX_VALUE)
             .build()
     }
 
@@ -684,7 +685,7 @@ class PlayerController @Inject constructor(
         } else {
             now.qualities.filterIndexed { index, _ -> index > now.qualityIndex }
         }
-        val index = StreamChoice.pick(tracks, failed.height)
+        val index = StreamChoice.pick(tracks, StreamChoice.resolution(failed))
         if (index < 0) return false
         val updated = now.copy(qualities = tracks, qualityIndex = index, qualityAuto = dashActive)
         _state.update { it.copy(nowPlaying = updated, error = null) }

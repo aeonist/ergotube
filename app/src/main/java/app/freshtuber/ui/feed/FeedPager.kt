@@ -68,19 +68,22 @@ class FeedPager(
     private var job: Job? = null
     private val brandingLimit = Semaphore(4)
 
-    fun refresh() = start(filterToken = null, keepFilters = false)
+    fun refresh() {
+        val token = _state.value.filters.firstOrNull { it.selected }?.token
+        start(token, keepFilters = token != null, keepItems = true)
+    }
 
     fun selectFilter(filter: FeedFilter) {
         if (filter.selected) return
         val filters = _state.value.filters.map { it.copy(selected = it.title == filter.title) }
         _state.update { it.copy(filters = filters) }
-        start(filter.token, keepFilters = true)
+        start(filter.token, keepFilters = true, keepItems = false)
     }
 
     fun loadMore() {
         val state = _state.value
         val token = continuation ?: return
-        if (state.loading || state.loadingMore || state.endReached) return
+        if (state.loading || state.refreshing || state.loadingMore || state.endReached) return
         _state.update { it.copy(loadingMore = true, moreFailed = false) }
         job = scope.launch {
             try {
@@ -102,13 +105,14 @@ class FeedPager(
         }
     }
 
-    private fun start(filterToken: String?, keepFilters: Boolean) {
+    private fun start(filterToken: String?, keepFilters: Boolean, keepItems: Boolean) {
         job?.cancel()
-        val keepItems = filterToken == null && !keepFilters
+        continuation = null
         _state.update {
             it.copy(
                 loading = !keepItems || it.items.isEmpty(),
                 refreshing = keepItems && it.items.isNotEmpty(),
+                loadingMore = false,
                 error = null,
                 items = if (keepItems) it.items else emptyList(),
                 moreFailed = false,

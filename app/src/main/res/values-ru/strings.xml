@@ -281,7 +281,7 @@
     <string name="settings_quality_mobile">Качество в мобильной сети</string>
     <string name="settings_quality_hint">Авто подбирает качество по скорости сети. Выбранное разрешение задаёт верхний предел.</string>
     <string name="settings_swap_home_mine">Поменять «Моё» и «Главная» местами</string>
-    <string name="settings_swap_home_mine_hint">«Главная» слева, «Моё» справа.</string>
+    <string name="settings_swap_home_mine_hint">Отразить нижнее меню вокруг кнопки «Поиск».</string>
     <string name="settings_traditional_scroll">Традиционное направление пролистывания</string>
     <string name="settings_traditional_scroll_hint">Сверху вниз. «Главная» всегда листается сверху вниз.</string>
     <string name="player_audio_only">Слушать в фоне</string>

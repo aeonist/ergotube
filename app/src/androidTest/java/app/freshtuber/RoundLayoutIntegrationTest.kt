@@ -20,10 +20,12 @@ class RoundLayoutIntegrationTest {
         val context = instrumentation.targetContext
         val settings = AppSettings(context)
         val original = settings.preferences.first()
+        val originalHand = settings.leftHanded.first()
         try {
             settings.markWelcomeDone()
             settings.setFeature(AppFeature.LiquidFlat, true)
             settings.setStyle(UiStyle.Ergonomic)
+            settings.setLeftHanded(false)
             settings.setFeature(AppFeature.SwapHomeMine, false)
             settings.setDockWidth(100)
             ActivityScenario.launch(MainActivity::class.java).use {
@@ -56,7 +58,7 @@ class RoundLayoutIntegrationTest {
                 ready()
                 val swapped = centers()
                 assertTrue(swapped.first() > swapped.last())
-                assertEquals(beforeSwap.subList(1, 4), swapped.subList(1, 4))
+                assertEquals(beforeSwap.reversed(), swapped)
                 capture("liquid12-swapped-classic")
                 settings.setStyle(UiStyle.Ergonomic)
                 ready()
@@ -66,6 +68,7 @@ class RoundLayoutIntegrationTest {
         } finally {
             settings.setFeature(AppFeature.LiquidFlat, original.enabled(AppFeature.LiquidFlat))
             settings.setStyle(original.style)
+            settings.setLeftHanded(originalHand)
             settings.setDockWidth(original.dockWidth)
             settings.setFeature(AppFeature.SwapHomeMine, original.enabled(AppFeature.SwapHomeMine))
         }

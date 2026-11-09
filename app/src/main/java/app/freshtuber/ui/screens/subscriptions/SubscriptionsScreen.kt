@@ -194,7 +194,7 @@ fun SubscriptionsScreen(
         }
     }
     if (listOpen) ModalBottomSheet(onDismissRequest = { listOpen = false }) {
-        androidx.compose.foundation.lazy.LazyColumn(Modifier.fillMaxWidth()) {
+        androidx.compose.foundation.lazy.LazyColumn(Modifier.fillMaxWidth(), reverseLayout = fromBottom) {
             items(strip, key = { it.id }) { channel ->
                 ListItem(headlineContent = { Text(channel.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     leadingContent = { AsyncImage(channel.avatarUrl, null, Modifier.size(40.dp).clip(CircleShape)

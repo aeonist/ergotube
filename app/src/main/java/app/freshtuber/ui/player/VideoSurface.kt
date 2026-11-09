@@ -108,7 +108,6 @@ fun VideoSurface(player: Player, modifier: Modifier = Modifier, zoomToFill: Bool
                 onRelease = { view -> view.player = null; if (surfaceHandle.view === view) surfaceHandle.view = null },
             )
         }
-        androidx.compose.runtime.SideEffect { surfaceHandle.firstFrame = active && firstFrame }
         if (poster != null) {
             val hidden = active && firstFrame
             val alpha = remember { androidx.compose.animation.core.Animatable(1f) }

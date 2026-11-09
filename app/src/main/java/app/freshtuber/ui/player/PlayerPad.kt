@@ -47,6 +47,7 @@ import kotlinx.coroutines.delay
 class PadUi {
     /** Position being scrubbed to, or null when not scrubbing. */
     var scrubMs by mutableStateOf<Long?>(null)
+    var timeline by mutableStateOf(TimelineWindow.Full)
     /** Null when dragging along the track (no fine mode), else whether fine mode is on. */
     var fine by mutableStateOf<Boolean?>(null)
     var bubble by mutableStateOf<String?>(null)
@@ -151,7 +152,8 @@ fun PlayerPad(
                 val coords = padCoords ?: return@awaitEachGesture
                 val rootDown = coords.localToRoot(down.position)
                 if (buttons.values.any { it.contains(rootDown) }) return@awaitEachGesture
-                val onTrack = rootDown.y in (trackBounds.top - 6.dp.toPx())..(trackBounds.bottom + 6.dp.toPx())
+                val onTrack = trackBounds.width > 0f && durationMs > 0 &&
+                    rootDown.y in (trackBounds.top - 6.dp.toPx())..(trackBounds.bottom + 6.dp.toPx())
                 val onMain = !onTrack && rootDown.y in mainBounds.top..mainBounds.bottom
                 val width = size.width.toFloat()
                 val start = down.position
@@ -217,6 +219,11 @@ fun PlayerPad(
                 val durationSeconds = durationMs / 1000f
                 val liftPx = Scrub.FINE_LIFT_DP * density
                 if (move == PadMove.Seek) ui.hush()
+                if (move == PadMove.Seek && onTrack) {
+                    ui.timeline = TimelineWindow.zoomAt((rootDown.x - trackBounds.left) / trackBounds.width, durationMs)
+                    scrubSeconds = ui.timeline.fractionAt((coords.localToRoot(last).x - trackBounds.left) / trackBounds.width) * durationSeconds
+                    ui.scrubMs = (scrubSeconds * 1000).toLong()
+                }
                 var endY = last.y
                 while (true) {
                     val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
@@ -224,9 +231,8 @@ fun PlayerPad(
                     endY = change.position.y
                     if (move == PadMove.Seek) {
                         if (onTrack) {
-                            val delta = (change.position.x - last.x) / trackBounds.width
-                            val zoomFactor = if (durationSeconds > 60f) 3.5f else 1.5f
-                            scrubSeconds = (scrubSeconds + delta * (durationSeconds / zoomFactor)).coerceIn(0f, durationSeconds)
+                            val position = (coords.localToRoot(change.position).x - trackBounds.left) / trackBounds.width
+                            scrubSeconds = ui.timeline.fractionAt(position) * durationSeconds
                             ui.fine = null
                         } else {
                             val nowFine = Scrub.isFine(start.y, change.position.y, liftPx)
@@ -245,6 +251,7 @@ fun PlayerPad(
                     player.seekTo(target)
                     ui.showSeekTime()
                     ui.scrubMs = null
+                    ui.timeline = TimelineWindow.Full
                     ui.fine = null
                     ui.say("${signedSeek(target / 1000 - startMs / 1000)}  →  ${formatDuration(target / 1000)}")
                 } else if (move == PadMove.Vertical) {
@@ -280,7 +287,7 @@ fun PlayerPad(
             Track(if (durationMs > 0) shownMs.toFloat() / durationMs else 0f, chapters, durationMs, scrubbing = ui.scrubMs != null,
                 live = live, modifier = Modifier.fillMaxWidth().height(18.dp).padding(horizontal = 8.dp)
                     .testTag("player:track").onGloballyPositioned { trackBounds = it.boundsInRoot() },
-                gap = Color.Transparent, segments = segments)
+                gap = Color.Transparent, segments = segments, timeline = ui.timeline)
             Row(Modifier.fillMaxWidth().height(50.dp).onGloballyPositioned { mainBounds = it.boundsInRoot() },
                 verticalAlignment = Alignment.CenterVertically) {
                 PadButton(Icons.Rounded.SkipPrevious, stringResource(R.string.player_previous), Modifier.button("previous"), enabled = hasPrevious, onClick = onPrevious)
@@ -340,7 +347,8 @@ private fun PadZoneIcon(icon: ImageVector, label: String, modifier: Modifier, bi
 @Composable
 fun Track(fraction: Float, chapters: List<Chapter>, durationMs: Long, scrubbing: Boolean, live: Boolean, modifier: Modifier,
     background: Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f), gap: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
-    segments: List<app.freshtuber.data.extras.SkipSegment> = emptyList(), stroke: androidx.compose.ui.unit.Dp = 4.dp) {
+    segments: List<app.freshtuber.data.extras.SkipSegment> = emptyList(), stroke: androidx.compose.ui.unit.Dp = 4.dp,
+    timeline: TimelineWindow = TimelineWindow.Full) {
     val spans = remember(segments, durationMs) { SegmentMarks.spans(segments, durationMs) }
     val dot by animateFloatAsState(if (scrubbing) 11f else 7f, label = "dot")
     Canvas(modifier) {
@@ -348,13 +356,20 @@ fun Track(fraction: Float, chapters: List<Chapter>, durationMs: Long, scrubbing:
         val strokePx = stroke.toPx()
         drawLine(background, Offset(0f, y), Offset(size.width, y), strokePx, StrokeCap.Round)
         if (live) return@Canvas
-        val f = fraction.coerceIn(0f, 1f)
+        val f = timeline.positionOf(fraction).coerceIn(0f, 1f)
         drawLine(BrandColors.Red, Offset(0f, y), Offset(size.width * f, y), strokePx, StrokeCap.Round)
         // Sponsor and intro marks lie over both the played and the unplayed part.
-        spans.forEach { (a, b, color) -> drawLine(color, Offset(size.width * a, y), Offset(size.width * b, y), strokePx, StrokeCap.Butt) }
+        spans.forEach { (a, b, color) ->
+            val start = timeline.positionOf(a).coerceIn(0f, 1f)
+            val end = timeline.positionOf(b).coerceIn(0f, 1f)
+            if (end > start) drawLine(color, Offset(size.width * start, y), Offset(size.width * end, y), strokePx, StrokeCap.Butt)
+        }
         if (durationMs > 0) chapters.drop(1).forEach { c ->
-            val x = size.width * (c.startSeconds * 1000f / durationMs)
-            drawLine(gap, Offset(x, y - 4.dp.toPx()), Offset(x, y + 4.dp.toPx()), 3.dp.toPx())
+            val position = timeline.positionOf(c.startSeconds * 1000f / durationMs)
+            if (position in 0f..1f) {
+                val x = size.width * position
+                drawLine(gap, Offset(x, y - 4.dp.toPx()), Offset(x, y + 4.dp.toPx()), 3.dp.toPx())
+            }
         }
         drawCircle(BrandColors.Red, dot.dp.toPx(), Offset(size.width * f, y))
     }

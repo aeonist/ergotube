@@ -281,7 +281,6 @@ private fun ShortPage(
     val grab: ((android.graphics.Bitmap) -> Unit)? = if (active) light?.let { l -> { bitmap -> l.pushVideoFrame(bitmap) } } else null
     val density = androidx.compose.ui.platform.LocalDensity.current
     val statusTop = with(density) { WindowInsets.statusBars.getTop(this).toDp() }
-    val surface = remember(item.videoId) { VideoSurfaceHandle() }
     BoxWithConstraints(
         Modifier
             .fillMaxSize()
@@ -315,15 +314,12 @@ private fun ShortPage(
         Box(Modifier.offset(x = left, y = top).width(width).height(height).clip(RoundedCornerShape(if (fit) 24.dp else 0.dp))
             .graphicsLayer { alpha = if (handoff?.awaiting(item.videoId, FlightTarget.Short) == true) 0f else 1f }
             .background(Color.Black)) {
-            if (player != null) VideoSurface(player, Modifier.fillMaxSize(), zoomToFill = trimmed, onFrame = grab,
-                active = settled || inPip, mediaId = item.videoId, handle = surface)
-            // The thumbnail stays in one place above the surface until the video's first frame,
-            // so swiping to a Short never flashes black.
-            val isCurrentPlaying = player != null && player.currentMediaItem?.mediaId == item.videoId && (player.isPlaying || player.currentPosition > 0)
-            val showsVideo = player != null && (surface.firstFrame || isCurrentPlaying)
-            val cover by androidx.compose.animation.core.animateFloatAsState(if (showsVideo) 0f else 1f,
-                if (showsVideo) androidx.compose.animation.core.tween(280, 40) else androidx.compose.animation.core.snap(), label = "shortCover")
-            VideoPicture(item.thumbnailUrl, Modifier.fillMaxSize().graphicsLayer { alpha = cover })
+            if (player != null) {
+                VideoSurface(player, Modifier.fillMaxSize(), zoomToFill = trimmed, texture = true, onFrame = grab,
+                    active = settled || inPip, poster = item.thumbnailUrl, mediaId = item.videoId)
+            } else {
+                VideoPicture(item.thumbnailUrl, Modifier.fillMaxSize())
+            }
         }
         if (!inPip && player != null && progress != null && progress.durationMs > 0)
             ShortsTimeline(player, progress, Modifier.align(Alignment.BottomCenter).padding(bottom = bottomSpace))
@@ -466,6 +462,7 @@ private fun ShortButton(icon: androidx.compose.ui.graphics.vector.ImageVector, l
 @Composable
 private fun ShortsTimeline(player: Player, progress: Progress, modifier: Modifier = Modifier) {
     var scrub by remember { mutableStateOf<Float?>(null) }
+    var timeline by remember { mutableStateOf(app.freshtuber.ui.player.TimelineWindow.Full) }
     val duration = progress.durationMs
     val fraction = scrub ?: (progress.positionMs.toFloat() / duration).coerceIn(0f, 1f)
     val label = stringResource(R.string.shorts_timeline)
@@ -475,20 +472,25 @@ private fun ShortsTimeline(player: Player, progress: Progress, modifier: Modifie
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
                 down.consume()
-                scrub = (down.position.x / size.width).coerceIn(0f, 1f)
+                val touch = (down.position.x / size.width).coerceIn(0f, 1f)
+                scrub = touch
                 while (true) {
                     val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
                     change.consume()
                     if (!change.pressed) break
-                    scrub = (change.position.x / size.width).coerceIn(0f, 1f)
+                    if (kotlin.math.abs(change.position.x - down.position.x) > viewConfiguration.touchSlop) {
+                        timeline = app.freshtuber.ui.player.TimelineWindow.zoomAt(touch, duration)
+                    }
+                    scrub = timeline.fractionAt(change.position.x / size.width)
                 }
                 scrub?.let { player.seekTo((it * duration).toLong()) }
                 scrub = null
+                timeline = app.freshtuber.ui.player.TimelineWindow.Full
             }
         }) {
         val thick = scrub != null
         Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(if (thick) 6.dp else 3.dp).background(Color(0x55FFFFFF))) {
-            Box(Modifier.fillMaxHeight().fillMaxWidth(fraction).background(app.freshtuber.ui.theme.BrandColors.Red))
+            Box(Modifier.fillMaxHeight().fillMaxWidth(timeline.positionOf(fraction).coerceIn(0f, 1f)).background(app.freshtuber.ui.theme.BrandColors.Red))
         }
         if (thick) Text("${app.freshtuber.ui.util.formatDuration((fraction * duration / 1000).toLong())} / ${app.freshtuber.ui.util.formatDuration(duration / 1000)}",
             color = Color.White, style = MaterialTheme.typography.labelLarge,

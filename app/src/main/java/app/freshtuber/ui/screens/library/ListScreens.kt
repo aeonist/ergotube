@@ -16,8 +16,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Login
-import androidx.compose.material.icons.rounded.HowToReg
-import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.ThumbUp
 import androidx.compose.foundation.layout.Arrangement
@@ -187,8 +185,6 @@ fun ListScreen(
         val fromBottom = !preferences.enabled(app.freshtuber.data.settings.AppFeature.TraditionalScroll)
         val hide = rememberScrollHide(inverted = fromBottom)
         Box(Modifier.weight(1f)) {
-            // Library lists, history and playlists grow upward from the thumb, newest right above
-            // the bottom bar; channels read like a feed, newest at the top.
             if (needsAccount) Column(Modifier.fillMaxSize()) {
                 if (!fromBottom) ScreenHeader(title)
                 MessageState(stringResource(R.string.library_needs_account), Modifier.weight(1f))
@@ -207,12 +203,13 @@ fun ListScreen(
                 shortsShelf = if (viewModel.isHistory) 1 else 2,
                 header = {
                     val channel = header
-                    if (channel != null) item(key = "channel-header") { ChannelHeaderRow(channel, actionError, onSignIn) }
+                    if (channel != null) item(key = "channel-header") {
+                        ChannelHeaderRow(channel, actionError, onSignIn, viewModel::toggleSubscription)
+                    }
                     else if (!viewModel.isChannel) item(key = "header") { ScreenHeader(title) }
                 },
             )
         }
-        val channel = header
         val actions = buildList {
             if (needsAccount) add(ContextAction(Icons.AutoMirrored.Rounded.Login, stringResource(R.string.welcome_sign_in), primary = true, onClick = onSignIn))
             else {
@@ -220,10 +217,6 @@ fun ListScreen(
                     add(ContextAction(Icons.Rounded.PlayArrow, stringResource(R.string.list_play), primary = true) { navigation.openVideo(firstVideo) })
                 if (viewModel.isPlaylists && onLiked != null)
                     add(ContextAction(Icons.Rounded.ThumbUp, stringResource(R.string.library_liked), onClick = onLiked))
-                if (channel != null) add(ContextAction(
-                    if (channel.subscribed == true) Icons.Rounded.HowToReg else Icons.Rounded.PersonAdd,
-                    stringResource(if (channel.subscribed == true) R.string.channel_subscribed else R.string.channel_subscribe),
-                    primary = channel.subscribed != true, onClick = viewModel::toggleSubscription))
             }
         }
         if (actions.isNotEmpty()) {
@@ -239,6 +232,7 @@ private fun ChannelHeaderRow(
     header: ChannelHeader,
     actionError: LoadError?,
     onSignIn: () -> Unit,
+    onSubscribe: () -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -259,6 +253,7 @@ private fun ChannelHeaderRow(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
+            ChannelSubscribeButton(header.subscribed == true, onSubscribe)
         }
         if (actionError == LoadError.SessionExpired) {
             ActionHint(stringResource(R.string.action_needs_sign_in), onSignIn)

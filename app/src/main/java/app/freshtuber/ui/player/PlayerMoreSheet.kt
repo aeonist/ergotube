@@ -74,7 +74,7 @@ fun PlayerMoreSheet(state: PlayerState, video: VideoUiState, controller: PlayerC
     val now = state.nowPlaying
     val left = LocalLeftHanded.current
     val context = LocalContext.current
-    val activity = androidx.activity.compose.LocalActivity.current
+    val activity = androidx.activity.compose.LocalActivity.current as? app.freshtuber.MainActivity
     val downloadNotifications = app.freshtuber.ui.components.rememberDownloadNotifications()
     val enableNotifications = app.freshtuber.ui.components.rememberNotificationPermission { viewModel.setLocalNotifications(true) }
     val shareTitle = stringResource(R.string.video_share)
@@ -135,7 +135,7 @@ fun PlayerMoreSheet(state: PlayerState, video: VideoUiState, controller: PlayerC
             }
             // Lowest, under the thumb: most used actions; the first sits on the hand side.
             val actions = listOf(
-                TileItem(Icons.Rounded.Headphones, stringResource(R.string.player_audio_only)) { onDismiss(); viewModel.playBackground(activity) },
+                TileItem(Icons.Rounded.Headphones, stringResource(R.string.player_audio_only)) { onDismiss(); activity?.playInBackground() },
                 TileItem(Icons.AutoMirrored.Rounded.PlaylistAdd, stringResource(R.string.video_save)) { onDismiss(); viewModel.openPlaylistPicker() },
                 TileItem(Icons.Rounded.Download, stringResource(R.string.feed_download)) { downloadNotifications(); viewModel.download(); onDismiss() },
                 TileItem(Icons.Rounded.Share, shareTitle) { onDismiss(); shareVideo(context, viewModel.videoId, shareTitle) },

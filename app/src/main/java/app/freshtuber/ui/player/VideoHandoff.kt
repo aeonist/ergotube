@@ -144,10 +144,6 @@ val LocalWarmVideo = staticCompositionLocalOf<(String) -> Unit> { {} }
 class VideoSurfaceHandle {
     internal var view: PlayerView? = null
 
-    /** True once the surface shows its video's first frame (a poster above it may go). */
-    var firstFrame by mutableStateOf(false)
-        internal set
-
     /** A copy of what the surface shows now, at half size; null if it shows nothing yet. */
     @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
     suspend fun capture(): ImageBitmap? {

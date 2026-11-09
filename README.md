@@ -1,5 +1,7 @@
 # ErgoTube
 
+The 9 November test build adds pull-to-refresh, bottom-up lists with a traditional option under Hand & look, and a mirrored dock. The player adds audio-only background playback, finer timeline scrubbing and Previous in Android media controls. The channel name now has its own Subscribe button. [Test APK](apk/ErgoTube-edits-queue-debug.apk)
+
 Cloud-sofa branding: the selected cloud-sofa symbol replaces the classic YouTube badge and the welcome mark, without a wordmark in the header. Launcher/themed and notification icons share its vector silhouette. 136 JVM tests pass; Debug and minified Release build. APK: `apk/ErgoTube-cloud-sofa-release.apk`.
 
 English · [Русский](README.ru.md)
@@ -8,7 +10,7 @@ ErgoTube is an Android YouTube client built for one-handed use. Everything you t
 
 PiP hotfix: the system cross clears playback even when Android reports dismissal after `onStop`; headphones retain background audio. Validation is limited to the focused PiP action scenario and APK builds, as requested.
 
-Current build: **1.2 "liquid 13"** (versionCode 16), branch `liquid-light-ui`.
+Earlier trial **1.2 "liquid 13"** (versionCode 16), branch `liquid-light-ui`.
 - Liquid 14: one network request before playback (cached visitor id), lookup starts on card press, clock bottom-left on the video and always on the remote. APK `apk/ErgoTube-liquid-14-release.apk`.
 - Liquid 15: restyled quality palette, foldable watch page without side bars, whole Shorts on wide screens. APK `apk/ErgoTube-liquid-15-release.apk`.
 
@@ -17,7 +19,7 @@ Current build: **1.2 "liquid 13"** (versionCode 16), branch `liquid-light-ui`.
 ## Features
 
 **Made for one hand**
-- A bottom dock ordered left to right: Mine, Subscriptions, Search, Shorts, Home. Mine contains Watch later, Downloads, History, Playlists and Settings. Its width is adjustable; unfolded screens use the full width. A separate setting swaps Mine and Home.
+- The right-hand dock starts with Mine, Subscriptions, Search, Shorts and Home. Mine contains Watch later, Downloads, History, Playlists and Settings. The dock fills the width of an unfolded screen. Its width is adjustable on phones. Swapping Mine and Home mirrors the whole row.
 - Every fixed control sits below 55% of the screen height. A test (`ReachRuleTest`) checks this for both hands.
 - No on-screen Back buttons. The system Back gesture and the dock are enough.
 - Hold a video card and flick toward Watch later, Download, Save, Share, Not interested (with undo) or Channel. Releasing in the centre cancels.

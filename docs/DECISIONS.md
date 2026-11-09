@@ -401,3 +401,13 @@ The user selected the second cloud concept and authorized replacing every app-ow
 - In-app marks use apricot on dark surfaces and wine on light surfaces. Playback control icons and third-party website content remain their functional sources.
 - Validation: 136 JVM tests, Debug and minified Release builds pass. API37 emulator with host GPU: visually inspected the classic header and the installed launcher icon (screenshots in production/). Welcome uses the same shared composable; no fresh-onboarding flow or themed-launcher setting was exercised. Emulator shut down after checking.
 - APKs: `apk/ErgoTube-cloud-sofa-{debug,release}.apk`.
+
+## 2026-11-09 — small edits queue
+
+- Home keeps its top-down order. Subscriptions, channels, library, downloads, search results and account lists start at the bottom by default. Hand & look can restore the traditional order. Video and Shorts keep their existing vertical gestures. Playlist actions and search controls slide away when browsing, and the subscription button scrolls with the channel name on the channel and watch pages.
+- Feeds refresh with a downward pull at their top edge. Refresh keeps existing rows and the selected filter visible, and waits for the new page before requesting more. [Compose pull to refresh](https://developer.android.com/develop/ui/compose/components/pull-to-refresh)
+- The card action fan uses the existing cloud-sofa vector. Swapping Mine and Home mirrors the entire dock. In fullscreen, the wave background fills the margins added by the player.
+- Dragging a timeline zooms around the initial touch and rescales the visible chapter and segment marks. The full timeline returns on release. Shorts select quality by the shorter picture dimension and use the same first-frame poster as the ordinary player.
+- The watch page keeps fullscreen when advancing. Pinning preserves the anchored list row and Back hands off the video to the mini-player only when navigation commits. Background audio uses the existing audio-only playback path and restores video on return. Android media controls invoke the previous or next command once per press. [Android media controls](https://developer.android.com/media/implement/surfaces/mobile)
+- Debug build and 138 JVM tests passed. Android lint reported zero errors. Six API 37 instrumentation checks covered dock order, fullscreen pinch and next/previous navigation, cancelled Back and mini-player continuity, notification links and PiP. Anonymous emulator playback confirmed moving Shorts frames and continued audio after leaving through the background button. Validation used the emulator in signed-out mode.
+- Test build 19 is available at `apk/ErgoTube-edits-queue-debug.apk`.

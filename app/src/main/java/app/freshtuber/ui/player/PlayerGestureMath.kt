@@ -23,6 +23,21 @@ class SeekBurst(private val windowMs: Long = 900) {
     }
 }
 
+/** A visible slice of the timeline that keeps the initial touch at the same screen position. */
+data class TimelineWindow private constructor(private val start: Float, private val span: Float) {
+    fun fractionAt(position: Float): Float = start + position.coerceIn(0f, 1f) * span
+    fun positionOf(fraction: Float): Float = (fraction - start) / span
+
+    companion object {
+        val Full = TimelineWindow(0f, 1f)
+
+        fun zoomAt(touch: Float, durationMs: Long): TimelineWindow {
+            val span = if (durationMs > 60_000) 1f / 3.5f else 1f / 1.5f
+            return TimelineWindow(touch.coerceIn(0f, 1f) * (1f - span), span)
+        }
+    }
+}
+
 /** Horizontal drag scrubbing on the pad. Lifting the finger higher makes it five times finer. */
 object Scrub {
     const val FINE_FACTOR = 0.2f

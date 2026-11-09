@@ -1,6 +1,10 @@
 package app.freshtuber
 
 import android.content.Intent
+import android.view.TextureView
+import android.view.View
+import android.view.ViewGroup
+import androidx.activity.BackEventCompat
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.media3.common.Player
@@ -20,6 +24,7 @@ class MiniPlayerContinuityIntegrationTest {
         val settings = AppSettings(context); val original = settings.preferences.first()
         settings.markWelcomeDone(); settings.setFeature(AppFeature.LiquidFlat, true); settings.setFeature(AppFeature.Autoplay, false)
         settings.setFeature(AppFeature.MiniPlayerTapOpens, true)
+        settings.setStyle(UiStyle.Ergonomic)
         var activity: MainActivity? = null
         try {
             ActivityScenario.launch<MainActivity>(Intent(context, MainActivity::class.java).putExtra("videoId", "dQw4w9WgXcQ")).use { scenario ->
@@ -35,6 +40,25 @@ class MiniPlayerContinuityIntegrationTest {
                 }
                 var before = 0L
                 instrumentation.runOnMainSync { activity!!.playerController.player.addListener(listener); before = activity!!.playerController.player.currentPosition }
+                fun findTexture(view: View): TextureView? = when (view) {
+                    is TextureView -> view.takeIf { it.isAvailable }
+                    is ViewGroup -> (0 until view.childCount).firstNotNullOfOrNull { findTexture(view.getChildAt(it)) }
+                    else -> null
+                }
+                var originalSurface: TextureView? = null
+                scenario.onActivity {
+                    originalSurface = findTexture(it.window.decorView)
+                    assertNotNull(originalSurface)
+                    it.onBackPressedDispatcher.dispatchOnBackStarted(BackEventCompat(1f, 400f, 0f, BackEventCompat.EDGE_LEFT))
+                }
+                scenario.onActivity {
+                    it.onBackPressedDispatcher.dispatchOnBackProgressed(BackEventCompat(240f, 400f, 0.6f, BackEventCompat.EDGE_LEFT))
+                }
+                Thread.sleep(350)
+                scenario.onActivity { it.onBackPressedDispatcher.dispatchOnBackCancelled() }
+                compose.waitForIdle()
+                compose.onNodeWithTag("mini").assertDoesNotExist()
+                scenario.onActivity { assertSame("A cancelled Back must retain the watch surface", originalSurface, findTexture(it.window.decorView)) }
                 instrumentation.uiAutomation.executeShellCommand("input keyevent KEYCODE_BACK").close()
                 compose.waitUntil(10_000) { compose.onAllNodesWithTag("mini").fetchSemanticsNodes().isNotEmpty() }
                 Thread.sleep(1_000)
@@ -63,6 +87,7 @@ class MiniPlayerContinuityIntegrationTest {
             instrumentation.runOnMainSync { activity?.playerController?.stop() }
             settings.setFeature(AppFeature.LiquidFlat, original.enabled(AppFeature.LiquidFlat)); settings.setFeature(AppFeature.Autoplay, original.enabled(AppFeature.Autoplay))
             settings.setFeature(AppFeature.MiniPlayerTapOpens, original.enabled(AppFeature.MiniPlayerTapOpens))
+            settings.setStyle(original.style)
         }
     }
 }

@@ -136,7 +136,8 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
 
     // Pressed to the bottom; on a short screen (landscape) it scrolls instead of clipping.
     BoxWithConstraints(Modifier.fillMaxSize()) {
-    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).heightIn(min = maxHeight).padding(bottom = 12.dp),
+    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState(),
+        reverseScrolling = !preferences.enabled(AppFeature.TraditionalScroll)).heightIn(min = maxHeight).padding(bottom = 12.dp),
         verticalArrangement = Arrangement.Bottom) {
         ScreenHeader(stringResource(R.string.nav_settings), stringResource(R.string.settings_subtitle))
         val signed = account as? app.freshtuber.data.account.AccountState.SignedIn

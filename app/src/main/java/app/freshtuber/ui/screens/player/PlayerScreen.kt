@@ -69,8 +69,9 @@ fun PlayerScreen(
     onAdvanced: (String, Boolean) -> Unit,
     /** The page has fully arrived (the video surface can appear). */
     settled: Boolean = true,
-    /** The page is on its way out. */
-    leaving: Boolean = false,
+    currentPage: Boolean = true,
+    /** The page is leaving after navigation has committed. */
+    departureCommitted: Boolean = false,
     viewModel: VideoViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -137,19 +138,25 @@ fun PlayerScreen(
     var lastSubtitle by remember(playerState.nowPlaying?.videoId) { mutableIntStateOf(-1) }
 
     // Coming back to this page (e.g. from a suggested video) brings its video back.
-    LaunchedEffect(viewModel.videoId) { viewModel.startPlayback() }
+    LaunchedEffect(viewModel.videoId, currentPage) {
+        if (currentPage) viewModel.startPlayback()
+    }
     DisposableEffect(Unit) {
         viewModel.setVideoOnScreen(true)
         onDispose { viewModel.setVideoOnScreen(false) }
     }
-    FullscreenEffect(fullscreen = fullscreen || tabletop, lock = lock, upright = uprightFull, onLock = { lock = it }, rotate = !large && !tabletop)
-    BackHandler(enabled = fullscreen) { exitFullscreen() }
+    if (currentPage) {
+        FullscreenEffect(fullscreen = fullscreen || tabletop, lock = lock, upright = uprightFull, onLock = { lock = it }, rotate = !large && !tabletop)
+    }
+    BackHandler(enabled = currentPage && fullscreen) { exitFullscreen() }
 
-    LaunchedEffect(Unit) {
+    val keepFullscreen by rememberUpdatedState(fullscreen)
+    val advance by rememberUpdatedState(onAdvanced)
+    LaunchedEffect(viewModel) {
         viewModel.playerEvents.collect { event ->
             when (event) {
                 is PlayerEvent.SegmentSkipped -> messages?.show(resources.getString(R.string.player_sponsor_skipped))
-                is PlayerEvent.Advanced -> onAdvanced(event.videoId, fullscreen)
+                is PlayerEvent.Advanced -> advance(event.videoId, keepFullscreen)
             }
         }
     }
@@ -207,6 +214,7 @@ fun PlayerScreen(
         viewModel.player.playbackState != androidx.media3.common.Player.STATE_IDLE && now?.videoId == videoId }
     val surface = remember { VideoSurfaceHandle() }
     var surfaceOff by remember { mutableStateOf(false) }
+    var hasArrived by remember { mutableStateOf(false) }
     val density = LocalDensity.current
     val statusTop = WindowInsets.statusBars.getTop(density)
 
@@ -237,16 +245,12 @@ fun PlayerScreen(
         // Unpinned, the video is the list's first row: it scrolls away and returns at the top.
         // The surface itself never moves in the composition, only its offset, so it never goes black.
         val scrolls = !pinned && details != null && !twoPane
-        // Preserves scroll position when the unpinned video row is added or removed from the top of the list.
+        // Compose keeps keyed rows anchored. Only the video spacer and the very top need an override.
         var lastScrolls by remember { mutableStateOf(scrolls) }
-        LaunchedEffect(scrolls) {
+        SideEffect {
             if (lastScrolls != scrolls) {
-                val index = listState.firstVisibleItemIndex
-                val offset = listState.firstVisibleItemScrollOffset
-                if (scrolls) {
-                    if (index > 0 || offset > 0) listState.scrollToItem(index + 1, offset)
-                } else {
-                    if (index > 0) listState.scrollToItem(index - 1, offset) else listState.scrollToItem(0, 0)
+                if (listState.firstVisibleItemIndex == 0 && (!scrolls || listState.firstVisibleItemScrollOffset == 0)) {
+                    listState.requestScrollToItem(0)
                 }
                 lastScrolls = scrolls
             }
@@ -267,13 +271,21 @@ fun PlayerScreen(
             val fitH = fitW / videoAspect
             androidx.compose.ui.geometry.Rect((widthPx - fitW) / 2f, (heightPx - fitH) / 2f, (widthPx + fitW) / 2f, (heightPx + fitH) / 2f)
         } else with(density) { androidx.compose.ui.geometry.Rect(videoInset.toPx(), statusTop.toFloat(), (videoInset + videoWidth).toPx(), statusTop.toFloat() + videoHeightPx) }
+        LaunchedEffect(fullscreen, inPip, videoRect) {
+            if (fullscreen && !inPip) light?.setVideoRect(videoRect)
+        }
         val currentRect by rememberUpdatedState(videoRect.translate(0f, if (big) 0f else videoOffset.toFloat()))
         LaunchedEffect(handoff, videoRect, handoff?.flight) { handoff?.land(videoId, FlightTarget.Page, videoRect, 0f) }
-        LaunchedEffect(settled) { if (settled) handoff?.arrived(videoId, FlightTarget.Page) }
+        LaunchedEffect(settled) {
+            if (settled) {
+                hasArrived = true
+                handoff?.arrived(videoId, FlightTarget.Page)
+            }
+        }
         // Leaving: keep a copy of the picture, drop the surface (it cannot fade) and, when the
         // floating window takes over, send the picture flying into it.
-        LaunchedEffect(leaving) {
-            if (!leaving) return@LaunchedEffect
+        LaunchedEffect(departureCommitted) {
+            if (!departureCommitted) return@LaunchedEffect
             if (light != null && !lightLeft) { lightLeft = true; light.setPlayerCovered(false); light.exitPlayer() }
             val toMini = handoff?.miniExpected == true && viewModel.player.currentMediaItem?.mediaId == videoId
             val from = currentRect
@@ -332,16 +344,16 @@ fun PlayerScreen(
             })
             .background(if (inPip || tabletop) Color.Black else Color.Transparent)
             .onGloballyPositioned { c ->
-                if (!inPip) {
+                if (!fullscreen && !inPip) {
                     val p = c.positionInRoot()
-                    light?.setVideoRect(if (fullscreen) videoRect else androidx.compose.ui.geometry.Rect(p.x, p.y, p.x + c.size.width, p.y + c.size.height))
+                    light?.setVideoRect(androidx.compose.ui.geometry.Rect(p.x, p.y, p.x + c.size.width, p.y + c.size.height))
                 }
             }) {
             VideoSurface(viewModel.player, Modifier.fillMaxSize().graphicsLayer {
                 scaleX = zoom.scale; scaleY = zoom.scale
                 translationX = zoom.offset.x; translationY = zoom.offset.y
             }, texture = true, onFrame = if (inPip) null else grab,
-                active = (resuming || settled || leaving || inPip) && !surfaceOff, poster = poster, mediaId = videoId, handle = surface,
+                active = (resuming || settled || hasArrived || inPip) && !surfaceOff, poster = poster, mediaId = videoId, handle = surface,
                 posterScale = if (big) ContentScale.Fit else ContentScale.Crop)
             when {
                 inPip -> Unit
@@ -406,7 +418,8 @@ private fun PortraitPage(
                         CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     phase == 1 || details == null -> LoadErrorState(state.error ?: LoadError.Unknown, viewModel::load, onSignIn)
-                    else -> VideoBody(details, state, navigation, listState, offline = now?.isOffline == true, onTimestamp = viewModel::seekTo,
+                    else -> VideoBody(details, state, navigation, listState, offline = now?.isOffline == true,
+                        onTimestamp = viewModel::seekTo, onSubscribe = viewModel::toggleSubscription,
                         videoSpace = if (scrolls) videoHeight else null, related = related, modifier = Modifier.nestedScroll(padHide.connection))
                 }
             }
@@ -456,11 +469,10 @@ private fun PortraitPage(
 private fun PlayerActions(state: VideoUiState, viewModel: VideoViewModel, left: Boolean, pinned: Boolean, onPin: () -> Unit, onMore: () -> Unit) {
     val locale = LocalConfiguration.current.locales[0]
     val details = state.details
-    val activity = LocalActivity.current
+    val activity = LocalActivity.current as? app.freshtuber.MainActivity
     val liked = state.likeStatus == LikeStatus.Like
     val disliked = state.likeStatus == LikeStatus.Dislike
     val likeCount = (if (liked) details?.likeCountTextLiked ?: details?.likeCountText else details?.likeCountText)?.takeIf { it.any(Char::isDigit) }
-    val subscribed = state.subscribed == true
     data class Action(val icon: androidx.compose.ui.graphics.vector.ImageVector, val label: String, val description: String,
         val selected: Boolean, val enabled: Boolean, val onClick: () -> Unit)
     val likeLabel = stringResource(R.string.video_like)
@@ -470,13 +482,10 @@ private fun PlayerActions(state: VideoUiState, viewModel: VideoViewModel, left: 
         Action(if (disliked) Icons.Rounded.ThumbDown else Icons.Rounded.ThumbDownOffAlt,
             state.dislikes?.let { compactNumber(it, locale) } ?: dislikeLabel, dislikeLabel, disliked, details != null, viewModel::toggleDislike),
         Action(Icons.Rounded.ChatBubbleOutline, stringResource(R.string.player_comments_short), stringResource(R.string.video_comments), false, details != null, viewModel::openComments),
-        Action(if (subscribed) Icons.Rounded.HowToReg else Icons.Rounded.PersonAdd,
-            stringResource(if (subscribed) R.string.player_subscribed_short else R.string.player_subscribe_short),
-            stringResource(if (subscribed) R.string.channel_unsubscribe else R.string.channel_subscribe), subscribed, details?.channel != null, viewModel::toggleSubscription),
         Action(if (pinned) Icons.Rounded.PushPin else Icons.Outlined.PushPin, stringResource(R.string.player_pin_short),
             stringResource(if (pinned) R.string.player_unpin else R.string.player_pin), pinned, true, onPin),
         Action(Icons.Rounded.Headphones, stringResource(R.string.player_background_short), stringResource(R.string.player_audio_only), false, true) {
-            viewModel.playBackground(activity)
+            activity?.playInBackground()
         },
         Action(Icons.Rounded.MoreHoriz, stringResource(R.string.player_more), stringResource(R.string.video_more), false, true, onMore),
     )
@@ -562,7 +571,8 @@ private fun FullscreenEffect(fullscreen: Boolean, lock: OrientationLock, upright
 /** Title, channel, description and up next; scrolls between the video and the controls. */
 @Composable
 private fun VideoBody(details: VideoDetails, state: VideoUiState, navigation: FeedNavigation, listState: androidx.compose.foundation.lazy.LazyListState,
-    offline: Boolean = false, onTimestamp: (Long) -> Unit, videoSpace: androidx.compose.ui.unit.Dp? = null, related: Boolean = true, modifier: Modifier = Modifier) {
+    offline: Boolean = false, onTimestamp: (Long) -> Unit, onSubscribe: () -> Unit,
+    videoSpace: androidx.compose.ui.unit.Dp? = null, related: Boolean = true, modifier: Modifier = Modifier) {
     val columns = feedColumns()
     LazyColumn(modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(bottom = 16.dp)) {
         // Room for the unpinned video, which is drawn above the list at this row's offset.
@@ -576,8 +586,7 @@ private fun VideoBody(details: VideoDetails, state: VideoUiState, navigation: Fe
                         .background(MaterialTheme.colorScheme.surfaceContainerHighest), contentScale = ContentScale.Crop)
                     Spacer(Modifier.width(10.dp))
                     Text(channel.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                    if (state.subscribed == true) Text(stringResource(R.string.channel_subscribed), style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    ChannelSubscribeButton(state.subscribed == true, onSubscribe)
                 }
             }
         }
@@ -698,15 +707,7 @@ internal fun ClassicWatchBody(details: VideoDetails, state: VideoUiState, naviga
                         Text(channel.name, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         channel.detailText?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1) }
                     }
-                    Surface(onClick = viewModel::toggleSubscription, shape = RoundedCornerShape(18.dp),
-                        color = if (subscribed) MaterialTheme.colorScheme.surfaceContainerHigh else MaterialTheme.colorScheme.onSurface,
-                        contentColor = if (subscribed) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surface,
-                        modifier = Modifier.height(36.dp)) {
-                        Row(Modifier.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                            if (subscribed) Icon(Icons.Rounded.NotificationsNone, null, Modifier.size(20.dp).padding(end = 4.dp))
-                            Text(stringResource(if (subscribed) R.string.channel_subscribed else R.string.channel_subscribe), style = MaterialTheme.typography.labelLarge)
-                        }
-                    }
+                    ChannelSubscribeButton(subscribed, viewModel::toggleSubscription)
                 }
             }
         }
@@ -734,7 +735,7 @@ private fun ClassicActions(state: VideoUiState, viewModel: VideoViewModel, onMor
     val likeCount = (if (liked) details?.likeCountTextLiked ?: details?.likeCountText else details?.likeCountText)?.takeIf { it.any(Char::isDigit) }
     val resources = LocalResources.current
     val context = androidx.compose.ui.platform.LocalContext.current
-    val activity = LocalActivity.current
+    val activity = LocalActivity.current as? app.freshtuber.MainActivity
     val shareTitle = stringResource(R.string.video_share)
     val download = app.freshtuber.ui.components.rememberNotificationPermission { viewModel.download() }
     val pill = MaterialTheme.colorScheme.surfaceContainerHigh
@@ -756,7 +757,7 @@ private fun ClassicActions(state: VideoUiState, viewModel: VideoViewModel, onMor
             }
         }
         val pills = listOf(
-            Triple(Icons.Rounded.Headphones, resources.getString(R.string.player_audio_only)) { viewModel.playBackground(activity) },
+            Triple(Icons.Rounded.Headphones, resources.getString(R.string.player_audio_only)) { activity?.playInBackground(); Unit },
             Triple(Icons.Rounded.Share, shareTitle) { app.freshtuber.ui.feed.shareVideo(context, viewModel.videoId, shareTitle) },
             Triple(Icons.AutoMirrored.Rounded.PlaylistAdd, resources.getString(R.string.video_save)) { viewModel.openPlaylistPicker() },
             Triple(Icons.Rounded.Download, resources.getString(R.string.feed_download)) { download() },
