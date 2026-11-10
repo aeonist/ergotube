@@ -1,5 +1,7 @@
 # ErgoTube
 
+On Android 13 and later, choose English, Russian or the system language under Settings → Hand and look → Language.
+
 The 9 November test build adds pull-to-refresh, bottom-up lists with a traditional option under Hand & look, and a mirrored dock. The player adds audio-only background playback, finer timeline scrubbing and Previous in Android media controls. The channel name now has its own Subscribe button. [Test APK](apk/ErgoTube-edits-queue-debug.apk)
 
 Cloud-sofa branding: the selected cloud-sofa symbol replaces the classic YouTube badge and the welcome mark, without a wordmark in the header. Launcher/themed and notification icons share its vector silhouette. 136 JVM tests pass; Debug and minified Release build. APK: `apk/ErgoTube-cloud-sofa-release.apk`.

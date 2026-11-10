@@ -411,3 +411,8 @@ The user selected the second cloud concept and authorized replacing every app-ow
 - The watch page keeps fullscreen when advancing. Pinning preserves the anchored list row and Back hands off the video to the mini-player only when navigation commits. Background audio uses the existing audio-only playback path and restores video on return. Android media controls invoke the previous or next command once per press. [Android media controls](https://developer.android.com/media/implement/surfaces/mobile)
 - Debug build and 138 JVM tests passed. Android lint reported zero errors. Six API 37 instrumentation checks covered dock order, fullscreen pinch and next/previous navigation, cancelled Back and mini-player continuity, notification links and PiP. Anonymous emulator playback confirmed moving Shorts frames and continued audio after leaving through the background button. Validation used the emulator in signed-out mode.
 - Test build 19 is available at `apk/ErgoTube-edits-queue-debug.apk`.
+
+### ErgoTube name and language
+
+- The launcher label is ErgoTube.
+- Settings → Hand and look offers System, English and Russian on Android 13 and later through Android's per-app language setting. Earlier versions use the device language.

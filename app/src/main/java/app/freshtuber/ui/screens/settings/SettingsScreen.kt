@@ -183,6 +183,16 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
                         if (preferences.enabled(AppFeature.SerifFont)) 0 else 1, left) { viewModel.feature(AppFeature.SerifFont, it == 0) }
                     SettingsChoice(stringResource(R.string.settings_style), listOf(stringResource(R.string.settings_style_ergonomic), stringResource(R.string.settings_style_classic)),
                         preferences.style.ordinal, left) { viewModel.style(app.freshtuber.data.settings.UiStyle.entries[it]) }
+                    if (android.os.Build.VERSION.SDK_INT >= 33) {
+                        val locales = context.getSystemService(android.app.LocaleManager::class.java)
+                        val tags = listOf("", "en", "ru")
+                        val selected = tags.indexOf(locales.applicationLocales[0]?.language.orEmpty()).coerceAtLeast(0)
+                        SettingsChoice(stringResource(R.string.settings_language),
+                            listOf(R.string.settings_language_system, R.string.settings_language_en, R.string.settings_language_ru)
+                                .map { stringResource(it) }, selected, left) { index ->
+                            locales.applicationLocales = android.os.LocaleList.forLanguageTags(tags[index])
+                        }
+                    }
                     SettingsChoice(stringResource(R.string.settings_theme), themeNames, preferences.theme.ordinal, left) { viewModel.theme(app.freshtuber.data.settings.ThemeMode.entries[it]) }
                     SettingsChoice(stringResource(R.string.settings_hand), listOf(stringResource(R.string.radial_left), stringResource(R.string.radial_right)),
                         if (left) 0 else 1, left) { menu.setHand(it == 0) }

@@ -197,6 +197,8 @@
     <string name="settings_feed_shorts">Shorts в обычных лентах</string>
     <string name="settings_feed_shorts_hint">Показывать короткие ролики на главной и в подписках.</string>
     <string name="settings_appearance">Внешний вид</string>
+    <string name="settings_language">Язык</string>
+    <string name="settings_language_system">Как в системе</string>
     <string name="settings_theme">Тема</string>
     <string name="theme_system">Авто</string>
     <string name="theme_light">Светлая</string>

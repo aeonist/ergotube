@@ -197,6 +197,10 @@
     <string name="settings_feed_shorts">Shorts in regular feeds</string>
     <string name="settings_feed_shorts_hint">Include short videos in Home and subscriptions.</string>
     <string name="settings_appearance">Appearance</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_language_en" translatable="false">English</string>
+    <string name="settings_language_ru" translatable="false">Русский</string>
+    <string name="settings_language_system">System</string>
     <string name="settings_theme">Theme</string>
     <string name="theme_system">Auto</string>
     <string name="theme_light">Light</string>
