@@ -38,8 +38,7 @@ import app.freshtuber.domain.model.VideoDetails
 import app.freshtuber.player.PlayerEvent
 import app.freshtuber.ui.components.VideoCard
 import app.freshtuber.ui.feed.FeedNavigation
-import app.freshtuber.ui.feed.LoadError
-import app.freshtuber.ui.feed.LoadErrorState
+import app.freshtuber.ui.player.PlaybackError
 import app.freshtuber.ui.player.*
 import app.freshtuber.ui.components.*
 import app.freshtuber.ui.player.ClassicVideoControls
@@ -298,9 +297,9 @@ fun PlayerScreen(
 
         val pageSegments = playerState.segments.takeIf { now?.videoId == viewModel.videoId }.orEmpty()
         if (!big) Box(Modifier.width(paneWidth).fillMaxHeight()) {
-            if (classic) ClassicPortraitPage(details, state, navigation, listState, viewModel, now, videoHeight, onSignIn, { moreOpen = true }, related = !twoPane)
+            if (classic) ClassicPortraitPage(details, state, navigation, listState, viewModel, now, videoHeight, { moreOpen = true }, related = !twoPane)
             else PortraitPage(details, state, navigation, listState, padHide, padUi, playerState, viewModel, now, left, pinned, scrolls, videoHeight,
-                captionsOn, onSignIn, onBack, onNext, onPrevious, enterFullscreen, onSpeed, onCaptions, onBoost, { qualityOpen = true }, { moreOpen = true }, pages, related = !twoPane)
+                captionsOn, onBack, onNext, onPrevious, enterFullscreen, onSpeed, onCaptions, onBoost, { qualityOpen = true }, { moreOpen = true }, pages, related = !twoPane)
         }
         if (twoPane && details != null) UpNextPane(details, navigation, Modifier.align(Alignment.TopEnd).width(maxWidth - paneWidth).fillMaxHeight())
         val fullControls: @Composable (Modifier, Boolean) -> Unit = { controlsModifier, below ->
@@ -308,7 +307,7 @@ fun PlayerScreen(
                 hasPrevious = playerState.history.isNotEmpty(), hasNext = playerState.queue.isNotEmpty(),
                 captionsOn = captionsOn, captionsAvailable = !now?.subtitles.isNullOrEmpty(),
                 onPrevious = onPrevious, onNext = onNext, onFullscreen = exitFullscreen,
-                onMinimize = onBack, onCaptions = { onCaptions() }, onMore = { moreOpen = true }, onQuality = { qualityOpen = true }, onRetry = viewModel::retryPlayback, onScrubPosition = { padUi.scrubMs = it },
+                onMinimize = onBack, onCaptions = { onCaptions() }, onMore = { moreOpen = true }, onQuality = { qualityOpen = true }, onScrubPosition = { padUi.scrubMs = it },
                 title = now?.title ?: details?.title, alwaysShown = below, modifier = controlsModifier)
             else Box(controlsModifier) { FullscreenPlayer(
                 player = viewModel.player,
@@ -327,7 +326,6 @@ fun PlayerScreen(
                 onSpeed = onSpeed,
                 onCaptions = onCaptions,
                 onBoost = onBoost,
-                onRetry = viewModel::retryPlayback,
             ) }
         }
 
@@ -363,8 +361,8 @@ fun PlayerScreen(
                     hasPrevious = playerState.history.isNotEmpty(), hasNext = playerState.queue.isNotEmpty(),
                     captionsOn = captionsOn, captionsAvailable = !now?.subtitles.isNullOrEmpty(),
                     onPrevious = onPrevious, onNext = onNext, onFullscreen = enterFullscreen,
-                    onMinimize = onBack, onCaptions = { onCaptions() }, onMore = { moreOpen = true }, onQuality = { qualityOpen = true }, onRetry = viewModel::retryPlayback, onScrubPosition = { padUi.scrubMs = it })
-                else -> PortraitVideoLayer(viewModel.player, playerState, onMinimize = onBack, onRetry = viewModel::retryPlayback)
+                    onMinimize = onBack, onCaptions = { onCaptions() }, onMore = { moreOpen = true }, onQuality = { qualityOpen = true }, onScrubPosition = { padUi.scrubMs = it })
+                else -> PortraitVideoLayer(viewModel.player, playerState, onMinimize = onBack)
             }
             if (!inPip && !tabletop && now?.isLive != true) PlaybackTime(rememberProgress(viewModel.player), padUi.scrubMs,
                 Modifier.align(Alignment.BottomStart).padding(start = if (fullscreen) 24.dp else 12.dp, bottom = if (fullscreen) 24.dp else if (classic) 56.dp else 12.dp))
@@ -378,6 +376,14 @@ fun PlayerScreen(
             val x = (18.dp + (maxWidth - 36.dp) * fraction - 76.dp).coerceIn(8.dp, maxWidth - 160.dp)
             ScrubPreview(now?.storyboard, scrub, now?.chapters.orEmpty(), padUi.fine, fanHint = false, pages = pages,
                 modifier = Modifier.align(Alignment.BottomStart).padding(bottom = padUi.zoneHeight + 8.dp).offset(x = x))
+        }
+        if (currentPage && !inPip) {
+            val streamError = playerState.error?.takeIf { controller.isRequested(videoId) }
+            val error = streamError ?: state.error.takeIf { details == null }
+            if (error != null) PlaybackError(error, onRetry = {
+                if (details == null && state.error != null) viewModel.load()
+                if (streamError != null) viewModel.retryPlayback()
+            }, onSignIn = onSignIn)
         }
     }
 
@@ -395,7 +401,7 @@ private fun PortraitPage(
     details: VideoDetails?, state: VideoUiState, navigation: FeedNavigation, listState: androidx.compose.foundation.lazy.LazyListState,
     padHide: ScrollHide, padUi: PadUi, playerState: app.freshtuber.player.PlayerState, viewModel: VideoViewModel,
     now: app.freshtuber.player.NowPlaying?, left: Boolean, pinned: Boolean, scrolls: Boolean, videoHeight: androidx.compose.ui.unit.Dp,
-    captionsOn: Boolean, onSignIn: () -> Unit, onBack: () -> Unit, onNext: () -> Unit, onPrevious: () -> Unit, onFullscreen: () -> Unit,
+    captionsOn: Boolean, onBack: () -> Unit, onNext: () -> Unit, onPrevious: () -> Unit, onFullscreen: () -> Unit,
     onSpeed: () -> Unit, onCaptions: () -> Unit, onBoost: (Boolean) -> Unit, onQuality: () -> Unit, onMore: () -> Unit, pages: StoryboardPages,
     related: Boolean = true,
 ) {
@@ -417,7 +423,7 @@ private fun PortraitPage(
                     phase == 0 -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    phase == 1 || details == null -> LoadErrorState(state.error ?: LoadError.Unknown, viewModel::load, onSignIn)
+                    phase == 1 || details == null -> Unit
                     else -> VideoBody(details, state, navigation, listState, offline = now?.isOffline == true,
                         onTimestamp = viewModel::seekTo, onSubscribe = viewModel::toggleSubscription,
                         videoSpace = if (scrolls) videoHeight else null, related = related, modifier = Modifier.nestedScroll(padHide.connection))
@@ -666,7 +672,7 @@ private fun MiniProgress(player: androidx.media3.common.Player, segments: List<a
 /** The classic watch page: the video on top, then YouTube's own order of title, channel, actions, comments and up next. */
 @Composable
 private fun ClassicPortraitPage(details: VideoDetails?, state: VideoUiState, navigation: FeedNavigation, listState: androidx.compose.foundation.lazy.LazyListState,
-    viewModel: VideoViewModel, now: app.freshtuber.player.NowPlaying?, videoHeight: androidx.compose.ui.unit.Dp, onSignIn: () -> Unit, onMore: () -> Unit,
+    viewModel: VideoViewModel, now: app.freshtuber.player.NowPlaying?, videoHeight: androidx.compose.ui.unit.Dp, onMore: () -> Unit,
     related: Boolean = true) {
     val statusBar = WindowInsets.statusBars
     Column(Modifier.fillMaxSize()
@@ -682,7 +688,7 @@ private fun ClassicPortraitPage(details: VideoDetails?, state: VideoUiState, nav
                 phase == 0 -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                phase == 1 || details == null -> LoadErrorState(state.error ?: LoadError.Unknown, viewModel::load, onSignIn)
+                phase == 1 || details == null -> Unit
                 else -> ClassicWatchBody(details, state, navigation, listState, viewModel, offline = now?.isOffline == true, onMore = onMore, related = related)
             }
         }

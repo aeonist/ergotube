@@ -106,6 +106,8 @@ fun Kiosk.titleRes(): Int = when (this) {
 fun HomeScreen(
     navigation: FeedNavigation,
     onSignIn: () -> Unit,
+    scrollToTop: Boolean = false,
+    onScrolledToTop: () -> Unit = {},
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.feed.state.collectAsStateWithLifecycle()
@@ -113,6 +115,14 @@ fun HomeScreen(
     val selected = state.filters.firstOrNull { it.selected }?.title
     // Categories slide away while reading down, like the channel strip in Subscriptions.
     val hide = rememberScrollHide()
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+    androidx.compose.runtime.LaunchedEffect(scrollToTop) {
+        if (scrollToTop) {
+            listState.scrollToItem(0)
+            hide.visible = true
+            onScrolledToTop()
+        }
+    }
     val classic = LocalClassic.current
     val chips = state.filters.map { filter -> ChipItem(filter.title, filter.selected) { viewModel.feed.selectFilter(filter) } }
     Column(Modifier.fillMaxSize()) {
@@ -125,6 +135,7 @@ fun HomeScreen(
             navigation = navigation,
             videoActions = true,
             recommendations = true,
+            listState = listState,
             onRetry = viewModel.feed::refresh,
             onLoadMore = viewModel.feed::loadMore,
             emptyMessage = stringResource(R.string.feed_empty),

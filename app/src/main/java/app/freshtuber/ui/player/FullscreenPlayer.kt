@@ -52,7 +52,6 @@ import app.freshtuber.R
 import app.freshtuber.player.Chapter
 import app.freshtuber.player.PlayerState
 import app.freshtuber.player.Storyboard
-import app.freshtuber.ui.feed.messageRes
 import app.freshtuber.ui.theme.BrandColors
 import app.freshtuber.ui.util.formatDuration
 import kotlinx.coroutines.Job
@@ -87,7 +86,6 @@ fun FullscreenPlayer(
     onSpeed: () -> Unit,
     onCaptions: () -> Unit,
     onBoost: (Boolean) -> Unit,
-    onRetry: () -> Unit,
 ) {
     val now = state.nowPlaying
     val chapters = now?.chapters.orEmpty()
@@ -393,11 +391,6 @@ fun FullscreenPlayer(
                 }
             }
             when {
-                state.error != null -> Column(Modifier.align(Alignment.Center).background(Color(0xCC000000), RoundedCornerShape(16.dp)).padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(stringResource(state.error.messageRes()), color = Color.White, style = MaterialTheme.typography.bodyMedium)
-                    FilledTonalButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
-                }
                 state.loadingId != null || progress.buffering -> CircularProgressIndicator(Modifier.align(Alignment.Center), color = Color.White)
             }
         }

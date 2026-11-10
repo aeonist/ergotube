@@ -286,6 +286,8 @@ class PlayerController @Inject constructor(
     private var loadJob: Job? = null
     private var requestedId: String? = null
     private var requestedShort = false
+
+    fun isRequested(videoId: String): Boolean = requestedId == videoId
     /** True while [playPrevious] reopens a video, so it is not added to the history again. */
     private var goingBack = false
     private var startedAt = 0L
@@ -518,14 +520,9 @@ class PlayerController @Inject constructor(
     fun retry() {
         val id = requestedId ?: return
         resolver.invalidate(id)
-        val position = player.currentPosition
-        val wasShort = requestedShort
+        val position = player.currentPosition.takeIf { player.currentMediaItem?.mediaId == id }
         _state.update { it.copy(nowPlaying = null, loadingId = null) }
-        play(id, wasShort)
-        scope.launch {
-            loadJob?.join()
-            if (position > 0) player.seekTo(position)
-        }
+        play(id, isShort = requestedShort, startAt = position, autoPlay = true)
     }
 
     fun selectQuality(index: Int) {

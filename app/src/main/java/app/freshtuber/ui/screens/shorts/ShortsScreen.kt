@@ -72,7 +72,7 @@ import app.freshtuber.data.account.AccountState
 import app.freshtuber.data.shorts.ShortItem
 import app.freshtuber.data.shorts.ShortsRepository
 import app.freshtuber.ui.feed.LoadError
-import app.freshtuber.ui.feed.LoadErrorState
+import app.freshtuber.ui.player.PlaybackError
 import app.freshtuber.ui.feed.toLoadError
 import coil3.compose.AsyncImage
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -115,6 +115,9 @@ class ShortsViewModel @Inject constructor(
     private val _state = MutableStateFlow(if (seed != null) seeded() else ShortsUiState())
     val state: StateFlow<ShortsUiState> = _state.asStateFlow()
 
+    private var refreshJob: kotlinx.coroutines.Job? = null
+    private var moreJob: kotlinx.coroutines.Job? = null
+
     init {
         // Start over when the account changes: signed in, the sequence follows the account.
         if (seed == null) viewModelScope.launch {
@@ -128,10 +131,12 @@ class ShortsViewModel @Inject constructor(
 
     fun refresh() {
         if (seed != null) { _state.value = seeded(); return }
+        refreshJob?.cancel()
+        moreJob?.cancel()
         _state.value = ShortsUiState()
-        viewModelScope.launch {
+        refreshJob = viewModelScope.launch {
             try {
-                val page = shorts.first()
+                val page = shorts.first(accounts.state.value is AccountState.SignedIn, controller::warmShort)
                 _state.value = ShortsUiState(items = page.items, loading = false, next = page.next)
             } catch (e: CancellationException) {
                 throw e
@@ -165,7 +170,7 @@ class ShortsViewModel @Inject constructor(
         val next = current.next ?: return
         if (current.loadingMore) return
         _state.update { it.copy(loadingMore = true) }
-        viewModelScope.launch {
+        moreJob = viewModelScope.launch {
             try {
                 val page = shorts.more(next)
                 _state.update {
@@ -201,7 +206,7 @@ fun ShortsScreen(navigation: FeedNavigation, onSignIn: () -> Unit, settled: Bool
         state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(color = Color.White.copy(alpha = 0.8f))
         }
-        state.error != null -> LoadErrorState(state.error!!, viewModel::refresh, null)
+        state.error != null -> PlaybackError(state.error!!, viewModel::refresh, onSignIn)
         else -> {
             val pagerState = rememberPagerState(initialPage = viewModel.startIndex) { state.items.size }
             val dragged by pagerState.interactionSource.collectIsDraggedAsState()
@@ -248,8 +253,8 @@ fun ShortsScreen(navigation: FeedNavigation, onSignIn: () -> Unit, settled: Bool
                         ShortActions(item.videoId, actions, navigation, onSignIn, dockSpace)
                     }
                 }
-                playerState.error?.let { error ->
-                    LoadErrorState(error, viewModel.controller::retry, onSignIn)
+                if (!inPip && state.items.getOrNull(playingPage)?.videoId?.let(viewModel.controller::isRequested) == true) playerState.error?.let { error ->
+                    PlaybackError(error, viewModel.controller::retry, onSignIn)
                 }
             }
         }
@@ -316,7 +321,7 @@ private fun ShortPage(
             .background(Color.Black)) {
             if (player != null) {
                 VideoSurface(player, Modifier.fillMaxSize(), zoomToFill = trimmed, texture = true, onFrame = grab,
-                    active = settled || inPip, poster = item.thumbnailUrl, mediaId = item.videoId)
+                    poster = item.thumbnailUrl, mediaId = item.videoId)
             } else {
                 VideoPicture(item.thumbnailUrl, Modifier.fillMaxSize())
             }

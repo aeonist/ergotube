@@ -130,11 +130,13 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
         }
     }
     val openSection: (Any) -> Unit = { route -> navController.navigateToTopLevel(route) }
+    var homeScrollPending by remember { mutableStateOf(false) }
     val selectTab: (DockTab) -> Unit = { tab ->
         if (tab == DockTab.Mine) mineOpen = !mineOpen
         else {
             mineOpen = false
-            openSection(when (tab) {
+            if (tab == DockTab.Home) homeScrollPending = true
+            if (tab != DockTab.Home || destination?.hasRoute<HomeRoute>() != true) openSection(when (tab) {
                 DockTab.Home -> HomeRoute
                 DockTab.Subscriptions -> SubscriptionsRoute
                 DockTab.Shorts -> ShortsRoute
@@ -220,7 +222,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
                     )
                 }
             }
-            composable<HomeRoute> { Box(docked.then(transitionBlur())) { ClassicTop(classic, { openSection(SearchRoute) }, { openSection(SettingsRoute) }) { HomeScreen(navigation, onSignIn = signIn) } } }
+            composable<HomeRoute> { Box(docked.then(transitionBlur())) { ClassicTop(classic, { openSection(SearchRoute) }, { openSection(SettingsRoute) }) { HomeScreen(navigation, onSignIn = signIn, scrollToTop = homeScrollPending, onScrolledToTop = { homeScrollPending = false }) } } }
             composable<ShortsRoute> { Box(Modifier.fillMaxSize().then(transitionBlur())) { ShortsScreen(navigation, onSignIn = signIn, settled = settled) } }
             composable<ShortsViewerRoute> { Box(Modifier.fillMaxSize().then(transitionBlur())) { ShortsScreen(navigation, onSignIn = signIn, settled = settled) } }
             composable<SubscriptionsRoute> { Box(docked.then(transitionBlur())) { ClassicTop(classic, { openSection(SearchRoute) }, { openSection(SettingsRoute) }) {

@@ -416,3 +416,10 @@ The user selected the second cloud concept and authorized replacing every app-ow
 
 - The launcher label is ErgoTube.
 - Settings → Hand and look offers System, English and Russian on Android 13 and later through Android's per-app language setting. Earlier versions use the device language.
+
+
+### Shorts startup and navigation
+
+- Signed-out Shorts start with seed search. Stream lookup can run alongside the initial queue request, and the video surface can attach during the screen transition. An empty first page can be retried.
+- Shorts and the watch page share a full-screen playback error treatment with Retry centered. A failed stream retry retains position only for the same media item.
+- Tapping Home scrolls its list to the first row and reveals the filters.

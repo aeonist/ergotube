@@ -28,11 +28,16 @@ data class ShortsPage(val items: List<ShortItem>, val next: String?)
 @Singleton
 class ShortsRepository @Inject constructor(private val innerTube: InnerTubeClient) {
 
-    suspend fun first(): ShortsPage = withContext(Dispatchers.IO) {
-        val seed = seedFrom(innerTube.post("browse", buildJsonObject { put("browseId", "FEwhat_to_watch") }))
-            ?: seedFrom(innerTube.post("search", buildJsonObject { put("query", "#shorts") }, CallAs.Anonymous))
+    suspend fun first(signedIn: Boolean, onSeed: (String?) -> Unit): ShortsPage = withContext(Dispatchers.IO) {
+        // Signed-out Home has no recommendations, so go straight to the anonymous seed search.
+        val home = if (signedIn) seedFrom(innerTube.post("browse", buildJsonObject { put("browseId", "FEwhat_to_watch") })) else null
+        val seed = home ?: seedFrom(innerTube.post("search", buildJsonObject { put("query", "#shorts") }, CallAs.Anonymous))
             ?: throw InnerTubeException.BadResponse()
-        sequence(seed)
+        // Look up the seed's stream while the playlist request is in flight.
+        onSeed(seed.str("videoId"))
+        sequence(checkNotNull(seed.str("sequenceParams"))).also {
+            if (it.items.isEmpty()) throw InnerTubeException.BadResponse()
+        }
     }
 
     suspend fun more(next: String): ShortsPage = withContext(Dispatchers.IO) { sequence(next) }
@@ -42,8 +47,8 @@ class ShortsRepository @Inject constructor(private val innerTube: InnerTubeClien
         return ShortsSequenceParser.parse(root)
     }
 
-    private fun seedFrom(root: JsonElement): String? =
-        root.findAll("reelWatchEndpoint").firstNotNullOfOrNull { it.str("sequenceParams") }
+    private fun seedFrom(root: JsonElement): JsonElement? =
+        root.findAll("reelWatchEndpoint").firstOrNull { !it.str("sequenceParams").isNullOrBlank() }
 }
 
 object ShortsSequenceParser {

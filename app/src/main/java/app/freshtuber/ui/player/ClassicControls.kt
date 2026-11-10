@@ -14,7 +14,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -36,7 +35,6 @@ import androidx.media3.common.Player
 import app.freshtuber.R
 import app.freshtuber.data.extras.SkipSegment
 import app.freshtuber.player.PlayerState
-import app.freshtuber.ui.feed.messageRes
 import app.freshtuber.ui.theme.BrandColors
 import app.freshtuber.ui.util.formatDuration
 
@@ -63,7 +61,6 @@ fun ClassicVideoControls(
     onCaptions: () -> Unit,
     onMore: () -> Unit,
     onQuality: () -> Unit,
-    onRetry: () -> Unit,
     onScrubPosition: (Long?) -> Unit = {},
     modifier: Modifier = Modifier,
     title: String? = null,
@@ -140,11 +137,6 @@ fun ClassicVideoControls(
             }
         }
         when {
-            state.error != null -> Column(Modifier.fillMaxSize().background(Color(0xCC000000)).padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(stringResource(state.error.messageRes()), color = Color.White, style = MaterialTheme.typography.bodyMedium)
-                FilledTonalButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
-            }
             loading -> CircularProgressIndicator(Modifier.align(Alignment.Center), color = Color.White)
         }
         hint?.let { total ->

@@ -13,7 +13,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -28,7 +27,6 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.common.Player
 import app.freshtuber.R
 import app.freshtuber.player.PlayerState
-import app.freshtuber.ui.feed.messageRes
 import app.freshtuber.ui.theme.BrandColors
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -50,7 +48,7 @@ class VideoFlash {
  * repeated taps add up, swipe down minimizes. Loading and errors are drawn here too.
  */
 @Composable
-fun PortraitVideoLayer(player: Player, state: PlayerState, onMinimize: () -> Unit, onRetry: () -> Unit, modifier: Modifier = Modifier) {
+fun PortraitVideoLayer(player: Player, state: PlayerState, onMinimize: () -> Unit, modifier: Modifier = Modifier) {
     val progress = rememberProgress(player)
     val scope = rememberCoroutineScope()
     val flash = remember { VideoFlash() }
@@ -100,11 +98,6 @@ fun PortraitVideoLayer(player: Player, state: PlayerState, onMinimize: () -> Uni
     }) {
         val loading = state.loadingId != null || progress.buffering
         when {
-            state.error != null -> Column(Modifier.fillMaxSize().background(Color(0xCC000000)).padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(stringResource(state.error.messageRes()), color = Color.White, style = MaterialTheme.typography.bodyMedium)
-                FilledTonalButton(onClick = onRetry) { Text(stringResource(R.string.action_retry)) }
-            }
             loading -> CircularProgressIndicator(Modifier.align(Alignment.Center), color = Color.White)
         }
         AnimatedVisibility(flash.icon != null, Modifier.align(Alignment.Center), enter = fadeIn(), exit = fadeOut()) {
