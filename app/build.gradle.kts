@@ -27,7 +27,7 @@ android {
         minSdk = 26
         targetSdk = 37
         // Test build number: bump with every build handed to the user (file name and Settings show it).
-        versionCode = 24
+        versionCode = 25
         versionName = "1.2 · " + gitShortHash()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"

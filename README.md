@@ -1,5 +1,7 @@
 # ErgoTube
 
+**Build 25 — ErgoTube Music v2.** A new music mode in the same liquid light: «Слушать», a player lit by the cover, lyrics, a three-layer queue, one library for phone files and YouTube songs, and the song line inside the dock. [Debug APK](apk/ErgoTube-music2-debug.apk) · [Release APK](apk/ErgoTube-music2-release.apk)
+
 **Build 24.** Shorts skip the signed-out Home request and look up the first stream while loading the queue. Playback retry is centered on the screen. Tapping Home jumps to the top.
 
 On Android 13 and later, choose English, Russian or the system language under Settings → Hand and look → Language.
