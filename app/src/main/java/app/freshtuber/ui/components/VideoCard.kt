@@ -1,5 +1,7 @@
 package app.freshtuber.ui.components
 
+import app.freshtuber.ui.feed.looksLikeMusic
+
 import android.icu.text.CompactDecimalFormat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -72,9 +74,12 @@ fun VideoCard(
     val feedActions: app.freshtuber.ui.feed.FeedVideoActions? = if (enableMenu) androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel() else null
     val hiddenIds = if (recommendation) feedActions?.hiddenVideos?.collectAsStateWithLifecycle()?.value.orEmpty() else emptySet()
     val quickAct = app.freshtuber.ui.feed.rememberCardActions(video, feedActions) { hidden = it }
+    val listen = app.freshtuber.ui.feed.LocalListen.current
+    val musical = listen != null && video.looksLikeMusic()
     val act: (app.freshtuber.ui.feed.FanAction) -> Unit = { action -> when (action) {
         app.freshtuber.ui.feed.FanAction.Save -> saveOpen = true
         app.freshtuber.ui.feed.FanAction.Channel -> video.channelId?.let { onChannelClick?.invoke(it) }
+        app.freshtuber.ui.feed.FanAction.Listen -> listen?.invoke(video)
         else -> quickAct(action)
     } }
     if (hidden || video.id in hiddenIds) return
@@ -96,10 +101,11 @@ fun VideoCard(
                 app.freshtuber.ui.player.FlightTarget.Page, thumbnailForFlight)
         onClick()
     }
-    val available = remember(recommendation, video.channelId, onChannelClick != null) {
+    val available = remember(recommendation, video.channelId, onChannelClick != null, musical) {
         app.freshtuber.ui.feed.FanAction.entries.filter {
             (recommendation || it != app.freshtuber.ui.feed.FanAction.NotInterested) &&
-                (it != app.freshtuber.ui.feed.FanAction.Channel || (video.channelId != null && onChannelClick != null))
+                (it != app.freshtuber.ui.feed.FanAction.Channel || (!musical && video.channelId != null && onChannelClick != null)) &&
+                (it != app.freshtuber.ui.feed.FanAction.Listen || musical)
         }.toSet()
     }
     Column(

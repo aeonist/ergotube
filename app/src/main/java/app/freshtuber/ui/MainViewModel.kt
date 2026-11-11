@@ -22,6 +22,7 @@ class MainViewModel @Inject constructor(
     private val settings: AppSettings,
     private val accounts: AccountRepository,
     val player: PlayerController,
+    val music: app.freshtuber.player.music.MusicPlayer,
     network: app.freshtuber.core.connectivity.NetworkMonitor,
     health: app.freshtuber.data.account.SessionHealth,
     downloads: app.freshtuber.data.downloads.Downloads,
@@ -32,6 +33,8 @@ class MainViewModel @Inject constructor(
     val shortsEnabled = settings.shortsEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val accountState = accounts.state
     val leftHanded = settings.leftHanded.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val musicTab = settings.preferences.map { it.enabled(app.freshtuber.data.settings.AppFeature.MusicTab) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
     /** Finished downloads, shown next to «Скачанное». */
     val completedDownloads = downloads.items.map { list -> list.count { it.state == app.freshtuber.data.downloads.DownloadStatus.Complete } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)

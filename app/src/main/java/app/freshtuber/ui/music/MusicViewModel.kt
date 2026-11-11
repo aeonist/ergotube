@@ -1,0 +1,225 @@
+package app.freshtuber.ui.music
+
+import android.net.Uri
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import app.freshtuber.R
+import app.freshtuber.core.connectivity.NetworkMonitor
+import app.freshtuber.data.account.AccountRepository
+import app.freshtuber.data.account.AccountState
+import app.freshtuber.data.downloads.Download
+import app.freshtuber.data.downloads.DownloadKind
+import app.freshtuber.data.downloads.DownloadStatus
+import app.freshtuber.data.downloads.Downloads
+import app.freshtuber.data.music.DailyMusicMix
+import app.freshtuber.data.music.Lyrics
+import app.freshtuber.data.music.MusicAccount
+import app.freshtuber.data.music.MusicDiscovery
+import app.freshtuber.data.music.MusicLibrary
+import app.freshtuber.data.music.MusicLyrics
+import app.freshtuber.data.music.MusicSource
+import app.freshtuber.data.music.MusicTrack
+import app.freshtuber.data.music.PlaylistCount
+import app.freshtuber.data.settings.AppFeature
+import app.freshtuber.data.settings.AppSettings
+import app.freshtuber.data.video.VideoRepository
+import app.freshtuber.domain.model.PlaylistSummary
+import app.freshtuber.innertube.InnerTubeCommand
+import app.freshtuber.player.music.MusicPlayer
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+/** A short note for the snackbar: a string, optionally a plural count or an argument. */
+data class MusicNote(val res: Int, val arg: String? = null, val count: Int? = null)
+
+sealed interface LyricsState {
+    data object Off : LyricsState
+    data object Loading : LyricsState
+    data object Missing : LyricsState
+    data object Failed : LyricsState
+    data class Found(val lyrics: Lyrics) : LyricsState
+}
+
+data class HomeMusic(
+    val daily: DailyMusicMix? = null,
+    val dailyLoading: Boolean = true,
+    val jams: List<PlaylistSummary> = emptyList(),
+    val signedIn: Boolean = false,
+)
+
+/** Everything the music screens share: the library, downloads and the actions on a song. */
+@HiltViewModel
+class MusicViewModel @Inject constructor(
+    val music: MusicPlayer,
+    private val library: MusicLibrary,
+    private val discovery: MusicDiscovery,
+    private val downloads: Downloads,
+    private val lyrics: MusicLyrics,
+    private val videos: VideoRepository,
+    private val accounts: AccountRepository,
+    settings: AppSettings,
+    network: NetworkMonitor,
+) : ViewModel() {
+    val state = music.state
+    val favorites = music.favoriteIds
+    val online: StateFlow<Boolean> = network.online
+    val tracks: StateFlow<List<MusicTrack>> = library.tracks.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val recent: StateFlow<List<MusicTrack>> = library.recentlyPlayed(20).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    val playlists: StateFlow<List<PlaylistCount>> = library.playlists.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    /** Audio downloads by video id. */
+    val downloaded: StateFlow<Map<String, Download>> = downloads.audioItems.map { list -> list.filter { it.state != DownloadStatus.Deleting }.associateBy { it.videoId } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
+    val lyricsEnabled = settings.preferences.map { it.enabled(AppFeature.MusicLyrics) }.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    private val _notes = MutableSharedFlow<MusicNote>(extraBufferCapacity = 4)
+    val notes: SharedFlow<MusicNote> = _notes.asSharedFlow()
+
+    private val _home = MutableStateFlow(HomeMusic())
+    val home: StateFlow<HomeMusic> = _home.asStateFlow()
+
+    fun playlistTracks(id: String) = library.playlistTracks(id)
+    suspend fun playlistName(id: String) = library.playlist(id)?.name
+
+    fun loadHome() {
+        viewModelScope.launch {
+            val account = MusicAccount.from(accounts.state.value)
+            _home.value = _home.value.copy(signedIn = account != null)
+            launch {
+                val daily = try { discovery.daily() } catch (e: CancellationException) { throw e } catch (_: Exception) { null }
+                _home.value = _home.value.copy(daily = daily ?: _home.value.daily, dailyLoading = false)
+            }
+            launch {
+                val jams = try { discovery.discover(account) } catch (e: CancellationException) { throw e } catch (_: Exception) { emptyList() }
+                if (jams.isNotEmpty()) _home.value = _home.value.copy(jams = jams.take(12))
+            }
+        }
+    }
+
+    private var jamJob: Job? = null
+    fun playJam(jam: PlaylistSummary) {
+        jamJob?.cancel()
+        jamJob = viewModelScope.launch {
+            try {
+                val page = discovery.load(discovery.currentCursor(jam))
+                if (page.tracks.isEmpty()) { _notes.tryEmit(MusicNote(R.string.music_failed)); return@launch }
+                music.playCollection(page.tracks.map { library.known(it) }, 0, jam.title)
+            } catch (e: CancellationException) { throw e } catch (_: Exception) { _notes.tryEmit(MusicNote(R.string.music_failed)) }
+        }
+    }
+
+    /** [title] is «Микс дня» in the listener's language, shown in the player and the notification. */
+    fun playDaily(title: String, shuffle: Boolean = false) {
+        val mix = _home.value.daily ?: return
+        viewModelScope.launch { music.playCollection(mix.tracks.map { library.known(it) }, 0, title, shuffle = shuffle) }
+    }
+
+    fun toggleFavorite(track: MusicTrack) { viewModelScope.launch { music.toggleFavorite(track) } }
+    fun save(track: MusicTrack) { viewModelScope.launch { library.save(track) } }
+    fun remove(track: MusicTrack) { viewModelScope.launch { library.remove(track) } }
+
+    fun download(track: MusicTrack) {
+        if (!track.isYouTube) return
+        viewModelScope.launch {
+            library.save(track)
+            if (downloads.enqueue(track.videoSummary(), DownloadKind.Audio)) _notes.tryEmit(MusicNote(R.string.music_download_started))
+        }
+    }
+
+    fun removeDownload(track: MusicTrack) { if (track.isYouTube) downloads.delete(track.videoId, DownloadKind.Audio) }
+
+    fun createPlaylist(name: String, add: MusicTrack? = null) {
+        if (name.isBlank()) return
+        viewModelScope.launch {
+            val playlist = library.createPlaylist(name)
+            if (add != null) { library.addToPlaylist(playlist.id, add); _notes.tryEmit(MusicNote(R.string.music_added_to_playlist, playlist.name)) }
+        }
+    }
+
+    fun addToPlaylist(playlist: PlaylistCount, track: MusicTrack) {
+        viewModelScope.launch { library.addToPlaylist(playlist.id, track); _notes.tryEmit(MusicNote(R.string.music_added_to_playlist, playlist.name)) }
+    }
+
+    fun removeFromPlaylist(playlist: String, track: MusicTrack) { viewModelScope.launch { library.removePlaylistTrack(playlist, track.id) } }
+    fun renamePlaylist(id: String, name: String) { viewModelScope.launch { library.renamePlaylist(id, name) } }
+    fun deletePlaylist(id: String) { viewModelScope.launch { library.removePlaylist(id) } }
+
+    fun importFiles(uris: List<Uri>) { viewModelScope.launch { report(library.importFiles(uris)) } }
+    fun importFolder(uri: Uri) { viewModelScope.launch { report(library.importFolder(uri)) } }
+
+    private fun report(result: app.freshtuber.data.music.MusicImportResult) {
+        if (result.added > 0) _notes.tryEmit(MusicNote(R.plurals.music_imported, count = result.added))
+        if (result.unavailable > 0) _notes.tryEmit(MusicNote(R.string.music_import_failed))
+    }
+
+    /** A YouTube like is a separate, explicit action; ♥ never does it. Goes through ActionGuard. */
+    fun likeOnYouTube(track: MusicTrack) {
+        if (!track.isYouTube) return
+        if (accounts.state.value !is AccountState.SignedIn) { _notes.tryEmit(MusicNote(R.string.feed_later_sign_in)); return }
+        viewModelScope.launch {
+            try {
+                videos.perform(InnerTubeCommand.like(track.videoId, "LIKE") ?: return@launch)
+                _notes.tryEmit(MusicNote(R.string.music_liked_youtube))
+            } catch (e: CancellationException) { throw e } catch (_: Exception) { _notes.tryEmit(MusicNote(R.string.music_failed)) }
+        }
+    }
+
+    // Lyrics of the song on screen.
+    private val _lyrics = MutableStateFlow<Pair<String, LyricsState>?>(null)
+    val lyricsState: StateFlow<Pair<String, LyricsState>?> = _lyrics.asStateFlow()
+    private var lyricsJob: Job? = null
+
+    fun loadLyrics(track: MusicTrack) {
+        if (_lyrics.value?.first == track.id && _lyrics.value?.second !is LyricsState.Failed) return
+        lyricsJob?.cancel()
+        if (!lyricsEnabled.value) { _lyrics.value = track.id to LyricsState.Off; return }
+        _lyrics.value = track.id to LyricsState.Loading
+        lyricsJob = viewModelScope.launch {
+            val result = try { lyrics.find(track)?.let { LyricsState.Found(it) } ?: LyricsState.Missing }
+            catch (e: CancellationException) { throw e } catch (_: Exception) { LyricsState.Failed }
+            _lyrics.value = track.id to result
+        }
+    }
+
+    // Search.
+    data class SearchResults(val query: String = "", val phone: List<MusicTrack> = emptyList(), val youtube: List<MusicTrack> = emptyList(),
+        val loading: Boolean = false, val failed: Boolean = false)
+    private val _search = MutableStateFlow(SearchResults())
+    val search: StateFlow<SearchResults> = _search.asStateFlow()
+    private var searchJob: Job? = null
+
+    fun search(query: String) {
+        val q = query.trim()
+        searchJob?.cancel()
+        if (q.isEmpty()) { _search.value = SearchResults(); return }
+        _search.value = SearchResults(q, loading = true)
+        searchJob = viewModelScope.launch {
+            val phone = library.search(q).sortedBy { if (it.source == MusicSource.Phone) 0 else 1 }
+            _search.value = _search.value.copy(phone = phone)
+            val youtube = if (!online.value) emptyList() else try { discovery.searchYouTube(q).map { library.known(it) } }
+                catch (e: CancellationException) { throw e } catch (_: Exception) { _search.value = _search.value.copy(failed = true); emptyList() }
+            val known = phone.map { it.id }.toSet()
+            _search.value = _search.value.copy(youtube = youtube.filterNot { it.id in known }, loading = false)
+        }
+    }
+
+    suspend fun unplayableOffline(track: MusicTrack) = music.unplayableOffline(track)
+
+    fun downloadedTrack(item: Download): MusicTrack = MusicTrack("yt:${item.videoId}", MusicSource.YouTube, item.title,
+        item.channelName?.let(app.freshtuber.data.music.MusicNames::artist), artwork = downloads.thumbnail(item),
+        durationMs = item.durationSeconds * 1000, saved = true, addedAt = item.createdAt)
+
+    fun bytesOnPhone(): Long = downloaded.value.values.filter { it.state == DownloadStatus.Complete }.sumOf { it.bytesTotal }
+}

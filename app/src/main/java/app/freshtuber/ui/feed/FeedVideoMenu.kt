@@ -5,6 +5,7 @@ import android.content.Intent
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -89,6 +90,20 @@ fun shareVideo(context: Context, videoId: String, title: String) {
         .putExtra(Intent.EXTRA_TEXT, "https://youtu.be/$videoId"), title))
 }
 
+/** «Слушать»: plays a video as a song with radio after it; provided by the app root. */
+val LocalListen = androidx.compose.runtime.staticCompositionLocalOf<((VideoSummary) -> Unit)?> { null }
+
+/** Likely a song: music mixes, «… - Topic» and VEVO channels, «Official video/audio» titles. */
+fun VideoSummary.looksLikeMusic(): Boolean {
+    if (isLive || isShort) return false
+    if (musicMix != null) return true
+    val channel = channelName.orEmpty()
+    if (channel.endsWith(" - Topic") || channel.contains("VEVO", ignoreCase = true)) return true
+    return MUSIC_TITLE.containsMatchIn(title)
+}
+
+private val MUSIC_TITLE = Regex("""(official\s+(music\s+)?(video|audio|lyric)|lyric video|\(audio\)|\[audio]|клип|official mv|\bft\.|\bfeat\.)""", RegexOption.IGNORE_CASE)
+
 /** Runs one card action and reports it in the app snackbar; Not interested gets Undo. */
 @Composable
 fun rememberCardActions(video: VideoSummary, actions: FeedVideoActions?, onHide: (Boolean) -> Unit): (FanAction) -> Unit {
@@ -106,7 +121,7 @@ fun rememberCardActions(video: VideoSummary, actions: FeedVideoActions?, onHide:
                 }
                 FanAction.Download -> { downloadNotifications(); actions?.download(video, report) }
                 FanAction.Share -> shareVideo(context, video.id, shareTitle)
-                FanAction.Save, FanAction.Channel -> Unit // Routed by the card to the picker or channel.
+                FanAction.Save, FanAction.Channel, FanAction.Listen -> Unit // Routed by the card to the picker, channel or music.
                 FanAction.NotInterested -> {
                     onHide(true)
                     actions?.hideVideo(video.id)
@@ -158,6 +173,8 @@ fun FeedVideoMenu(video: VideoSummary, recommendation: Boolean, act: (FanAction)
             val channelId = video.channelId
             if (channelId != null && onChannel != null) add(TileItem(Icons.Rounded.AccountCircle, channelLabel) { onDismiss(); onChannel(channelId) })
             if (recommendation) add(tile(FanAction.NotInterested))
+            val listen = LocalListen.current
+            if (listen != null && !video.isLive && !video.isShort) add(TileItem(Icons.Rounded.Headphones, labels.getValue(FanAction.Listen)) { onDismiss(); listen(video) })
         }
         TileGrid(tiles, 3, left, Modifier.padding(bottom = 16.dp))
     }

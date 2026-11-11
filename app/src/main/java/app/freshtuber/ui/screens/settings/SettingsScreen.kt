@@ -22,6 +22,7 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BackHand
 import androidx.compose.material.icons.rounded.BatterySaver
 import androidx.compose.material.icons.rounded.Notifications
+import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.PlayCircle
 import androidx.compose.material.icons.rounded.SdStorage
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -62,6 +63,8 @@ class SettingsViewModel @Inject constructor(private val settings: AppSettings,
     fun quality(wifi: Boolean, height: Int) = update { settings.setPlaybackQuality(wifi, height) }
     fun dockWidth(percent: Int) = update { settings.setDockWidth(percent) }
     fun downloadQuality(height: Int) = update { settings.setDownloadQuality(height) }
+    fun musicQuality(kind: Int, quality: app.freshtuber.data.settings.MusicQuality) = update { settings.setMusicQuality(kind, quality) }
+    fun musicLimit(gb: Int) = update { settings.setMusicLimit(gb) }
     fun channelNotifications(channel: app.freshtuber.data.subscriptions.LocalChannel, enabled: Boolean) = update {
         local.notify(app.freshtuber.domain.model.ChannelSummary(channel.id, channel.name, channel.avatarUrl), enabled)
     }
@@ -76,7 +79,7 @@ class SettingsViewModel @Inject constructor(private val settings: AppSettings,
     }
 }
 
-/** The six settings sections, most used first: item 0 lands under the thumb. */
+/** The settings sections, most used first: item 0 lands under the thumb. */
 private enum class SettingsGroup(val icon: androidx.compose.ui.graphics.vector.ImageVector, val title: Int) {
     Look(androidx.compose.material.icons.Icons.Rounded.BackHand, R.string.settings_group_look),
     Energy(androidx.compose.material.icons.Icons.Rounded.BatterySaver, R.string.settings_group_energy),
@@ -84,6 +87,7 @@ private enum class SettingsGroup(val icon: androidx.compose.ui.graphics.vector.I
     Feeds(androidx.compose.material.icons.Icons.Rounded.AutoAwesome, R.string.settings_group_feeds),
     Notifications(androidx.compose.material.icons.Icons.Rounded.Notifications, R.string.settings_group_notifications),
     Storage(androidx.compose.material.icons.Icons.Rounded.SdStorage, R.string.settings_group_storage),
+    Music(androidx.compose.material.icons.Icons.Rounded.Headphones, R.string.settings_group_music),
 }
 
 /**
@@ -132,6 +136,7 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
         SettingsGroup.Feeds -> resources.getString(R.string.settings_group_feeds_hint)
         SettingsGroup.Notifications -> if (notificationsOn) on else off
         SettingsGroup.Storage -> resources.getString(R.string.quality_resolution, preferences.downloadQuality)
+        SettingsGroup.Music -> resources.getString(R.string.settings_music_summary)
     }
 
     // Pressed to the bottom; on a short screen (landscape) it scrolls instead of clipping.
@@ -247,6 +252,23 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
                     SettingsToggle(stringResource(R.string.settings_notifications), stringResource(if (systemNotifications) R.string.settings_notifications_hint else R.string.notification_permission_hint), notificationsOn) {
                         if (it) enableNotifications() else viewModel.feature(AppFeature.Notifications, false)
                     }
+                }
+                SettingsGroup.Music -> {
+                    val qualities = app.freshtuber.data.settings.MusicQuality.entries
+                    val qualityNames = listOf(stringResource(R.string.music_quality_best), stringResource(R.string.music_quality_economy))
+                    SettingsChoice(stringResource(R.string.settings_music_quality_downloads), qualityNames, preferences.musicDownloads.ordinal, left) { viewModel.musicQuality(2, qualities[it]) }
+                    SettingsChoice(stringResource(R.string.settings_music_quality_mobile), qualityNames, preferences.musicMobile.ordinal, left) { viewModel.musicQuality(1, qualities[it]) }
+                    SettingsChoice(stringResource(R.string.settings_music_quality_wifi), qualityNames, preferences.musicWifi.ordinal, left) { viewModel.musicQuality(0, qualities[it]) }
+                    val limits = listOf(1, 2, 5, 10, 20)
+                    SettingsChoice(stringResource(R.string.settings_music_limit), limits.map { stringResource(R.string.settings_music_gb, it) },
+                        limits.indexOf(preferences.musicLimitGb).coerceAtLeast(0), left) { viewModel.musicLimit(limits[it]) }
+                    listOf(
+                        Triple(AppFeature.MusicResumeOnConnect, R.string.settings_music_resume, R.string.settings_music_resume_hint),
+                        Triple(AppFeature.MusicAutoFavorites, R.string.settings_music_auto_fav, R.string.settings_music_auto_fav_hint),
+                        Triple(AppFeature.MusicAutoDaily, R.string.settings_music_auto_daily, R.string.settings_music_auto_daily_hint),
+                        Triple(AppFeature.MusicLyrics, R.string.settings_music_lyrics, R.string.settings_music_lyrics_hint),
+                        Triple(AppFeature.MusicTab, R.string.settings_music_tab, R.string.settings_music_tab_hint),
+                    ).forEach { (feature, label, hint) -> SettingsToggle(stringResource(label), stringResource(hint), preferences.enabled(feature)) { viewModel.feature(feature, it) } }
                 }
                 SettingsGroup.Storage -> {
                     ListItem(colors = ClearListItem, headlineContent = { Text(stringResource(R.string.settings_about)) }, supportingContent = { Text(stringResource(R.string.settings_version, app.freshtuber.BuildConfig.VERSION_NAME)) }, modifier = Modifier.clickable { about = true })

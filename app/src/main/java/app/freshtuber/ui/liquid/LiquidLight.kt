@@ -351,6 +351,10 @@ class LiquidLight(context: Context, private val scope: CoroutineScope) {
 
     fun poke() { wake.trySend(Unit) }
 
+    /** Music screens: a still cover needs no more than 30 frames a second, even while changing. */
+    var musicMode = false
+        set(value) { field = value; poke() }
+
     private fun updateHue(value: Float, threshold: Float): Boolean {
         val diff = abs(((value - hue + 540f) % 360f) - 180f)
         if (diff >= threshold) { hue = value; return true }
@@ -387,7 +391,7 @@ class LiquidLight(context: Context, private val scope: CoroutineScope) {
             last = now
             when (step(dt)) {
                 // The light is soft: 60 fps is plenty even on 120 Hz screens.
-                LightActivity.Busy -> if (now - lastDraw >= 15_000_000L) { redraw++; lastDraw = now }
+                LightActivity.Busy -> if (now - lastDraw >= if (musicMode) 32_000_000L else 15_000_000L) { redraw++; lastDraw = now }
                 // Slow drifting light is drawn at 30 fps.
                 LightActivity.Idle -> if (now - lastDraw >= 32_000_000L) { redraw++; lastDraw = now }
                 LightActivity.Static -> { redraw++; wake.receive(); last = 0L }

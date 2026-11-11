@@ -45,14 +45,27 @@ enum class DockTab(val icon: ImageVector, val selectedIcon: ImageVector, @param:
     Shorts(Icons.Outlined.OutlinedSlideshow, Icons.Rounded.Slideshow, R.string.nav_shorts),
     Search(Icons.Rounded.Search, Icons.Rounded.Search, R.string.nav_search),
     Mine(Icons.Outlined.OutlinedVideoLibrary, Icons.Rounded.VideoLibrary, R.string.nav_mine),
+    /** Takes Shorts' place when «Музыка вместо Shorts» is on. */
+    Music(Icons.Rounded.Headphones, Icons.Rounded.Headphones, R.string.nav_music),
+}
+
+/** The music dock: Video is farthest from the thumb, Listen right under it. */
+enum class MusicTab(val icon: ImageVector, @param:StringRes val labelRes: Int) {
+    Video(Icons.Rounded.SmartDisplay, R.string.music_tab_video),
+    Search(Icons.Rounded.Search, R.string.nav_search),
+    Library(Icons.Rounded.LibraryMusic, R.string.music_tab_library),
+    Listen(Icons.Rounded.Headphones, R.string.music_tab_listen),
 }
 
 /** Tiles of «Моё», most used first: the first one sits lowest, on the working-hand side. */
 enum class MineItem(val icon: ImageVector, @param:StringRes val labelRes: Int, @param:StringRes val hintRes: Int) {
     WatchLater(Icons.Rounded.Schedule, R.string.mine_later, R.string.mine_later_hint),
+    Music(Icons.Rounded.Headphones, R.string.mine_music, R.string.mine_music_hint),
     Downloads(Icons.Rounded.DownloadDone, R.string.library_downloads, R.string.mine_downloads_hint),
     History(Icons.Rounded.History, R.string.library_history, R.string.mine_history_hint),
     Playlists(Icons.AutoMirrored.Rounded.PlaylistPlay, R.string.library_playlists, R.string.mine_playlists_hint),
+    /** Only while Music has Shorts' place in the dock. */
+    Shorts(Icons.Rounded.Slideshow, R.string.nav_shorts, R.string.mine_shorts_hint),
     Settings(Icons.Rounded.Settings, R.string.nav_settings, R.string.mine_settings_hint),
 }
 
@@ -66,11 +79,17 @@ object DockLayout {
      * Row order. Reflects around the centre button when Mine and Home are inverted,
      * swapping adjacent outer buttons as well.
      */
-    fun order(left: Boolean, shorts: Boolean, swapHomeMine: Boolean = false): List<DockTab> {
-        val base = listOf(DockTab.Mine, DockTab.Subscriptions, DockTab.Search, DockTab.Shorts, DockTab.Home)
-            .filter { shorts || it != DockTab.Shorts }
+    fun order(left: Boolean, shorts: Boolean, swapHomeMine: Boolean = false, music: Boolean = false): List<DockTab> {
+        val middle = when { music -> DockTab.Music; shorts -> DockTab.Shorts; else -> null }
+        val base = listOfNotNull(DockTab.Mine, DockTab.Subscriptions, DockTab.Search, middle, DockTab.Home)
         val inverted = left xor swapHomeMine
         return if (inverted) base.reversed() else base
+    }
+
+    /** Music dock order; mirrored like the main dock. */
+    fun musicOrder(left: Boolean, swapHomeMine: Boolean = false): List<MusicTab> {
+        val base = MusicTab.entries.toList()
+        return if (left xor swapHomeMine) base.reversed() else base
     }
 
 }
@@ -80,7 +99,36 @@ object DockLayout {
  * shader draws the drop at the rect reported here.
  */
 @Composable
-fun AppDock(selected: DockTab?, mineOpen: Boolean, left: Boolean, shorts: Boolean, onSelect: (DockTab) -> Unit, modifier: Modifier = Modifier) {
+fun AppDock(selected: DockTab?, mineOpen: Boolean, left: Boolean, shorts: Boolean, onSelect: (DockTab) -> Unit, modifier: Modifier = Modifier,
+    music: Boolean = false, line: (@Composable () -> Unit)? = null) {
+    val preferences = app.freshtuber.ui.theme.LocalAppPreferences.current
+    DockDrop(left, modifier, line) {
+        DockLayout.order(left, shorts, preferences.enabled(app.freshtuber.data.settings.AppFeature.SwapHomeMine), music).forEach { tab ->
+            val active = if (tab == DockTab.Mine) mineOpen || (selected == DockTab.Mine) else selected == tab && !mineOpen
+            DockButton(tab.labelRes, if (active) tab.selectedIcon else tab.icon, active, "dock:${tab.name}",
+                if (tab == DockTab.Mine) stringResource(R.string.nav_mine_description) else null, Modifier.weight(1f)) { onSelect(tab) }
+        }
+    }
+}
+
+/** The music dock: the same drop, with Video · Search · Library · Listen. */
+@Composable
+fun MusicDock(selected: MusicTab?, left: Boolean, onSelect: (MusicTab) -> Unit, modifier: Modifier = Modifier, line: (@Composable () -> Unit)? = null) {
+    val preferences = app.freshtuber.ui.theme.LocalAppPreferences.current
+    DockDrop(left, modifier, line) {
+        DockLayout.musicOrder(left, preferences.enabled(app.freshtuber.data.settings.AppFeature.SwapHomeMine)).forEach { tab ->
+            DockButton(tab.labelRes, tab.icon, selected == tab, "music:${tab.name}", null, Modifier.weight(1f)) { onSelect(tab) }
+        }
+    }
+}
+
+/**
+ * The navigation bar: a floating liquid drop. The container is transparent; the background
+ * shader draws the drop at the rect reported here. While music is on, its song [line] lives in
+ * the same drop, above the buttons.
+ */
+@Composable
+private fun DockDrop(left: Boolean, modifier: Modifier, line: (@Composable () -> Unit)?, buttons: @Composable RowScope.() -> Unit) {
     val light = app.freshtuber.ui.liquid.LocalLiquidLight.current
     val radius = with(androidx.compose.ui.platform.LocalDensity.current) { 34.dp.toPx() }
     DisposableEffect(light) { onDispose { light?.setDrop(0, null, 0f) } }
@@ -92,16 +140,9 @@ fun AppDock(selected: DockTab?, mineOpen: Boolean, left: Boolean, shorts: Boolea
             .padding(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 14.dp).fillMaxWidth(),
             contentAlignment = if (left) Alignment.CenterStart else Alignment.CenterEnd) {
         val width = DockLayout.width(maxWidth.value, preferences.dockWidth, expanded).dp
-        Row(
-            Modifier.width(width).height(Reach.DockHeight)
-                .onGloballyPositioned { light?.setDrop(0, it.boundsInRoot(), radius) }
-                .padding(horizontal = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            DockLayout.order(left, shorts, preferences.enabled(app.freshtuber.data.settings.AppFeature.SwapHomeMine)).forEach { tab ->
-                val active = if (tab == DockTab.Mine) mineOpen || (selected == DockTab.Mine) else selected == tab && !mineOpen
-                DockButton(tab, active, Modifier.weight(1f)) { onSelect(tab) }
-            }
+        Column(Modifier.width(width).onGloballyPositioned { light?.setDrop(0, it.boundsInRoot(), radius) }) {
+            line?.invoke()
+            Row(Modifier.fillMaxWidth().height(Reach.DockHeight).padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically, content = buttons)
         }
         }
         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
@@ -113,7 +154,7 @@ fun AppDock(selected: DockTab?, mineOpen: Boolean, left: Boolean, shorts: Boolea
  * Same order and buttons as [AppDock]; labels go to TalkBack only.
  */
 @Composable
-fun CompactDock(selected: DockTab?, mineOpen: Boolean, left: Boolean, shorts: Boolean, onSelect: (DockTab) -> Unit, modifier: Modifier = Modifier) {
+fun CompactDock(selected: DockTab?, mineOpen: Boolean, left: Boolean, shorts: Boolean, onSelect: (DockTab) -> Unit, modifier: Modifier = Modifier, music: Boolean = false) {
     Column(modifier.fillMaxWidth().background(androidx.compose.ui.graphics.Brush.verticalGradient(
         listOf(androidx.compose.ui.graphics.Color.Transparent, androidx.compose.ui.graphics.Color(0x8C000000))))) {
         val preferences = app.freshtuber.ui.theme.LocalAppPreferences.current
@@ -124,7 +165,7 @@ fun CompactDock(selected: DockTab?, mineOpen: Boolean, left: Boolean, shorts: Bo
             Modifier.width(DockLayout.width(maxWidth.value, preferences.dockWidth, expanded).dp).height(Reach.CompactDockHeight),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            DockLayout.order(left, shorts, preferences.enabled(app.freshtuber.data.settings.AppFeature.SwapHomeMine)).forEach { tab ->
+            DockLayout.order(left, shorts, preferences.enabled(app.freshtuber.data.settings.AppFeature.SwapHomeMine), music).forEach { tab ->
                 val active = if (tab == DockTab.Mine) mineOpen || (selected == DockTab.Mine) else selected == tab && !mineOpen
                 val label = stringResource(tab.labelRes)
                 val description = if (tab == DockTab.Mine) stringResource(R.string.nav_mine_description) else label
@@ -146,11 +187,11 @@ fun CompactDock(selected: DockTab?, mineOpen: Boolean, left: Boolean, shorts: Bo
 }
 
 @Composable
-private fun DockButton(tab: DockTab, active: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    val label = stringResource(tab.labelRes)
-    val description = if (tab == DockTab.Mine) stringResource(R.string.nav_mine_description) else label
+private fun DockButton(@StringRes labelRes: Int, icon: ImageVector, active: Boolean, tag: String, spoken: String?, modifier: Modifier, onClick: () -> Unit) {
+    val label = stringResource(labelRes)
+    val description = spoken ?: label
     Column(
-        modifier.fillMaxHeight().testTag("dock:${tab.name}")
+        modifier.fillMaxHeight().testTag(tag)
             .semantics { selected = active; contentDescription = description }
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = ripple(bounded = false, radius = 32.dp),
                 role = Role.Tab, onClick = onClick),
@@ -160,7 +201,7 @@ private fun DockButton(tab: DockTab, active: Boolean, modifier: Modifier, onClic
         val color = if (active) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
         Box(Modifier.size(56.dp, 30.dp).background(if (active) MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent,
             RoundedCornerShape(15.dp)), contentAlignment = Alignment.Center) {
-            Icon(if (active) tab.selectedIcon else tab.icon, null, Modifier.size(24.dp), tint = color)
+            Icon(icon, null, Modifier.size(24.dp), tint = color)
         }
         Text(label, style = MaterialTheme.typography.labelSmall, color = if (active) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
@@ -173,7 +214,8 @@ private fun DockButton(tab: DockTab, active: Boolean, modifier: Modifier, onClic
  * the working-hand side; the dock stays visible and usable.
  */
 @Composable
-fun MineList(downloads: Int, onPick: (MineItem) -> Unit, onDismiss: () -> Unit, bottomInset: androidx.compose.ui.unit.Dp = 0.dp) {
+fun MineList(downloads: Int, onPick: (MineItem) -> Unit, onDismiss: () -> Unit, bottomInset: androidx.compose.ui.unit.Dp = 0.dp,
+    items: List<MineItem> = MineItem.entries.filter { it != MineItem.Shorts }) {
     BackHandler(onBack = onDismiss)
     val left = app.freshtuber.ui.components.LocalLeftHanded.current
     // The tiles rise a little out of the dock as the pane opens.
@@ -186,7 +228,7 @@ fun MineList(downloads: Int, onPick: (MineItem) -> Unit, onDismiss: () -> Unit, 
         // Tap outside closes; not a control of its own (Back does the same for TalkBack).
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.22f * appear.value))
             .pointerInput(onDismiss) { detectTapGestures { onDismiss() } })
-        app.freshtuber.ui.components.SectionTiles(MineItem.entries, left,
+        app.freshtuber.ui.components.SectionTiles(items, left,
             Modifier.align(if (left) Alignment.BottomStart else Alignment.BottomEnd)
                 .padding(start = 12.dp, end = 12.dp, bottom = 10.dp + bottomInset).widthIn(max = 560.dp)
                 .graphicsLayer {

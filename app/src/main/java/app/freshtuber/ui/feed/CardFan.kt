@@ -15,6 +15,7 @@ import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -55,6 +56,8 @@ enum class FanAction(val icon: ImageVector, @param:StringRes val labelRes: Int, 
     Share(Icons.Rounded.Share, R.string.video_share, 270f),
     Save(Icons.AutoMirrored.Rounded.PlaylistAdd, R.string.video_save, 330f),
     Channel(Icons.Rounded.AccountCircle, R.string.channel_group, 150f),
+    /** On a music video, «Слушать» takes the channel's place: the song plays as music. */
+    Listen(Icons.Rounded.Headphones, R.string.fan_listen, 150f),
 }
 
 /** Pure fan geometry, in any one unit (the app passes pixels). */
@@ -189,7 +192,9 @@ fun FanOverlay(host: FanHost) {
         Text(label, Modifier.fillMaxWidth().padding(top = labelTop, start = 12.dp, end = 12.dp), color = Color.White,
             fontSize = 19.sp, textAlign = TextAlign.Center, style = MaterialTheme.typography.titleMedium.copy(
                 shadow = Shadow(Color.Black.copy(alpha = 0.6f), blurRadius = 8f)))
-        FanAction.entries.forEach { action ->
+        // Two actions share a direction (Channel, Listen): the available one is drawn.
+        FanAction.entries.filter { action -> action in session.available ||
+            (action != FanAction.Listen && session.available.none { it.degrees == action.degrees }) }.forEach { action ->
             val p = FanMath.itemPosition(session.center, radius, action)
             val selected = session.selected == action
             val enabled = action in session.available

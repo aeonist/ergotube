@@ -470,12 +470,16 @@ private fun PortraitPage(
     }
 }
 
+/** «Как музыку»: the video goes on as a song in the music player; provided by the app root. */
+val LocalAsMusic = androidx.compose.runtime.staticCompositionLocalOf<(() -> Unit)?> { null }
+
 /** Like, dislike, comments, subscribe, pin, more; the first one sits under the thumb. */
 @Composable
 private fun PlayerActions(state: VideoUiState, viewModel: VideoViewModel, left: Boolean, pinned: Boolean, onPin: () -> Unit, onMore: () -> Unit) {
     val locale = LocalConfiguration.current.locales[0]
     val details = state.details
     val activity = LocalActivity.current as? app.freshtuber.MainActivity
+    val asMusic = LocalAsMusic.current
     val liked = state.likeStatus == LikeStatus.Like
     val disliked = state.likeStatus == LikeStatus.Dislike
     val likeCount = (if (liked) details?.likeCountTextLiked ?: details?.likeCountText else details?.likeCountText)?.takeIf { it.any(Char::isDigit) }
@@ -493,6 +497,8 @@ private fun PlayerActions(state: VideoUiState, viewModel: VideoViewModel, left: 
         Action(Icons.Rounded.Headphones, stringResource(R.string.player_background_short), stringResource(R.string.player_audio_only), false, true) {
             activity?.playInBackground()
         },
+        Action(Icons.Rounded.MusicNote, stringResource(R.string.player_as_music_short), stringResource(R.string.player_as_music), false,
+            asMusic != null) { asMusic?.invoke() },
         Action(Icons.Rounded.MoreHoriz, stringResource(R.string.player_more), stringResource(R.string.video_more), false, true, onMore),
     )
     Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 2.dp)) {
@@ -745,6 +751,7 @@ private fun ClassicActions(state: VideoUiState, viewModel: VideoViewModel, onMor
     val shareTitle = stringResource(R.string.video_share)
     val download = app.freshtuber.ui.components.rememberNotificationPermission { viewModel.download() }
     val pill = MaterialTheme.colorScheme.surfaceContainerHigh
+    val asMusic = LocalAsMusic.current
     androidx.compose.foundation.lazy.LazyRow(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         item(key = "rate") {
@@ -762,7 +769,8 @@ private fun ClassicActions(state: VideoUiState, viewModel: VideoViewModel, onMor
                 }
             }
         }
-        val pills = listOf(
+        val pills = listOfNotNull(
+            asMusic?.let { Triple(Icons.Rounded.MusicNote, resources.getString(R.string.player_as_music)) { it() } },
             Triple(Icons.Rounded.Headphones, resources.getString(R.string.player_audio_only)) { activity?.playInBackground(); Unit },
             Triple(Icons.Rounded.Share, shareTitle) { app.freshtuber.ui.feed.shareVideo(context, viewModel.videoId, shareTitle) },
             Triple(Icons.AutoMirrored.Rounded.PlaylistAdd, resources.getString(R.string.video_save)) { viewModel.openPlaylistPicker() },
