@@ -12,6 +12,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -48,6 +49,9 @@ class MainViewModel @Inject constructor(
                 AccountState.SignedOut -> if (welcomeDone) HomeRoute else WelcomeRoute
             }
         }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** «Открывать музыку при запуске». */
+    suspend fun startsWithMusic(): Boolean = settings.preferences.first().enabled(app.freshtuber.data.settings.AppFeature.StartWithMusic)
 
     fun continueWithoutAccount() {
         viewModelScope.launch { settings.markWelcomeDone() }

@@ -28,6 +28,12 @@ enum class AppFeature(val key: String, val default: Boolean) {
     MusicAutoFavorites("music_auto_favorites", false),
     /** Continue music when headphones connect again after they paused it. */
     MusicResumeOnConnect("music_resume_connect", false),
+    /** Downloaded songs are saved as tagged files in the phone's Music folder, for other players too. */
+    MusicToFolder("music_to_folder", true),
+    /** Songs from the phone's Music folder show under «С телефона» on their own (needs audio access). */
+    MusicShowFolder("music_show_folder", false),
+    /** The app opens on «Слушать» instead of the video Home. */
+    StartWithMusic("start_with_music", false),
 }
 
 /** Audio quality for music: the best stream, or a small one (about 50 kbps) that saves data. */

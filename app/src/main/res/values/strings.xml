@@ -440,4 +440,17 @@
     <string name="music_quality_economy">Economy</string>
     <string name="settings_music_resume">Resume with headphones</string>
     <string name="settings_music_resume_hint">Continue when headphones connect again after they paused the music</string>
+    <string name="music_show_folder">Show songs from Music</string>
+    <string name="music_remove_duplicates">Remove duplicates</string>
+    <plurals name="music_duplicates_removed">
+        <item quantity="one">Removed %d duplicate</item>
+        <item quantity="other">Removed %d duplicates</item>
+    </plurals>
+    <string name="music_duplicates_none">No duplicates</string>
+    <string name="music_my_jam">My Mix</string>
+    <string name="music_my_jam_hint">Your endless mix from the YouTube Home page</string>
+    <string name="settings_music_folder">Save to the Music folder</string>
+    <string name="settings_music_folder_hint">Downloaded songs live in Music/ErgoTube with title and cover, where other players find them</string>
+    <string name="settings_start_music">Open music on launch</string>
+    <string name="settings_start_music_hint">The app opens on Listen instead of the video Home</string>
 </resources>

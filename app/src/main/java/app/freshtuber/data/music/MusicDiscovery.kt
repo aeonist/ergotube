@@ -50,7 +50,7 @@ class MusicDiscovery @Inject constructor(
     suspend fun discover(account: MusicAccount?): List<PlaylistSummary> {
         if (MusicAccount.from(accountState.value) != account) return emptyList()
         val result = feeds.musicMixCards(account?.let { CallAs.Profile(it.id) } ?: CallAs.Anonymous)
-        return result.takeIf { MusicAccount.from(accountState.value) == account }.orEmpty()
+        return MusicJams.order(result.takeIf { MusicAccount.from(accountState.value) == account }.orEmpty(), signedIn = account != null)
     }
 
     suspend fun load(cursor: MusicJamCursor): MusicJamPage {

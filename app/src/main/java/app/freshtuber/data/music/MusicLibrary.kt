@@ -25,6 +25,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -115,6 +116,10 @@ interface MusicDao {
     @Query("SELECT * FROM music_tracks WHERE uri = :uri")
     suspend fun trackByUri(uri: String): MusicTrack?
 
+    /** Songs found by looking through the phone's Music folder (not picked by hand). */
+    @Query("SELECT * FROM music_tracks WHERE id LIKE 'phone:ms%'")
+    suspend fun scanned(): List<MusicTrack>
+
     @Upsert suspend fun putTrack(track: MusicTrack)
 
     @Query("UPDATE music_tracks SET saved = 0, favorite = 0 WHERE id = :id")
@@ -200,6 +205,37 @@ class MusicLibrary @Inject constructor(
                 runCatching { resolver.releasePersistableUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
             }
         }
+    }
+
+    /** True when the file behind [uri] can be opened now. */
+    fun readable(uri: String?): Boolean = uri != null && try {
+        resolver.openAssetFileDescriptor(Uri.parse(uri), "r")?.use { true } ?: false
+    } catch (_: Exception) { false }
+
+    suspend fun scanned(): List<MusicTrack> = dao.scanned()
+    suspend fun all(): List<MusicTrack> = dao.library().first()
+    suspend fun knownUri(uri: String): Boolean = dao.trackByUri(uri) != null
+    suspend fun forget(id: String) = dao.removeTrack(id)
+
+    /** A song found in the Music folder. Returns false when the file is not a song. */
+    suspend fun addScanned(uri: Uri, mediaId: Long, addedAt: Long): Boolean = withContext(Dispatchers.IO) {
+        val track = runCatching { inspect(uri, "phone:ms$mediaId") }.getOrNull() ?: return@withContext false
+        dao.putTrack(track.copy(artist = track.artist?.takeUnless { it == "<unknown>" }, addedAt = addedAt.takeIf { it > 0 } ?: track.addedAt))
+        true
+    }
+
+    /**
+     * An ErgoTube download found in the Music folder after a reinstall: it comes back as the
+     * YouTube song it is, playing from the file, instead of showing up as a phone file.
+     */
+    suspend fun adopt(videoId: String, uri: Uri) = withContext(Dispatchers.IO) {
+        val id = "yt:$videoId"
+        val old = dao.track(id)
+        if (old?.uri != null) return@withContext
+        val file = runCatching { inspect(uri, "phone:tmp$videoId") }.getOrNull()
+        val base = old ?: MusicTrack(id, MusicSource.YouTube, file?.title ?: videoId, file?.artist, artwork = "https://i.ytimg.com/vi/$videoId/hqdefault.jpg",
+            durationMs = file?.durationMs ?: 0, addedAt = System.currentTimeMillis())
+        dao.putTrack(base.copy(uri = uri.toString(), saved = true))
     }
 
     suspend fun recordPlay(track: MusicTrack) = database.withTransaction {

@@ -314,7 +314,11 @@ object PadLayout {
     const val TRACK_ROW_DP = 32
     const val BUTTON_ROW_DP = 50
     /** Four side buttons share the row with the three tap zones; narrow pads shrink the buttons. */
-    fun sideButton(innerWidthDp: Float): Float = if (innerWidthDp < 316f) 40f else 48f
+    fun sideButton(innerWidthDp: Float): Float = when {
+        innerWidthDp < 270f -> 36f
+        innerWidthDp < 316f -> 40f
+        else -> 48f
+    }
     /** Width left for one skip zone (the play zone is 1.2 of it). */
     fun zoneWidth(innerWidthDp: Float): Float = (innerWidthDp - 4 * sideButton(innerWidthDp)) / 3.2f
 }

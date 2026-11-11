@@ -70,7 +70,8 @@ class MusicViewModel @Inject constructor(
     private val lyrics: MusicLyrics,
     private val videos: VideoRepository,
     private val accounts: AccountRepository,
-    settings: AppSettings,
+    private val folder: app.freshtuber.data.music.MusicFolder,
+    private val settings: AppSettings,
     network: NetworkMonitor,
 ) : ViewModel() {
     val state = music.state
@@ -155,6 +156,24 @@ class MusicViewModel @Inject constructor(
     fun removeFromPlaylist(playlist: String, track: MusicTrack) { viewModelScope.launch { library.removePlaylistTrack(playlist, track.id) } }
     fun renamePlaylist(id: String, name: String) { viewModelScope.launch { library.renamePlaylist(id, name) } }
     fun deletePlaylist(id: String) { viewModelScope.launch { library.removePlaylist(id) } }
+
+    /** «Показывать треки из Music»: turned on only once audio access is given. */
+    fun showFolder(on: Boolean) {
+        viewModelScope.launch {
+            settings.setFeature(AppFeature.MusicShowFolder, on)
+            // Turning it on again after a new file arrived looks through the folder at once.
+            if (on) { val added = folder.scan(); if (added > 0) _notes.tryEmit(MusicNote(R.plurals.music_imported, count = added)) }
+        }
+    }
+    val folderReadable get() = folder.canRead()
+    fun rescanFolder() { viewModelScope.launch { folder.scan() } }
+
+    fun removeDuplicates() {
+        viewModelScope.launch {
+            val removed = folder.removeDuplicates()
+            _notes.tryEmit(if (removed > 0) MusicNote(R.plurals.music_duplicates_removed, count = removed) else MusicNote(R.string.music_duplicates_none))
+        }
+    }
 
     fun importFiles(uris: List<Uri>) { viewModelScope.launch { report(library.importFiles(uris)) } }
     fun importFolder(uri: Uri) { viewModelScope.launch { report(library.importFolder(uri)) } }

@@ -22,6 +22,7 @@ class MainApplication : Application(), SingletonImageLoader.Factory {
     @Inject lateinit var downloads: app.freshtuber.data.downloads.Downloads
     @Inject lateinit var okHttpClient: OkHttpClient
     @Inject lateinit var musicOffline: app.freshtuber.data.music.MusicOffline
+    @Inject lateinit var musicFolder: app.freshtuber.data.music.MusicFolder
 
     override fun onCreate() {
         super.onCreate()
@@ -29,6 +30,7 @@ class MainApplication : Application(), SingletonImageLoader.Factory {
         app.freshtuber.background.SubscriptionWorker.schedule(this)
         downloads.start()
         musicOffline.start()
+        musicFolder.start()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {

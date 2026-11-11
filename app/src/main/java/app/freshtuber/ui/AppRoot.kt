@@ -89,6 +89,16 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
             onVideoOpened()
         }
     }
+    // «Открывать музыку при запуске»: once per launch, and never over a video or song that was asked for.
+    var startChosen by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (startChosen) return@LaunchedEffect
+        startChosen = true
+        if (start == HomeRoute && openVideo == null && !openMusic && viewModel.startsWithMusic()) {
+            navController.currentBackStackEntryFlow.first()
+            navController.navigateToTopLevel(MusicListenRoute)
+        }
+    }
     val music = viewModel.music
     val musicState by music.state.collectAsStateWithLifecycle()
     val musicTab by viewModel.musicTab.collectAsStateWithLifecycle()

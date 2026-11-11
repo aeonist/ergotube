@@ -444,4 +444,19 @@
     <string name="music_quality_economy">Экономный</string>
     <string name="settings_music_resume">Продолжать с наушниками</string>
     <string name="settings_music_resume_hint">Музыка продолжится, когда наушники снова подключатся после паузы</string>
+    <string name="music_show_folder">Показывать треки из Music</string>
+    <string name="music_remove_duplicates">Очистить от дублей</string>
+    <plurals name="music_duplicates_removed">
+        <item quantity="one">Убран %d дубль</item>
+        <item quantity="few">Убрано %d дубля</item>
+        <item quantity="many">Убрано %d дублей</item>
+        <item quantity="other">Убрано %d дублей</item>
+    </plurals>
+    <string name="music_duplicates_none">Дублей нет</string>
+    <string name="music_my_jam">Мой джем</string>
+    <string name="music_my_jam_hint">Твой бесконечный микс с Главной YouTube</string>
+    <string name="settings_music_folder">Сохранять в папку Music</string>
+    <string name="settings_music_folder_hint">Скачанные песни лежат в Music/ErgoTube с названием и обложкой, их видят другие плееры</string>
+    <string name="settings_start_music">Открывать музыку при запуске</string>
+    <string name="settings_start_music_hint">Приложение открывается на «Слушать», а не на Главной с видео</string>
 </resources>

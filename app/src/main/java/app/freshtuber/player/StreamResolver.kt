@@ -92,6 +92,8 @@ data class ResolvedVideo(
     val complete: Boolean = true,
     /** A small original-language audio stream (about 50 kbps) for music on mobile data. */
     val economyAudioUrl: String? = null,
+    /** The best AAC (.m4a) stream: what a file for other music players is made from. */
+    val aacAudioUrl: String? = null,
 )
 
 class NothingPlayableException : Exception("No playable stream")
@@ -215,6 +217,7 @@ class StreamResolver @Inject constructor(
             },
             durationMs = streamMs ?: duration * 1000,
             economyAudioUrl = economy?.content,
+            aacAudioUrl = if (audioOnly) StreamChoice.bestAudio(audioStreams.filter { it.format == org.schabi.newpipe.extractor.MediaFormat.M4A })?.content else null,
             muxedUrl = muxed?.content,
             subtitles = subtitles.filter { it.isUrl }.mapNotNull { sub ->
                 val mime = when (sub.format) {
@@ -365,6 +368,9 @@ object QuickStart {
             durationMs = streamMs ?: response.lengthSeconds * 1000,
             complete = false,
             economyAudioUrl = economyFormat?.let(::url),
+            aacAudioUrl = if (!audioOnly) null else response.adaptive
+                .filter { it.isAudio && playable(it) && it.audioIsDefault != false && it.mimeType.startsWith("audio/mp4") }
+                .maxByOrNull { it.bitrate }?.let(::url),
         )
     }
 }

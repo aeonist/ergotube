@@ -503,7 +503,7 @@ class MusicPlayer @Inject constructor(
     private suspend fun mediaItem(track: MusicTrack): MediaItem {
         val uri: String = when (track.source) {
             MusicSource.Phone -> track.uri ?: throw IllegalStateException("no uri")
-            MusicSource.YouTube -> downloads.localAudio(track.videoId)?.second ?: run {
+            MusicSource.YouTube -> downloads.localAudio(track.videoId)?.second ?: track.uri?.takeIf(library::readable) ?: run {
                 if (!network.online.value) throw IllegalStateException("offline")
                 val resolved = resolver.resolveAudio(track.videoId)
                 val economy = settings.preferences.first().musicQuality(network.wifi.value) == MusicQuality.Economy
@@ -523,7 +523,7 @@ class MusicPlayer @Inject constructor(
 
     /** True when the song cannot play right now (offline and not on the phone). */
     suspend fun unplayableOffline(track: MusicTrack): Boolean =
-        track.isYouTube && !network.online.value && downloads.localAudio(track.videoId) == null
+        track.isYouTube && !network.online.value && downloads.localAudio(track.videoId) == null && !library.readable(track.uri)
 
     /** The player's second item must be the queue's next song. */
     private fun syncNext() {

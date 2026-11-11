@@ -58,6 +58,23 @@ class Downloads @Inject constructor(
         require(DownloadFiles.validId(id))
         return File(root, kind.storageId(id))
     }
+    /** Where a downloaded song keeps its files; once it is in the Music folder only a pointer stays here. */
+    fun audioFolder(id: String): File = folder(id, DownloadKind.Audio)
+
+    /** The song's file in the phone's Music folder, when it was moved there and is still readable. */
+    private fun exported(dir: File): String? {
+        val uri = File(dir, EXPORTED).takeIf { it.isFile }?.let { runCatching { it.readText().trim() }.getOrNull() }?.takeIf { it.startsWith("content://") } ?: return null
+        return try { context.contentResolver.openAssetFileDescriptor(android.net.Uri.parse(uri), "r")?.use { uri } }
+        catch (_: Exception) { null }
+    }
+
+    /** YouTube id to Music-folder address of every song that was moved there. */
+    suspend fun exportedAudio(): Map<String, String> = withContext(Dispatchers.IO) {
+        dao.all().filter { it.kind == DownloadKind.Audio }.mapNotNull { item ->
+            File(folder(item.videoId, DownloadKind.Audio), EXPORTED).takeIf { it.isFile }?.let { item.videoId to runCatching { it.readText().trim() }.getOrDefault("") }
+        }.toMap()
+    }
+
     private fun workName(id: String, kind: DownloadKind) = "download-${kind.storageId(id)}"
 
     /** Repairs interrupted work and applies a changed Wi-Fi policy to the persistent queue. */
@@ -133,6 +150,10 @@ class Downloads @Inject constructor(
     }
 
     private suspend fun removeFiles(id: String, kind: DownloadKind) = fileLocks.getOrPut(kind.storageId(id)) { Mutex() }.withLock {
+        // A song moved to the Music folder is removed there as well.
+        File(folder(id, kind), EXPORTED).takeIf { it.isFile }?.let { pointer ->
+            runCatching { context.contentResolver.delete(android.net.Uri.parse(pointer.readText().trim()), null, null) }
+        }
         if (folder(id, kind).deleteRecursively()) {
             // The file lock also orders this after the worker's completion callback.
             context.getSystemService(android.app.NotificationManager::class.java).cancel("complete-${kind.storageId(id)}".hashCode())
@@ -144,7 +165,7 @@ class Downloads @Inject constructor(
     suspend fun available(id: String, kind: DownloadKind = DownloadKind.Video): Download? = withContext(Dispatchers.IO) {
         val item = dao.get(id, kind)?.takeIf { it.state == DownloadStatus.Complete } ?: return@withContext null
         val dir = folder(id, kind)
-        val audio = File(dir, "audio.media").isFile
+        val audio = File(dir, "audio.media").isFile || (kind == DownloadKind.Audio && exported(dir) != null)
         val present = if (kind == DownloadKind.Audio) audio else File(dir, "video.media").isFile && (!item.separateAudio || audio)
         if (present) item else {
             database.withTransaction {
@@ -157,7 +178,8 @@ class Downloads @Inject constructor(
     fun thumbnail(item: Download): String? = File(folder(item.videoId, item.kind), "thumbnail.jpg").takeIf { it.isFile }?.toURI()?.toString() ?: item.thumbnailUrl
 
     suspend fun localAudio(id: String): Pair<Download, String>? = available(id, DownloadKind.Audio)?.let { item ->
-        item to File(folder(id, DownloadKind.Audio), "audio.media").toURI().toString()
+        val dir = folder(id, DownloadKind.Audio)
+        item to (File(dir, "audio.media").takeIf { it.isFile }?.toURI()?.toString() ?: exported(dir) ?: return null)
     }
 
     suspend fun localVideo(id: String): ResolvedVideo? = available(id)?.let { item ->
@@ -199,8 +221,12 @@ class Downloads @Inject constructor(
                 val tracks = if (audioOnly) emptyList() else StreamChoice.videoTracks(video.videoCandidates)
                 val track = tracks.getOrNull(StreamChoice.pick(tracks, item.requestedHeight))?.takeIf { video.audioUrl != null }
                 val videoUrl = if (audioOnly) null else track?.url ?: video.muxedUrl ?: throw UnsupportedDownload()
-                val economy = audioOnly && settings.preferences.first().musicDownloads == app.freshtuber.data.settings.MusicQuality.Economy
-                val audioUrl = if (audioOnly) (if (economy) video.economyAudioUrl ?: video.audioUrl else video.audioUrl)
+                val preferences = settings.preferences.first()
+                val economy = audioOnly && preferences.musicDownloads == app.freshtuber.data.settings.MusicQuality.Economy
+                // A song bound for the Music folder is taken as AAC, the format every player reads.
+                val forFolder = audioOnly && !economy && android.os.Build.VERSION.SDK_INT >= 29 && preferences.enabled(app.freshtuber.data.settings.AppFeature.MusicToFolder)
+                val aac = video.aacAudioUrl.takeIf { forFolder }
+                val audioUrl = if (audioOnly) (aac ?: if (economy) video.economyAudioUrl ?: video.audioUrl else video.audioUrl)
                     else if (track != null) video.audioUrl else null
                 val dir = folder(id, kind).apply { mkdirs() }
                 val vf = videoUrl?.let(DownloadFiles::fingerprint)
@@ -212,7 +238,7 @@ class Downloads @Inject constructor(
                 if (dir.usableSpace < (total - existing).coerceAtLeast(0) + 16L * 1024 * 1024) throw StorageFull()
                 item = item.copy(title = video.title, channelName = video.channelName, channelId = video.channel?.id ?: item.channelId,
                     thumbnailUrl = video.thumbnailUrl, height = track?.height ?: 0, durationSeconds = video.durationSeconds,
-                    videoFingerprint = vf, audioFingerprint = af, videoMime = track?.mimeType, audioMime = video.audioMimeType,
+                    videoFingerprint = vf, audioFingerprint = af, videoMime = track?.mimeType, audioMime = if (aac != null) "audio/mp4" else video.audioMimeType,
                     codecMime = track?.codecMime, separateAudio = audioUrl != null, bytesTotal = total, bytesDone = existing)
                 updateCurrent(item)
                 var lastUpdate = 0L
@@ -309,6 +335,9 @@ class Downloads @Inject constructor(
         }
     }
 }
+
+/** Holds the Music-folder address of a song whose file was moved there. */
+const val EXPORTED = "audio.uri"
 
 class UnsupportedDownload : IOException("This stream cannot be downloaded")
 class StorageFull : IOException("Not enough storage")

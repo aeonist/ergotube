@@ -4,6 +4,10 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.systemGestureExclusion
+import androidx.compose.material.icons.rounded.CleaningServices
+import androidx.compose.material.icons.rounded.CheckBox
+import androidx.compose.material.icons.rounded.CheckBoxOutlineBlank
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -81,6 +85,11 @@ fun MusicLibraryScreen(collection: String?, viewModel: MusicViewModel = hiltView
 
     val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris: List<Uri> -> if (uris.isNotEmpty()) viewModel.importFiles(uris) }
     val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? -> uri?.let(viewModel::importFolder) }
+    // «Показывать треки из Music» needs audio access once; without it the switch stays off.
+    val showFolder = preferences.enabled(AppFeature.MusicShowFolder)
+    val askAudio = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) viewModel.showFolder(true) }
+    val toggleFolder = { if (showFolder) viewModel.showFolder(false) else if (viewModel.folderReadable) viewModel.showFolder(true) else askAudio.launch(app.freshtuber.data.music.MusicFolder.readPermission) }
+    LaunchedEffect(showFolder) { if (showFolder) viewModel.rescanFolder() }
 
     // Downloaded songs that are not in the library rows still belong on the shelf.
     val downloadedTracks = remember(tracks, downloaded) {
@@ -111,7 +120,7 @@ fun MusicLibraryScreen(collection: String?, viewModel: MusicViewModel = hiltView
         }
     }
     val shownTitle = collectionTitle(collection, playlistName)
-    val playable: (MusicTrack) -> Boolean = { online || it.source == MusicSource.Phone || downloaded[it.videoId]?.state == DownloadStatus.Complete }
+    val playable: (MusicTrack) -> Boolean = { online || it.source == MusicSource.Phone || it.uri != null || downloaded[it.videoId]?.state == DownloadStatus.Complete }
     val play: (Int) -> Unit = { index ->
         val list = shown.filter(playable)
         val target = shown[index]
@@ -172,6 +181,11 @@ fun MusicLibraryScreen(collection: String?, viewModel: MusicViewModel = hiltView
                             onClick = { addMenu = false; pickFiles.launch(arrayOf("audio/*", "application/ogg")) })
                         DropdownMenuItem(text = { Text(stringResource(R.string.music_add_folder)) }, leadingIcon = { Icon(Icons.Rounded.Folder, null) },
                             onClick = { addMenu = false; pickFolder.launch(null) })
+                        HorizontalDivider()
+                        DropdownMenuItem(text = { Text(stringResource(R.string.music_show_folder)) },
+                            leadingIcon = { Checkbox(showFolder, onCheckedChange = null) }, onClick = { toggleFolder() })
+                        DropdownMenuItem(text = { Text(stringResource(R.string.music_remove_duplicates)) }, leadingIcon = { Icon(Icons.Rounded.CleaningServices, null) },
+                            onClick = { addMenu = false; viewModel.removeDuplicates() })
                     }
                 }
             }
@@ -185,6 +199,8 @@ fun MusicLibraryScreen(collection: String?, viewModel: MusicViewModel = hiltView
                 if (collection == "phone") {
                     add(ContextAction(Icons.Rounded.AudioFile, stringResource(R.string.music_add_files)) { pickFiles.launch(arrayOf("audio/*", "application/ogg")) })
                     add(ContextAction(Icons.Rounded.Folder, stringResource(R.string.music_add_folder)) { pickFolder.launch(null) })
+                    add(ContextAction(if (showFolder) Icons.Rounded.CheckBox else Icons.Rounded.CheckBoxOutlineBlank, stringResource(R.string.music_show_folder)) { toggleFolder() })
+                    add(ContextAction(Icons.Rounded.CleaningServices, stringResource(R.string.music_remove_duplicates)) { viewModel.removeDuplicates() })
                 }
                 if (playlistId != null) {
                     add(ContextAction(Icons.Rounded.Edit, stringResource(R.string.music_rename)) { renaming = true })
@@ -243,7 +259,10 @@ private fun Shelf(favorites: Int, downloads: Int, phone: Int, playlists: List<ap
     }
 }
 
-/** A fast-scroll thumb, set in from the screen edge so it never fights the Back gesture. */
+/**
+ * A fast-scroll thumb right at the screen edge. The strip around the thumb is kept out of the
+ * system Back gesture, so a drag that starts on it scrolls the list.
+ */
 @Composable
 private fun FastScroll(list: LazyListState, count: Int, reversed: Boolean, left: Boolean, modifier: Modifier) {
     val scope = rememberCoroutineScope()
@@ -251,17 +270,23 @@ private fun FastScroll(list: LazyListState, count: Int, reversed: Boolean, left:
     val first = list.firstVisibleItemIndex
     val fraction = (first.toFloat() / count.coerceAtLeast(1)).coerceIn(0f, 1f)
     val shown = if (reversed) 1f - fraction else fraction
-    Box(modifier.fillMaxHeight(0.7f).width(44.dp).padding(horizontal = if (left) 14.dp else 0.dp).padding(end = if (left) 0.dp else 14.dp)
+    var dragging by remember { mutableStateOf(false) }
+    val width by androidx.compose.animation.core.animateDpAsState(if (dragging) 8.dp else 5.dp, label = "thumb")
+    Box(modifier.fillMaxHeight(0.7f).width(32.dp)
         .onSizeChanged { height = it.height }
         .pointerInput(count, reversed) {
-            detectVerticalDragGestures { change, _ ->
+            detectVerticalDragGestures(onDragStart = { dragging = true }, onDragEnd = { dragging = false }, onDragCancel = { dragging = false }) { change, _ ->
                 change.consume()
                 val f = (change.position.y / size.height).coerceIn(0f, 1f)
                 val index = ((if (reversed) 1f - f else f) * (count - 1)).toInt()
                 scope.launch { list.scrollToItem(index) }
             }
         }) {
-        Box(Modifier.align(Alignment.TopCenter).offset { androidx.compose.ui.unit.IntOffset(0, ((height - 48.dp.toPx()) * shown).toInt()) }
-            .size(8.dp, 48.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f), RoundedCornerShape(4.dp)))
+        Box(Modifier.align(if (left) Alignment.TopStart else Alignment.TopEnd)
+            .offset { androidx.compose.ui.unit.IntOffset(0, ((height - 64.dp.toPx()) * shown).toInt()) }
+            .size(32.dp, 64.dp).systemGestureExclusion(), contentAlignment = if (left) Alignment.CenterStart else Alignment.CenterEnd) {
+            Box(Modifier.padding(horizontal = 2.dp).size(width, 48.dp)
+                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = if (dragging) 0.6f else 0.35f), RoundedCornerShape(4.dp)))
+        }
     }
 }

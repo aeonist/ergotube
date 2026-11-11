@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.AllInclusive
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -64,10 +65,33 @@ fun MusicListenScreen(viewModel: MusicViewModel = hiltViewModel()) {
                 detail = if (current.durationMs > 0) stringResource(R.string.music_position, formatDuration(position / 1000), formatDuration(current.durationMs / 1000)) else null,
                 trailing = { IconButton(onClick = { viewModel.music.play() }) { Icon(Icons.Rounded.PlayArrow, stringResource(R.string.player_play)) } })
         }
-        if (home.jams.isNotEmpty()) item(key = "jams") {
+        // «Мой джем» stands apart: one wide card first, the other mixes of the Home page in a row below.
+        val mine = home.jams.firstOrNull(app.freshtuber.data.music.MusicJams::isMine)
+        val others = home.jams.filterNot(app.freshtuber.data.music.MusicJams::isMine)
+        if (mine != null) item(key = "myJam") {
+            val title = stringResource(R.string.music_my_jam)
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(top = 14.dp).clip(RoundedCornerShape(22.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f))
+                .clickable { viewModel.playJam(mine.copy(title = title)); navigation?.openPlayer() }.padding(10.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                if (mine.thumbnailUrl != null) Cover(mine.thumbnailUrl, Modifier.size(64.dp).lightSource(mine.thumbnailUrl), corner = 14.dp)
+                else Box(Modifier.size(64.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.AllInclusive, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                }
+                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
+                    Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(stringResource(R.string.music_my_jam_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+                Box(Modifier.size(48.dp).background(MaterialTheme.colorScheme.primary, CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.PlayArrow, stringResource(R.string.player_play), tint = MaterialTheme.colorScheme.onPrimary)
+                }
+            }
+        }
+        if (others.isNotEmpty()) item(key = "jams") {
             Label(stringResource(if (home.signedIn) R.string.music_jams else R.string.music_jams_anon))
             LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(home.jams, key = { it.id }) { jam ->
+                items(others, key = { it.id }) { jam ->
                     Column(Modifier.width(150.dp).clip(RoundedCornerShape(16.dp)).clickable { viewModel.playJam(jam); navigation?.openPlayer() }.padding(4.dp)) {
                         Cover(jam.thumbnailUrl, Modifier.size(142.dp).lightSource(jam.thumbnailUrl), corner = 14.dp)
                         Text(jam.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
