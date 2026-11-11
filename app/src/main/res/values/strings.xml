@@ -289,7 +289,7 @@
     <string name="settings_traditional_scroll">Traditional scroll direction</string>
     <string name="settings_traditional_scroll_hint">Top-to-bottom. Home always scrolls top-to-bottom.</string>
     <string name="player_audio_only">Continue with audio only</string>
-    <string name="player_background_short">Background</string>
+    <string name="player_background_short">Audio</string>
 
     <!-- Music v2 -->
     <string name="music_channel">Music</string>

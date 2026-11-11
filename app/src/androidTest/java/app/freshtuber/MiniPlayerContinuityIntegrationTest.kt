@@ -63,7 +63,7 @@ class MiniPlayerContinuityIntegrationTest {
                 compose.waitUntil(10_000) { compose.onAllNodesWithTag("mini").fetchSemanticsNodes().isNotEmpty() }
                 Thread.sleep(1_000)
                 compose.onNodeWithTag("mini").performTouchInput { click(androidx.compose.ui.geometry.Offset(width * 0.5f, height * 0.25f)) }
-                compose.waitUntil(10_000) { compose.onAllNodesWithTag("video:time").fetchSemanticsNodes().isNotEmpty() }
+                compose.waitUntil(10_000) { compose.onAllNodesWithTag("pad:time").fetchSemanticsNodes().isNotEmpty() }
                 Thread.sleep(800)
                 instrumentation.runOnMainSync {
                     val player = activity!!.playerController.player
@@ -74,14 +74,13 @@ class MiniPlayerContinuityIntegrationTest {
                     assertNull(activity!!.playerController.state.value.error)
                     player.removeListener(listener)
                 }
-                compose.onNodeWithTag("video:time").assertExists()
+                // The clock lives in the pad only; nothing is drawn over the portrait picture.
+                compose.onNodeWithTag("video:time").assertDoesNotExist()
                 compose.onNodeWithTag("pad:time").assertExists()
                 compose.onNodeWithTag("player:track").performTouchInput { down(center); moveTo(centerRight) }
                 compose.onNodeWithTag("pad:time").assertExists()
-                compose.onNodeWithTag("video:time").assertExists()
                 compose.onNodeWithTag("player:track").performTouchInput { up() }
                 compose.onNodeWithTag("pad:time").assertExists()
-                compose.onNodeWithTag("video:time").assertExists()
             }
         } finally {
             instrumentation.runOnMainSync { activity?.playerController?.stop() }

@@ -124,7 +124,7 @@
     <string name="player_captions_on">Субтитры включены</string>
     <string name="player_captions_off">Субтитры выключены</string>
     <string name="player_up_next">Дальше</string>
-    <string name="player_pin_short">Закрепить</string>
+    <string name="player_pin_short">Закреп</string>
     <string name="player_pin">Закрепить видео</string>
     <string name="player_unpin">Открепить видео</string>
     <string name="player_open_video">Открыть: %1$s</string>

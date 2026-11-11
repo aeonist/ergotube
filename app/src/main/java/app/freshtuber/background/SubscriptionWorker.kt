@@ -15,6 +15,8 @@ interface BackgroundDependencies {
     fun subscriptions(): LocalSubscriptions
     fun downloads(): app.freshtuber.data.downloads.Downloads
     fun notifications(): AppNotifications
+    fun database(): app.freshtuber.data.local.AppDatabase
+    fun musicFolder(): app.freshtuber.data.music.MusicFolder
 }
 
 class SubscriptionWorker(context: Context, parameters: WorkerParameters) : CoroutineWorker(context, parameters) {

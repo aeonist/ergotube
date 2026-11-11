@@ -80,7 +80,8 @@ object AudioRemux {
             if (samples == 0) return null
             muxer.stop()
             return extension
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            if (app.freshtuber.BuildConfig.DEBUG) android.util.Log.w("MusicFolder", "remux failed: ${e.javaClass.simpleName}: ${e.message?.take(160)}")
             target.delete()
             return null
         } finally {
@@ -119,7 +120,10 @@ class MusicFolder @Inject constructor(
                 .debounce(1_500)
                 .collect { items ->
                     items.filter { it.state == DownloadStatus.Complete }.forEach { item ->
-                        try { work.withLock { export(item) } } catch (e: CancellationException) { throw e } catch (_: Exception) { /* Stays inside the app; tried again later. */ }
+                        try { work.withLock { export(item) } } catch (e: CancellationException) { throw e } catch (e: Exception) {
+                            // Stays inside the app; tried again later.
+                            if (app.freshtuber.BuildConfig.DEBUG) android.util.Log.w("MusicFolder", "export failed: ${e.javaClass.simpleName}: ${e.message?.take(160)}")
+                        }
                     }
                 }
         }
