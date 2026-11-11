@@ -2,6 +2,7 @@ package app.freshtuber.ui.feed
 
 import androidx.annotation.StringRes
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.togetherWith
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -158,6 +159,25 @@ class FanHost {
 
 val LocalFanHost = staticCompositionLocalOf<FanHost?> { null }
 
+/** Timing of the fan's entrance, as pure numbers. */
+object FanMotion {
+    /** Each next item starts this fraction of the whole opening later than the one before it. */
+    const val STAGGER = 0.11f
+
+    /** How far item [index] of [count] has come out while the whole fan is [open] (0..1). */
+    fun itemProgress(open: Float, index: Int, count: Int): Float {
+        val span = 1f - STAGGER * (count - 1).coerceAtLeast(0)
+        return ((open - STAGGER * index) / span).coerceIn(0f, 1f)
+    }
+
+    /** Runs a little past the end and settles back: the items land with a small bounce. */
+    fun backOut(x: Float): Float {
+        val c = 1.70158f
+        val t = x - 1f
+        return 1f + (c + 1f) * t * t * t + c * t * t
+    }
+}
+
 @Composable
 fun FanOverlay(host: FanHost) {
     val density = LocalDensity.current
@@ -166,42 +186,79 @@ fun FanOverlay(host: FanHost) {
         var lastSession by remember { mutableStateOf<FanSession?>(null) }
         host.session?.let { lastSession = it }
         val visible = host.session != null
-        val phase by animateFloatAsState(if (visible) 1f else 0f,
-            androidx.compose.animation.core.tween(if (visible) 260 else 170, easing = app.freshtuber.ui.motion.Motion.Decelerate), label = "cardFanReveal")
+        val open = remember { androidx.compose.animation.core.Animatable(0f) }
+        LaunchedEffect(host.session) {
+            if (host.session != null) { open.snapTo(0f); open.animateTo(1f, androidx.compose.animation.core.tween(340, easing = androidx.compose.animation.core.LinearEasing)) }
+            else open.animateTo(0f, androidx.compose.animation.core.tween(200, easing = app.freshtuber.ui.motion.Motion.Accelerate))
+        }
         val session = lastSession ?: return@Box
-        if (phase <= 0f && !visible) return@Box
-        Box(Modifier.fillMaxSize().graphicsLayer {
-            alpha = phase
-            val blur = (1f - phase) * 12.dp.toPx()
-            renderEffect = if (android.os.Build.VERSION.SDK_INT >= 31 && blur > 0.5f)
-                androidx.compose.ui.graphics.BlurEffect(blur, blur, androidx.compose.ui.graphics.TileMode.Decal) else null
-            scaleX = 0.94f + 0.06f * phase; scaleY = scaleX
-            transformOrigin = androidx.compose.ui.graphics.TransformOrigin(session.center.x / size.width, session.center.y / size.height)
-        }) {
+        if (open.value <= 0f && !visible) return@Box
         val haptics = LocalHapticFeedback.current
         LaunchedEffect(session) { haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
         LaunchedEffect(session.selected) { if (session.selected != null) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick) }
         val radius = FanHost.RADIUS_DP * density.density
         val ringColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.7f)
-        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.5f)))
+        val glow = MaterialTheme.colorScheme.onSurface
+        val scrim = MaterialTheme.colorScheme.scrim
+        // Leaving with a choice: the chosen action stays and flashes, the rest fold back.
+        val picked = if (visible) null else session.selected
+        val whole = if (visible) (open.value * 3f).coerceAtMost(1f) else open.value
+        // The finger pulls the middle and a soft thread toward where it points.
+        val pull = (session.pointer - session.start).let { d ->
+            val length = d.getDistance()
+            if (length < 1f) Offset.Zero else d / length * minOf(length, radius - 44 * density.density)
+        }
+        val reach by animateFloatAsState(if (session.moved && visible) 1f else 0f, app.freshtuber.ui.motion.Motion.spring(), label = "fanReach")
+        val sector by animateFloatAsState(if (session.selected != null && visible) 1f else 0f, androidx.compose.animation.core.tween(140), label = "fanSector")
+        var sectorAt by remember(session) { mutableFloatStateOf(90f) }
+        session.selected?.let { sectorAt = it.degrees }
         Canvas(Modifier.fillMaxSize()) {
-            drawCircle(ringColor, radius, session.center, style = Stroke(width = 76.dp.toPx()))
+            drawRect(scrim, alpha = 0.5f * whole)
+            val grow = FanMotion.backOut((open.value * 1.6f).coerceAtMost(1f))
+            drawCircle(ringColor, radius * (0.55f + 0.45f * grow), session.center, alpha = whole, style = Stroke(width = 76.dp.toPx()))
+            if (sector > 0.01f) drawArc(glow, startAngle = -sectorAt - 27f, sweepAngle = 54f, useCenter = false,
+                topLeft = session.center - Offset(radius, radius), size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2),
+                alpha = 0.10f * sector * whole, style = Stroke(width = 76.dp.toPx()))
+            if (reach > 0.01f) drawLine(glow, session.center, session.center + pull * reach, strokeWidth = 5.dp.toPx(),
+                cap = androidx.compose.ui.graphics.StrokeCap.Round, alpha = 0.22f * reach * whole)
         }
         val label = session.selected?.let { stringResource(it.labelRes) } ?: stringResource(R.string.fan_hint)
         val labelTop = with(density) { maxOf(64.dp.toPx(), session.center.y - radius - 104.dp.toPx()).toDp() }
-        Text(label, Modifier.fillMaxWidth().padding(top = labelTop, start = 12.dp, end = 12.dp), color = Color.White,
-            fontSize = 19.sp, textAlign = TextAlign.Center, style = MaterialTheme.typography.titleMedium.copy(
-                shadow = Shadow(Color.Black.copy(alpha = 0.6f), blurRadius = 8f)))
-        // Two actions share a direction (Channel, Listen): the available one is drawn.
-        FanAction.entries.filter { action -> action in session.available ||
-            (action != FanAction.Listen && session.available.none { it.degrees == action.degrees }) }.forEach { action ->
+        androidx.compose.animation.AnimatedContent(label, Modifier.fillMaxWidth().padding(top = labelTop, start = 12.dp, end = 12.dp).graphicsLayer { alpha = whole },
+            transitionSpec = { (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(120)) +
+                androidx.compose.animation.slideInVertically(app.freshtuber.ui.motion.Motion.spring()) { it / 3 })
+                .togetherWith(androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(90))) }, label = "fanLabel") { text ->
+            Text(text, Modifier.fillMaxWidth(), color = Color.White,
+                fontSize = 19.sp, textAlign = TextAlign.Center, style = MaterialTheme.typography.titleMedium.copy(
+                    shadow = Shadow(Color.Black.copy(alpha = 0.6f), blurRadius = 8f)))
+        }
+        // Two actions share a direction (Channel, Listen): the available one is drawn. Items come
+        // out clockwise from the top, one after another.
+        val shown = FanAction.entries.filter { action -> action in session.available ||
+            (action != FanAction.Listen && session.available.none { it.degrees == action.degrees }) }
+            .sortedBy { (450f - it.degrees) % 360f }
+        shown.forEachIndexed { index, action ->
             val p = FanMath.itemPosition(session.center, radius, action)
             val selected = session.selected == action
             val enabled = action in session.available
-            val scale by animateFloatAsState(if (selected) 1.14f else 1f, label = "fan-item")
+            val lift by animateFloatAsState(if (selected && visible) 1f else 0f, app.freshtuber.ui.motion.Motion.spring(), label = "fan-item")
+            val isPicked = picked == action
+            val out = if (isPicked) 1f else FanMotion.itemProgress(open.value, index, shown.size)
+            val eased = if (visible) FanMotion.backOut(out) else out
             Column(
-                Modifier.offset { IntOffset((p.x - 38.dp.toPx()).toInt(), (p.y - 29.dp.toPx()).toInt()) }
-                    .size(76.dp, 58.dp).scale(scale)
+                Modifier.offset {
+                    // The chosen item leans toward the finger; the others fly out of the middle.
+                    val direction = (p - session.center) / radius
+                    val at = session.center + (p - session.center) * eased + direction * (7.dp.toPx() * lift)
+                    IntOffset((at.x - 38.dp.toPx()).toInt(), (at.y - 29.dp.toPx()).toInt())
+                }
+                    .size(76.dp, 58.dp)
+                    .graphicsLayer {
+                        val flash = if (isPicked) 1f - open.value else 0f
+                        val size = (0.45f + 0.55f * eased) * (1f + 0.16f * lift) * (1f + 0.3f * flash)
+                        scaleX = size; scaleY = size
+                        alpha = if (isPicked) open.value else out.coerceIn(0f, 1f)
+                    }
                     .background(if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(20.dp))
                     .padding(horizontal = 2.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
@@ -216,10 +273,13 @@ fun FanOverlay(host: FanHost) {
                     textAlign = TextAlign.Center, style = MaterialTheme.typography.labelSmall)
             }
         }
-        Box(Modifier.offset { IntOffset((session.center.x - 26.dp.toPx()).toInt(), (session.center.y - 26.dp.toPx()).toInt()) }
-            .size(52.dp).background(Color(0xFF572A35), CircleShape), contentAlignment = Alignment.Center) {
+        val puck = FanMotion.backOut((open.value * 2f).coerceAtMost(1f))
+        Box(Modifier.offset {
+            val at = session.center + pull * (0.12f * reach)
+            IntOffset((at.x - 26.dp.toPx()).toInt(), (at.y - 26.dp.toPx()).toInt())
+        }.size(52.dp).graphicsLayer { scaleX = if (visible) puck else open.value; scaleY = scaleX; alpha = whole }
+            .background(Color(0xFF572A35), CircleShape), contentAlignment = Alignment.Center) {
             Icon(painterResource(R.drawable.ic_brand), contentDescription = null, tint = Color(0xFFF3C39E), modifier = Modifier.size(32.dp))
-        }
         }
     }
 }

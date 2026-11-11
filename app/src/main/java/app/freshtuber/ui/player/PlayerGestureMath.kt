@@ -74,6 +74,13 @@ object PadGestures {
         else -> PadZone.Play
     }
 
+    /** The same by the play button's real edges: left of it skips back, right of it forward. */
+    fun zone(x: Float, playLeft: Float, playRight: Float): PadZone = when {
+        x < playLeft -> PadZone.Back
+        x > playRight -> PadZone.Forward
+        else -> PadZone.Play
+    }
+
     /** What a drag became, or null while it is still undecided. Sizes in dp. */
     fun decide(dx: Float, dy: Float): PadMove? = when {
         abs(dx) > SEEK_SLOP_DP && abs(dx) > abs(dy) * 1.2f -> PadMove.Seek

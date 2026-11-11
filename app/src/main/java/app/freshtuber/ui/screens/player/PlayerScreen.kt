@@ -364,9 +364,10 @@ fun PlayerScreen(
                     onMinimize = onBack, onCaptions = { onCaptions() }, onMore = { moreOpen = true }, onQuality = { qualityOpen = true }, onScrubPosition = { padUi.scrubMs = it })
                 else -> PortraitVideoLayer(viewModel.player, playerState, onMinimize = onBack)
             }
-            // In full screen the controls show the time themselves and hide it with the rest.
-            if (!inPip && !tabletop && !fullscreen && now?.isLive != true) PlaybackTime(rememberProgress(viewModel.player), padUi.scrubMs,
-                Modifier.align(Alignment.BottomStart).padding(start = if (fullscreen) 24.dp else 12.dp, bottom = if (fullscreen) 24.dp else if (classic) 56.dp else 12.dp))
+            // The pad shows the time in portrait and the controls do in full screen; only the classic
+            // portrait layout, which has neither, keeps it over the picture.
+            if (classic && !inPip && !tabletop && !fullscreen && now?.isLive != true) PlaybackTime(rememberProgress(viewModel.player), padUi.scrubMs,
+                Modifier.align(Alignment.BottomStart).padding(start = 12.dp, bottom = 56.dp))
         }
         // Below the fold the controls get the whole lower half.
         if (tabletop && !inPip) fullControls(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(belowHinge), true)
@@ -377,6 +378,15 @@ fun PlayerScreen(
             val x = (18.dp + (maxWidth - 36.dp) * fraction - 76.dp).coerceIn(8.dp, maxWidth - 160.dp)
             ScrubPreview(now?.storyboard, scrub, now?.chapters.orEmpty(), padUi.fine, fanHint = false, pages = pages,
                 modifier = Modifier.align(Alignment.BottomStart).padding(bottom = padUi.zoneHeight + 8.dp).offset(x = x))
+        }
+        // What a pad gesture just did ("+10 с → 4:10") floats above the control zone, never over the buttons.
+        if (!big && !classic) androidx.compose.animation.AnimatedVisibility(padUi.bubble != null,
+            Modifier.align(Alignment.BottomCenter).padding(bottom = padUi.zoneHeight + 8.dp),
+            enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(120)) + androidx.compose.animation.scaleIn(app.freshtuber.ui.motion.Motion.spring(), initialScale = 0.85f),
+            exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(160))) {
+            var shown by remember { mutableStateOf("") }
+            padUi.bubble?.let { shown = it }
+            Bubble(shown)
         }
         if (currentPage && !inPip) {
             val streamError = playerState.error?.takeIf { controller.isRequested(videoId) }
@@ -449,8 +459,6 @@ private fun PortraitPage(
                     player = viewModel.player,
                     ui = padUi,
                     speed = playerState.speed,
-                    captionsOn = captionsOn,
-                    captionsAvailable = !now?.subtitles.isNullOrEmpty(),
                     chapters = now?.chapters.orEmpty(),
                     live = now?.isLive == true,
                     left = left,
@@ -463,7 +471,6 @@ private fun PortraitPage(
                     onFullscreen = onFullscreen,
                     onQuality = onQuality,
                     onSpeed = onSpeed,
-                    onCaptions = onCaptions,
                     onBoost = onBoost,
                 )
             }

@@ -1,5 +1,6 @@
 package app.freshtuber.ui.components
 
+import app.freshtuber.ui.motion.pressDip
 import app.freshtuber.ui.feed.looksLikeMusic
 
 import android.icu.text.CompactDecimalFormat
@@ -111,6 +112,7 @@ fun VideoCard(
     Column(
         modifier
             .fillMaxWidth()
+            .pressDip()
             .onGloballyPositioned { coordinates = it }
             .then(if (enableMenu && fan != null) Modifier.pointerInput(video.id, available) {
                 // Hold, then flick toward an action; releasing in the centre cancels.

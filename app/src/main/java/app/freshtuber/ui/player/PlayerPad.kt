@@ -1,6 +1,10 @@
 package app.freshtuber.ui.player
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.clickable
+import app.freshtuber.ui.motion.pressBounce
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -87,16 +91,14 @@ fun PadUi.skip(player: Player, seconds: Int, secondsLabel: (String) -> String) {
  * The video's own controls, moved down under the thumb. Every gesture also has a visible button.
  * Tap: middle pauses, sides skip 10 s and add up. Hold: 2× while held. Drag sideways: scrub,
  * lift the finger higher to scrub finely. Drag along the bar: jump. Swipe up: full screen.
- * Swipe down: minimize. The pad is slim: time with small buttons, the track, then transport
- * lowest, right under the thumb.
+ * Swipe down: minimize. The pad is two rows: time around the track with the speed pill, then
+ * quality, transport and full screen in one row under the thumb.
  */
 @Composable
 fun PlayerPad(
     player: Player,
     ui: PadUi,
     speed: Float,
-    captionsOn: Boolean,
-    captionsAvailable: Boolean,
     chapters: List<Chapter>,
     live: Boolean,
     left: Boolean,
@@ -109,7 +111,6 @@ fun PlayerPad(
     onFullscreen: () -> Unit,
     onQuality: () -> Unit,
     onSpeed: () -> Unit,
-    onCaptions: () -> Unit,
     onBoost: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -121,6 +122,7 @@ fun PlayerPad(
     var padCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
     var mainBounds by remember { mutableStateOf(Rect.Zero) }
     var trackBounds by remember { mutableStateOf(Rect.Zero) }
+    var playBounds by remember { mutableStateOf(Rect.Zero) }
     fun Modifier.button(key: String) = onGloballyPositioned { buttons[key] = it.boundsInRoot() }
     val durationMs = progress.durationMs
     val shownMs = ui.scrubMs ?: progress.positionMs
@@ -152,9 +154,10 @@ fun PlayerPad(
                 val coords = padCoords ?: return@awaitEachGesture
                 val rootDown = coords.localToRoot(down.position)
                 if (buttons.values.any { it.contains(rootDown) }) return@awaitEachGesture
-                val onTrack = trackBounds.width > 0f && durationMs > 0 &&
-                    rootDown.y in (trackBounds.top - 6.dp.toPx())..(trackBounds.bottom + 6.dp.toPx())
-                val onMain = !onTrack && rootDown.y in mainBounds.top..mainBounds.bottom
+                val onTrackRow = rootDown.y in (trackBounds.top - 4.dp.toPx())..trackBounds.bottom
+                val onTrack = trackBounds.width > 0f && durationMs > 0 && onTrackRow &&
+                    rootDown.x in (trackBounds.left - 10.dp.toPx())..(trackBounds.right + 10.dp.toPx())
+                val onMain = !onTrackRow && rootDown.y in mainBounds.top..mainBounds.bottom
                 val width = size.width.toFloat()
                 val start = down.position
                 val startMs = player.currentPosition
@@ -205,7 +208,7 @@ fun PlayerPad(
                             player.seekTo(target)
                             ui.say("→ ${formatDuration(target / 1000)}${Chapter.at(chapters, target / 1000)?.let { " · ${it.title}" }.orEmpty()}")
                         }
-                        onMain -> when (if (live) PadZone.Play else PadGestures.zone(up.position.x / width)) {
+                        onMain -> when (if (live) PadZone.Play else if (playBounds.width > 0f) PadGestures.zone(rootUp.x, playBounds.left, playBounds.right) else PadGestures.zone(up.position.x / width)) {
                             PadZone.Back -> ui.skip(player, -10) { secondsFormat.format(it) }
                             PadZone.Forward -> ui.skip(player, 10) { secondsFormat.format(it) }
                             PadZone.Play -> toggle()
@@ -260,46 +263,60 @@ fun PlayerPad(
                 }
             }
         }) {
-        Column(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 2.dp, bottom = 4.dp)) {
-            // Slim remote: time and small buttons, the track, transport lowest under the thumb.
-            val top: List<@Composable RowScope.() -> Unit> = listOf(
-                { PadButton(Icons.Rounded.KeyboardArrowDown, stringResource(R.string.player_minimize), Modifier.button("collapse"), small = true, onClick = onMinimize) },
-                {
-                    val time = if (live || durationMs <= 0) null else "${formatDuration(shownMs / 1000)} / ${formatDuration(durationMs / 1000)}"
-                    Row(Modifier.weight(1f).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        if (live) Text(stringResource(R.string.search_live), color = Color.White, style = MaterialTheme.typography.labelMedium,
-                            modifier = Modifier.background(BrandColors.Red, RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
-                        Text(listOfNotNull(time, chapter?.title).joinToString(" · "),
-                            style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = app.freshtuber.ui.theme.TabularNumbers),
-                            fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.padding(start = if (live) 8.dp else 0.dp).then(if (time != null) Modifier.testTag("pad:time") else Modifier))
+        BoxWithConstraints(Modifier.fillMaxWidth().padding(start = 6.dp, end = 6.dp, top = 2.dp, bottom = 4.dp)) {
+            // Two rows only: time around the track, then every button in one row under the thumb.
+            // A folded phone's cover screen gets smaller buttons instead of a clipped clock.
+            val side = PadLayout.sideButton(maxWidth.value).dp
+            val timeStyle = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = app.freshtuber.ui.theme.TabularNumbers)
+            Column(Modifier.fillMaxWidth()) {
+                Row(Modifier.fillMaxWidth().height(PadLayout.TRACK_ROW_DP.dp).padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    val chip: @Composable () -> Unit = {
+                        if (!live) SpeedChip(if (ui.boost) "2×" else speedLabel(speed), selected = ui.boost || speed != 1f, Modifier.button("speed"), onClick = onSpeed)
                     }
-                },
-                { PadButton(Icons.Rounded.HighQuality, stringResource(R.string.player_quality), Modifier.button("quality").qualityAnchor(), small = true, onClick = onQuality) },
-                { if (captionsAvailable) PadButton(if (captionsOn) Icons.Rounded.ClosedCaption else Icons.Rounded.ClosedCaptionDisabled,
-                    stringResource(R.string.player_subtitles), Modifier.button("cc"), selected = captionsOn, small = true, onClick = onCaptions) },
-                { if (!live) SpeedChip(if (ui.boost) "2×" else speedLabel(speed), selected = ui.boost || speed != 1f, Modifier.button("speed"), onClick = onSpeed) },
-                { PadButton(Icons.Rounded.Fullscreen, stringResource(R.string.player_fullscreen), Modifier.button("fs"), small = true, onClick = onFullscreen) },
-            )
-            Row(Modifier.fillMaxWidth().height(48.dp), verticalAlignment = Alignment.CenterVertically) {
-                (if (left) top.reversed() else top).forEach { it() }
-            }
-            Track(if (durationMs > 0) shownMs.toFloat() / durationMs else 0f, chapters, durationMs, scrubbing = ui.scrubMs != null,
-                live = live, modifier = Modifier.fillMaxWidth().height(18.dp).padding(horizontal = 8.dp)
-                    .testTag("player:track").onGloballyPositioned { trackBounds = it.boundsInRoot() },
-                gap = Color.Transparent, segments = segments, timeline = ui.timeline)
-            Row(Modifier.fillMaxWidth().height(50.dp).onGloballyPositioned { mainBounds = it.boundsInRoot() },
-                verticalAlignment = Alignment.CenterVertically) {
-                PadButton(Icons.Rounded.SkipPrevious, stringResource(R.string.player_previous), Modifier.button("previous"), enabled = hasPrevious, onClick = onPrevious)
-                PadZoneIcon(Icons.Rounded.Replay10, backLabel, Modifier.weight(1f), enabled = !live) { ui.skip(player, -10) { secondsFormat.format(it) } }
-                PadZoneIcon(if (progress.ended) Icons.Rounded.Replay else if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    playLabel, Modifier.weight(1.2f), big = true, onClick = toggle)
-                PadZoneIcon(Icons.Rounded.Forward10, forwardLabel, Modifier.weight(1f), enabled = !live) { ui.skip(player, 10) { secondsFormat.format(it) } }
-                PadButton(Icons.Rounded.SkipNext, stringResource(R.string.player_next), Modifier.button("next"), enabled = hasNext, onClick = onNext)
+                    if (left) chip()
+                    if (live) Text(stringResource(R.string.search_live), color = Color.White, style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.background(BrandColors.Red, RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp))
+                    else if (durationMs > 0) Text(formatDuration(shownMs / 1000), style = timeStyle, fontWeight = FontWeight.Medium, maxLines = 1, softWrap = false,
+                        modifier = Modifier.testTag("pad:time"))
+                    Track(if (durationMs > 0) shownMs.toFloat() / durationMs else 0f, chapters, durationMs, scrubbing = ui.scrubMs != null,
+                        live = live, modifier = Modifier.weight(1f).fillMaxHeight().padding(horizontal = 10.dp)
+                            .testTag("player:track").onGloballyPositioned { trackBounds = it.boundsInRoot() },
+                        gap = Color.Transparent, segments = segments, timeline = ui.timeline)
+                    if (!live && durationMs > 0) Text(formatDuration(durationMs / 1000), style = timeStyle, maxLines = 1, softWrap = false,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.testTag("pad:duration"))
+                    if (!left) chip()
+                }
+                Row(Modifier.fillMaxWidth().height(PadLayout.BUTTON_ROW_DP.dp).onGloballyPositioned { mainBounds = it.boundsInRoot() },
+                    verticalAlignment = Alignment.CenterVertically) {
+                    val quality: @Composable () -> Unit = {
+                        PadButton(Icons.Rounded.HighQuality, stringResource(R.string.player_quality), Modifier.button("quality").qualityAnchor(), size = side, onClick = onQuality)
+                    }
+                    val full: @Composable () -> Unit = {
+                        PadButton(Icons.Rounded.Fullscreen, stringResource(R.string.player_fullscreen), Modifier.button("fs"), size = side, onClick = onFullscreen)
+                    }
+                    // Full screen sits on the hand side, quality across from it.
+                    if (left) full() else quality()
+                    PadButton(Icons.Rounded.SkipPrevious, stringResource(R.string.player_previous), Modifier.button("previous"), enabled = hasPrevious, size = side, onClick = onPrevious)
+                    PadZoneIcon(Icons.Rounded.Replay10, backLabel, Modifier.weight(1f), enabled = !live) { ui.skip(player, -10) { secondsFormat.format(it) } }
+                    PadZoneIcon(if (progress.ended) Icons.Rounded.Replay else if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        playLabel, Modifier.weight(1.2f).onGloballyPositioned { playBounds = it.boundsInRoot() }, big = true, playing = playing, onClick = toggle)
+                    PadZoneIcon(Icons.Rounded.Forward10, forwardLabel, Modifier.weight(1f), enabled = !live) { ui.skip(player, 10) { secondsFormat.format(it) } }
+                    PadButton(Icons.Rounded.SkipNext, stringResource(R.string.player_next), Modifier.button("next"), enabled = hasNext, size = side, onClick = onNext)
+                    if (left) quality() else full()
+                }
             }
         }
-        ui.bubble?.let { Bubble(it, Modifier.align(Alignment.TopCenter).padding(top = 6.dp)) }
     }
+}
+
+/** Sizes of the two-row remote, in dp. */
+object PadLayout {
+    const val TRACK_ROW_DP = 32
+    const val BUTTON_ROW_DP = 50
+    /** Four side buttons share the row with the three tap zones; narrow pads shrink the buttons. */
+    fun sideButton(innerWidthDp: Float): Float = if (innerWidthDp < 316f) 40f else 48f
+    /** Width left for one skip zone (the play zone is 1.2 of it). */
+    fun zoneWidth(innerWidthDp: Float): Float = (innerWidthDp - 4 * sideButton(innerWidthDp)) / 3.2f
 }
 
 @Composable
@@ -309,37 +326,49 @@ fun Bubble(text: String, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun PadButton(icon: ImageVector, label: String, modifier: Modifier = Modifier, selected: Boolean = false, enabled: Boolean = true,
-    small: Boolean = false, onClick: () -> Unit) {
-    IconButton(onClick, modifier.size(48.dp), enabled = enabled, colors = if (selected) IconButtonDefaults.iconButtonColors(
-        containerColor = MaterialTheme.colorScheme.onSurface, contentColor = MaterialTheme.colorScheme.surface) else IconButtonDefaults.iconButtonColors()) {
+private fun PadButton(icon: ImageVector, label: String, modifier: Modifier = Modifier, enabled: Boolean = true,
+    size: androidx.compose.ui.unit.Dp = 48.dp, onClick: () -> Unit) {
+    val source = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    IconButton(onClick, modifier.size(size).pressBounce(source), enabled = enabled, interactionSource = source) {
         Icon(icon, label)
     }
 }
 
+/** The speed pill beside the track: a slim pill inside a touch target as tall as the row. */
 @Composable
 private fun SpeedChip(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     val description = stringResource(R.string.player_speed_value, label)
-    Surface(onClick = onClick, modifier = modifier.heightIn(min = 32.dp).widthIn(min = 44.dp).semantics { contentDescription = description },
-        shape = RoundedCornerShape(20.dp),
-        color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-        contentColor = if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurface) {
-        Box(Modifier.padding(horizontal = 10.dp), contentAlignment = Alignment.Center) {
-            Text(label, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold, maxLines = 1)
+    val source = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    Box(modifier.fillMaxHeight().widthIn(min = 44.dp)
+        .clickable(source, indication = null, role = Role.Button, onClick = onClick)
+        .semantics { contentDescription = description }.pressBounce(source), contentAlignment = Alignment.Center) {
+        Box(Modifier.height(26.dp).widthIn(min = 38.dp)
+            .background(if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f), RoundedCornerShape(13.dp))
+            .padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
+            Text(label, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false,
+                color = if (selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurface)
         }
     }
 }
 
 /** A zone of the pad's main area; the pad's gesture handler does the work, semantics expose it. */
 @Composable
-private fun PadZoneIcon(icon: ImageVector, label: String, modifier: Modifier, big: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
-    Box(modifier.fillMaxHeight().semantics { contentDescription = label; role = Role.Button; onClick(label) { if (enabled) onClick(); enabled } },
+private fun PadZoneIcon(icon: ImageVector, label: String, modifier: Modifier, big: Boolean = false, enabled: Boolean = true,
+    playing: Boolean = false, onClick: () -> Unit) {
+    BoxWithConstraints(modifier.fillMaxHeight().semantics { contentDescription = label; role = Role.Button; onClick(label) { if (enabled) onClick(); enabled } },
         contentAlignment = Alignment.Center) {
-        if (big) Box(Modifier.size(46.dp).background(MaterialTheme.colorScheme.primary, androidx.compose.foundation.shape.CircleShape),
-            contentAlignment = Alignment.Center) {
-            Icon(icon, null, Modifier.size(28.dp), tint = MaterialTheme.colorScheme.onPrimary)
+        if (big) {
+            // Play is a circle, pause a rounded square: the shape itself tells the state.
+            val corner by animateFloatAsState(if (playing) 34f else 50f, app.freshtuber.ui.motion.Motion.spring(), label = "playShape")
+            Box(Modifier.size(minOf(46.dp, maxWidth - 2.dp)).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(corner.toInt())),
+                contentAlignment = Alignment.Center) {
+                androidx.compose.animation.AnimatedContent(icon, transitionSpec = {
+                    (androidx.compose.animation.scaleIn(app.freshtuber.ui.motion.Motion.spring(), initialScale = 0.6f) + androidx.compose.animation.fadeIn(tween(120)))
+                        .togetherWith(androidx.compose.animation.scaleOut(tween(120), targetScale = 0.6f) + androidx.compose.animation.fadeOut(tween(90)))
+                }, label = "playIcon") { shown -> Icon(shown, null, Modifier.size(28.dp), tint = MaterialTheme.colorScheme.onPrimary) }
+            }
         }
-        else Icon(icon, null, Modifier.size(28.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.38f))
+        else Icon(icon, null, Modifier.size(26.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.38f))
     }
 }
 

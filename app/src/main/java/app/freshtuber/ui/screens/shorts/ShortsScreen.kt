@@ -149,11 +149,12 @@ class ShortsViewModel @Inject constructor(
     fun playAt(index: Int) {
         val item = _state.value.items.getOrNull(index) ?: return
         controller.play(item.videoId, isShort = true)
-        controller.prefetchShort(_state.value.items.getOrNull(index + 1)?.videoId)
-        // Streams of the two after it are looked up too (two small requests each), so a quick
-        // run of swipes does not wait for YouTube.
-        controller.warmShort(_state.value.items.getOrNull(index + 2)?.videoId)
-        controller.warmShort(_state.value.items.getOrNull(index + 3)?.videoId)
+        val items = _state.value.items
+        // The first bytes of the next two are fetched ahead; the streams of the two after them
+        // are looked up too (two small requests each), so a quick run of swipes does not wait.
+        controller.prefetchShorts(listOfNotNull(items.getOrNull(index + 1)?.videoId, items.getOrNull(index + 2)?.videoId))
+        controller.warmShort(items.getOrNull(index + 3)?.videoId)
+        controller.warmShort(items.getOrNull(index + 4)?.videoId)
     }
 
     fun actionsFactory(id: String) = object : ViewModelProvider.Factory {

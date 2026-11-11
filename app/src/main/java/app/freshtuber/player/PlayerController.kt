@@ -183,7 +183,14 @@ class PlayerController @Inject constructor(
                 MediaCodecSelector.DEFAULT.getDecoderInfos(mimeType, secure, tunneling)
                     .filterNot { it.name in failedDecoders }
             }
+        // Start as soon as half a second is buffered (Media3 waits for a full one), and keep what
+        // was just played: a looping Short and a 10 s step back then need no network at all.
+        val load = androidx.media3.exoplayer.DefaultLoadControl.Builder()
+            .setBufferDurationsMsForStreaming(50_000, 50_000, 500, 1_500)
+            .setBackBuffer(30_000, true)
+            .build()
         ExoPlayer.Builder(context, renderers)
+            .setLoadControl(load)
             .setBandwidthMeter(bandwidthMeter)
             .setAudioAttributes(
                 AudioAttributes.Builder()
@@ -281,7 +288,7 @@ class PlayerController @Inject constructor(
     }
     private var extrasJob: Job? = null
     private var nextWarmed: String? = null
-    private var prefetchId: String? = null
+    private var prefetchIds: List<String> = emptyList()
     private var preloadJob: Job? = null
     private var loadJob: Job? = null
     private var requestedId: String? = null
@@ -328,6 +335,7 @@ class PlayerController @Inject constructor(
         override fun onPlayerError(error: PlaybackException) {
             savePosition()
             if (error.errorCode in DECODER_ERRORS && (skipBrokenDecoder(error) || stepDownAfterDecoderError())) return
+            if (recover(error)) return
             _state.update { it.copy(error = (error.cause ?: error).toLoadError()) }
         }
     }
@@ -347,6 +355,33 @@ class PlayerController @Inject constructor(
                 if (index < 0 || index == now.qualityIndex) state else state.copy(nowPlaying = now.copy(qualityIndex = index))
             }
         }
+    }
+
+    private var recoveryAttempt = 0
+    private var recoveryAt = 0L
+    private var recoveryJob: Job? = null
+
+    /** Quietly tries again after a network failure; false when it is time to show the error. */
+    private fun recover(error: PlaybackException): Boolean {
+        val id = requestedId ?: return false
+        if (_state.value.nowPlaying?.isOffline == true) return false
+        val now = SystemClock.elapsedRealtime()
+        if (now - recoveryAt > PlaybackRecovery.FORGET_MS) recoveryAttempt = 0
+        val step = PlaybackRecovery.next(recoveryAttempt, error.errorCode) ?: return false
+        recoveryAttempt++
+        recoveryAt = now
+        if (BuildConfig.DEBUG) Log.d("PlaybackTiming", "recover attempt=$recoveryAttempt code=${error.errorCode} refresh=${step.refresh}")
+        recoveryJob?.cancel()
+        recoveryJob = scope.launch {
+            delay(step.delayMs)
+            if (requestedId != id) return@launch
+            if (step.refresh) retry()
+            else {
+                if (error.errorCode == PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW) player.seekToDefaultPosition()
+                player.prepare()
+            }
+        }
+        return true
     }
 
     /** A regular video set aside while Shorts use the player; it comes back when they are left. */
@@ -382,6 +417,8 @@ class PlayerController @Inject constructor(
         if (!goingBack && leaving != null && leaving != videoId && !requestedShort && !isShort) {
             _state.update { it.copy(history = (it.history - leaving + leaving).takeLast(MAX_HISTORY)) }
         }
+        if (leaving != videoId) recoveryAttempt = 0
+        recoveryJob?.cancel()
         requestedId = videoId
         requestedShort = isShort
         startedAt = SystemClock.elapsedRealtime()
@@ -395,7 +432,12 @@ class PlayerController @Inject constructor(
         loadJob = scope.launch {
             try {
                 val local = downloads.localVideo(videoId)
-                val video = local ?: resolver.resolve(videoId)
+                // One quiet second try: a single failed lookup is usually a blip, not a dead network.
+                val video = local ?: try { resolver.resolve(videoId) } catch (e: java.io.IOException) {
+                    delay(500)
+                    resolver.invalidate(videoId)
+                    resolver.resolve(videoId)
+                }
                 if (BuildConfig.DEBUG) Log.d(if (isShort) "ShortsTiming" else "PlaybackTiming", "resolve_ms=${SystemClock.elapsedRealtime() - startedAt} quick=${!video.complete}")
                 resolved = video
                 reportedWatch = false
@@ -494,31 +536,38 @@ class PlayerController @Inject constructor(
         }
     }
 
-    /** Only anonymous extraction/bytes: never plays, uses cookies, or reports history. */
-    fun prefetchShort(videoId: String?) {
-        if (prefetchId == videoId && preloadJob?.isActive == true) return
-        prefetchId = videoId
+    /**
+     * Fetches the first bytes of the Shorts that come next, nearest first, so a swipe starts from
+     * the cache. Only anonymous extraction/bytes: never plays, uses cookies, or reports history.
+     */
+    fun prefetchShorts(ids: List<String>) {
+        if (prefetchIds == ids && preloadJob?.isActive == true) return
+        prefetchIds = ids
         preloadJob?.cancel()
-        if (videoId == null) return
+        if (ids.isEmpty()) return
         preloadJob = scope.launch {
-            try {
-                val video = resolver.resolve(videoId, allowAccount = false)
-                // Resolve while the current clip starts, but reserve bandwidth for its first frame.
-                while (player.playbackState != Player.STATE_READY) delay(100)
-                val tracks = tracksOf(video)
-                val track = tracks.getOrNull(StreamChoice.pick(tracks, settings.preferences.first().playbackQuality(network.wifi.value).takeIf { it > 0 } ?: 4320))
-                val urls = if (track != null && video.audioUrl != null)
-                    listOf(track.url to 512L * 1024, video.audioUrl to 128L * 1024)
-                else listOfNotNull(video.muxedUrl?.let { it to 640L * 1024 })
-                coroutineScope {
-                    urls.map { (url, bytes) -> async(Dispatchers.IO) {
-                        val job = currentCoroutineContext()
-                        val spec = DataSpec.Builder().setUri(url).setLength(minOf(bytes, ChunkPlan.streamLength(url) ?: bytes)).build()
-                        CacheWriter(dataSourceFactory.createDataSource(), spec, null) { _, _, _ -> job.ensureActive() }.cache()
-                    } }.awaitAll()
-                }
-            } catch (e: CancellationException) { throw e }
-            catch (_: Exception) { /* Preloading is optional; foreground playback retries normally. */ }
+            ids.forEachIndexed { index, videoId ->
+                try {
+                    val video = resolver.resolve(videoId, allowAccount = false)
+                    // Resolve while the current clip starts, but reserve bandwidth for its first frame.
+                    while (player.playbackState != Player.STATE_READY) delay(100)
+                    val tracks = tracksOf(video)
+                    val track = tracks.getOrNull(StreamChoice.pick(tracks, settings.preferences.first().playbackQuality(network.wifi.value).takeIf { it > 0 } ?: 4320))
+                    // The very next clip gets about two seconds; the one after it enough for a first frame.
+                    val share = if (index == 0) 1L else 2L
+                    val urls = if (track != null && video.audioUrl != null)
+                        listOf(track.url to 512L * 1024 / share, video.audioUrl to 128L * 1024 / share)
+                    else listOfNotNull(video.muxedUrl?.let { it to 640L * 1024 / share })
+                    coroutineScope {
+                        urls.map { (url, bytes) -> async(Dispatchers.IO) {
+                            val job = currentCoroutineContext()
+                            val spec = DataSpec.Builder().setUri(url).setLength(minOf(bytes, ChunkPlan.streamLength(url) ?: bytes)).build()
+                            CacheWriter(dataSourceFactory.createDataSource(), spec, null) { _, _, _ -> job.ensureActive() }.cache()
+                        } }.awaitAll()
+                    }
+                } catch (e: CancellationException) { throw e }
+                catch (_: Exception) { /* Preloading is optional; foreground playback retries normally. */ }
+            }
         }
     }
 
@@ -645,9 +694,10 @@ class PlayerController @Inject constructor(
         loadJob?.cancel()
         preloadJob?.cancel()
         extrasJob?.cancel()
+        recoveryJob?.cancel()
         dashActive = false
         requestedId = null
-        prefetchId = null
+        prefetchIds = emptyList()
         parked = null
         sleepJob?.cancel()
         player.stop()

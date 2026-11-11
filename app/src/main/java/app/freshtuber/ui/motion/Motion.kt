@@ -6,7 +6,16 @@ import androidx.compose.animation.EnterExitState
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.composed
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.TileMode
@@ -26,6 +35,22 @@ object Motion {
     const val EXIT_MS = 260
     /** A video picture flying between two places. */
     const val FLIGHT_MS = 440
+
+    /** A light spring for things that answer a finger: quick, with a small overshoot. */
+    fun <T> spring(): androidx.compose.animation.core.SpringSpec<T> =
+        androidx.compose.animation.core.spring(dampingRatio = 0.62f, stiffness = 520f)
+
+    /** A softer spring for larger things (sheets, cards) that settle rather than snap. */
+    fun <T> settle(): androidx.compose.animation.core.SpringSpec<T> =
+        androidx.compose.animation.core.spring(dampingRatio = 0.78f, stiffness = 380f)
+}
+
+/** The thing under the finger gives a little and springs back when released. */
+fun Modifier.pressBounce(source: androidx.compose.foundation.interaction.InteractionSource, pressed: Float = 0.9f): Modifier = composed {
+    val down by source.collectIsPressedAsState()
+    val scale by androidx.compose.animation.core.animateFloatAsState(if (down) pressed else 1f,
+        if (down) tween(90) else Motion.spring(), label = "press")
+    graphicsLayer { scaleX = scale; scaleY = scale }
 }
 
 /**
@@ -55,3 +80,30 @@ val AnimatedVisibilityScope.settled: Boolean
 /** True from the moment a screen starts leaving. */
 val AnimatedVisibilityScope.leaving: Boolean
     get() = transition.targetState == EnterExitState.PostExit
+
+/**
+ * A card gives slightly under a resting finger (not under a scroll) and springs back. It only
+ * watches the touch, so taps, holds and scrolling work as before.
+ */
+fun Modifier.pressDip(pressed: Float = 0.97f): Modifier = composed {
+    var down by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    val scale by androidx.compose.animation.core.animateFloatAsState(if (down) pressed else 1f,
+        if (down) tween(160) else Motion.spring(), label = "dip")
+    pointerInput(Unit) {
+        awaitEachGesture {
+            val first = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+            fun still(change: androidx.compose.ui.input.pointer.PointerInputChange?) =
+                change != null && change.pressed && (change.position - first.position).getDistance() <= viewConfiguration.touchSlop
+            // A scroll moves within the first moments; a finger that rests is a press.
+            val left = withTimeoutOrNull(80) {
+                while (true) if (!still(awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == first.id })) return@withTimeoutOrNull true
+                @Suppress("UNREACHABLE_CODE") true
+            }
+            if (left == null) {
+                down = true
+                try { while (still(awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == first.id })) Unit }
+                finally { down = false }
+            }
+        }
+    }.graphicsLayer { scaleX = scale; scaleY = scale }
+}

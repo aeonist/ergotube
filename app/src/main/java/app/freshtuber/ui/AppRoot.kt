@@ -85,7 +85,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
         if (openVideo != null) {
             val current = navController.currentBackStackEntry
             val sameVideo = current?.destination?.hasRoute<PlayerRoute>() == true && current.toRoute<PlayerRoute>().videoId == openVideo
-            if (!sameVideo) navController.navigate(PlayerRoute(openVideo))
+            if (!sameVideo) navController.openVideoPage(openVideo)
             onVideoOpened()
         }
     }
@@ -138,7 +138,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     val signIn: () -> Unit = { navController.navigate(LoginRoute) }
     val navigation = remember(navController) {
         object : FeedNavigation {
-            override fun openVideo(videoId: String) = navController.navigate(PlayerRoute(videoId))
+            override fun openVideo(videoId: String) = navController.openVideoPage(videoId)
             override fun openPlaylist(playlistId: String, title: String, seedVideoId: String?) =
                 navController.navigate(PlaylistRoute(playlistId, title, seedVideoId))
             override fun openChannel(channelId: String) = navController.navigate(ChannelRoute(channelId))
@@ -480,6 +480,15 @@ private fun NavDestination.dockTab(): DockTab? = when {
     hasRoute<LibraryListRoute>() || hasRoute<DownloadsRoute>() || hasRoute<SettingsRoute>() || hasRoute<AccountRoute>() -> DockTab.Mine
     hasRoute<MusicListenRoute>() || hasRoute<MusicLibraryRoute>() || hasRoute<MusicSearchRoute>() -> DockTab.Music
     else -> null
+}
+
+/**
+ * Opens a video. From a watch page the new video takes that page's place, so Back always leaves
+ * the player for the screen it was opened from; the earlier video stays one tap away on «Previous».
+ */
+private fun NavHostController.openVideoPage(videoId: String) {
+    val onPlayer = currentBackStackEntry?.destination?.hasRoute<PlayerRoute>() == true
+    navigate(PlayerRoute(videoId)) { if (onPlayer) popUpTo<PlayerRoute> { inclusive = true } }
 }
 
 private fun NavHostController.navigateToTopLevel(route: Any) {

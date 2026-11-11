@@ -85,14 +85,23 @@ float3 throwLight(float2 p,out float k){
   float lod=4.5+3.*clamp(d*3.,0.,1.)+uBlur; float2 uv=clamp(.5+(q-.5)/(1.+d*1.6),.03,.97);
   k=exp(-d*3.4); return frame(uv,lod);
  }
- // The video lights the space below it and, for a square Short, above it as well.
+ // The video lights the space below it and, for a square Short, above it as well. The light is a
+ // soft reflection: right at the edge it repeats the edge, farther away it comes from deeper in
+ // the frame, from a wider span and a blurrier level, so no column of the picture survives as a
+ // stripe and the far end is one calm wash of the frame's colours.
  float below=max(p.y-(uVid.y+uVid.w),0.);float above=max(uVid.y-p.y,0.);
- float d=max(below,above)/uRes.y;float ey=below>0.?uVid.y+uVid.w*.94:uVid.y+uVid.w*.06;
- float2 pe=float2(p.x,mix(p.y,ey,clamp(d*1.2,0.,.97)));
- pe.x=mix(pe.x,uVid.x+uVid.z*.5,clamp(d*.6,0.,.6));
+ float dist=max(below,above);float d=dist/uRes.y;float t=clamp(d*2.4,0.,1.);
+ float into=.05+.5*clamp(dist/max(uVid.w,1.),0.,1.);
+ float vy=below>0.?1.-into:into;float sy=below>0.?-1.:1.;
+ float cx=mix((p.x-uVid.x)/max(uVid.z,1.),.5,t*.7);
+ float lod=5.+2.5*smoothstep(0.,.6,t);float sp=.05+.3*t;
+ float3 c=frame(clamp(float2(cx,vy),.03,.97),lod)*.34
+  +frame(clamp(float2(cx-sp,vy+sy*sp*.35),.03,.97),lod)*.22
+  +frame(clamp(float2(cx+sp,vy+sy*sp*.35),.03,.97),lod)*.22
+  +frame(clamp(float2(cx-sp*.45,vy-sy*sp*.3),.03,.97),lod)*.11
+  +frame(clamp(float2(cx+sp*.45,vy-sy*sp*.3),.03,.97),lod)*.11;
  k=exp(-d*2.4);
- float2 uv=clamp((pe-uVid.xy)/uVid.zw,.03,.97);
- return frame(uv,5.+2.5*clamp(d*2.,0.,1.));
+ return c;
 }
 float3 scene(float2 p){
  float2 w=float2(fbm(p/(uRes.y*.32)+float2(uFlow*.035,0.)),fbm(p/(uRes.y*.32)+float2(7.3,-uFlow*.03)))-.5;
