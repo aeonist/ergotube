@@ -37,7 +37,7 @@ class FullscreenZoomIntegrationTest {
             Box(Modifier.size(360.dp, 540.dp).testTag("full").videoZoom(zoom, true, 16f / 9f)) {
                 FullscreenPlayer(player, PlayerState(), ui, StoryboardPages(), left = true, gesturesEnabled = true,
                     captionsOn = false, captionsAvailable = false, hasNext = false, showRotateHint = false,
-                    onExit = {}, onNext = {}, onQuality = {}, onSpeed = {}, onCaptions = {}, onBoost = { boosts++ }, onRetry = {})
+                    onExit = {}, onNext = {}, onQuality = {}, onSpeed = {}, onCaptions = {}, onBoost = { boosts++ })
             }
         }
         compose.onNodeWithTag("full").performTouchInput {

@@ -364,7 +364,8 @@ fun PlayerScreen(
                     onMinimize = onBack, onCaptions = { onCaptions() }, onMore = { moreOpen = true }, onQuality = { qualityOpen = true }, onScrubPosition = { padUi.scrubMs = it })
                 else -> PortraitVideoLayer(viewModel.player, playerState, onMinimize = onBack)
             }
-            if (!inPip && !tabletop && now?.isLive != true) PlaybackTime(rememberProgress(viewModel.player), padUi.scrubMs,
+            // In full screen the controls show the time themselves and hide it with the rest.
+            if (!inPip && !tabletop && !fullscreen && now?.isLive != true) PlaybackTime(rememberProgress(viewModel.player), padUi.scrubMs,
                 Modifier.align(Alignment.BottomStart).padding(start = if (fullscreen) 24.dp else 12.dp, bottom = if (fullscreen) 24.dp else if (classic) 56.dp else 12.dp))
         }
         // Below the fold the controls get the whole lower half.

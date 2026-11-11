@@ -38,7 +38,7 @@ class PortraitZoomIntegrationTest {
         val zoom = VideoZoom()
         compose.setContent {
             Box(Modifier.size(320.dp, 180.dp).testTag("video").videoZoom(zoom, true, 16f / 9f)) {
-                PortraitVideoLayer(player, PlayerState(), onMinimize = { minimizes++ }, onRetry = {})
+                PortraitVideoLayer(player, PlayerState(), onMinimize = { minimizes++ })
             }
         }
         compose.onNodeWithTag("video").performTouchInput {

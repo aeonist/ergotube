@@ -20,7 +20,7 @@ class FanGeometry(val width: Float, val height: Float, val left: Boolean) {
     /** Touches this close inside the arc count as on the arc. */
     val band = 34f
     val main = radius * 0.53f
-    val inner = radius * 0.25f
+    val inner = radius * 0.2f
     val outer = radius + 30f
 
     /** Point at distance [r] from the corner, at position [u] along the quarter. */
@@ -60,6 +60,14 @@ class FanGeometry(val width: Float, val height: Float, val left: Boolean) {
         fun fromArc(u: Float): Float = ((u - U0) / (U1 - U0)).coerceIn(0f, 1f)
         /** Back, play, forward on the middle ring. */
         fun zone(u: Float): PadZone = when { u < 0.33f -> PadZone.Back; u > 0.67f -> PadZone.Forward; else -> PadZone.Play }
+        /** Positions along the outer ring for [keys], spread evenly from the back end to the forward end. */
+        fun outerSlots(keys: List<String>): Map<String, Float> = when (keys.size) {
+            0 -> emptyMap()
+            1 -> mapOf(keys[0] to 0.5f)
+            else -> keys.mapIndexed { i, key -> key to (OUTER0 + i * (OUTER1 - OUTER0) / keys.lastIndex) }.toMap()
+        }
+        private const val OUTER0 = 0.12f
+        private const val OUTER1 = 0.88f
         const val FINE_DISTANCE = 48f
         const val IDLE_MS = 3_000L
     }

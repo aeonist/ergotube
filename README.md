@@ -1,5 +1,7 @@
 # ErgoTube
 
+**Build 26.** Fullscreen player: the fan's buttons no longer overlap (Next moved to the outer ring), and the elapsed time hides together with the other controls. [Debug APK](apk/ErgoTube-build26-debug.apk) · [Release APK](apk/ErgoTube-build26-release.apk)
+
 **Build 25 — ErgoTube Music v2.** A new music mode in the same liquid light: «Слушать», a player lit by the cover, lyrics, a three-layer queue, one library for phone files and YouTube songs, and the song line inside the dock. [Debug APK](apk/ErgoTube-music2-debug.apk) · [Release APK](apk/ErgoTube-music2-release.apk)
 
 **Build 24.** Shorts skip the signed-out Home request and look up the first stream while loading the queue. Playback retry is centered on the screen. Tapping Home jumps to the top.

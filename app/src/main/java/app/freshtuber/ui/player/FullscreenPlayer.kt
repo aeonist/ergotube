@@ -138,11 +138,11 @@ fun FullscreenPlayer(
         val fraction = if (durationMs > 0) timeline.positionOf(shownMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
         val toggle = { if (progress.ended) { player.seekTo(0); player.play() } else if (player.isPlaying) player.pause() else player.play() }
 
-        Box(Modifier.fillMaxSize().pointerInput(geo, live, gesturesEnabled, awake, durationMs) {
+        Box(Modifier.fillMaxSize().pointerInput(geo, live, gesturesEnabled, durationMs) {
             var pending: Job? = null
             var lastSide = 0
             var lastAt = 0L
-            awaitEachGesture {
+            awaitEachGesture { try {
                 val down = awaitFirstDown(requireUnconsumed = false)
                 if (awake && buttons.values.any { it.contains(down.position) }) return@awaitEachGesture
                 val (r0, u0) = geo.polar(down.position.x / density, down.position.y / density)
@@ -267,7 +267,11 @@ fun FullscreenPlayer(
                 pending?.cancel()
                 lastSide = side; lastAt = t
                 pending = scope.launch { delay(if (side != 0) 300L else 0L); lastSide = 0; if (awake) awake = false else wake() }
-            }
+            } finally {
+                // A gesture cut short (rotation, new video) must not keep the controls up or 2× on.
+                touching = false
+                if (ui.boost) { ui.boost = false; onBoost(false); ui.hush() }
+            } }
         }) {
             // Shade under the fan, so white icons read on any picture; it spreads out of the corner.
             val shade = app.freshtuber.ui.motion.Motion.Decelerate.transform(stage(0, 200))
@@ -329,7 +333,7 @@ fun FullscreenPlayer(
             fun Modifier.at(p: Offset, size: Float) = offset { IntOffset(((p.x - size / 2).dp).roundToPx(), ((p.y - size / 2).dp).roundToPx()) }
             if (awake || shown > 0f) Box(Modifier.fillMaxSize()) {
                 val playing = progress.isPlaying || (progress.buffering && player.playWhenReady)
-                FanIcon(Icons.Rounded.Replay10, stringResource(R.string.player_back_10), Modifier.at(geo.position(geo.main, 0.16f), 60f).layerIn(stage(90), left), enabled = !live) {
+                FanIcon(Icons.Rounded.Replay10, stringResource(R.string.player_back_10), Modifier.at(geo.position(geo.main, 0.14f), 60f).layerIn(stage(90), left), enabled = !live) {
                     ui.skip(player, -10) { secondsFormat.format(it) } }
                 val playLabel = stringResource(if (playing) R.string.player_pause else R.string.player_play)
                 Box(Modifier.at(geo.position(geo.main, 0.5f), 76f).layerIn(stage(140), left).size(76.dp).background(Color.White.copy(alpha = 0.14f), CircleShape)
@@ -337,7 +341,7 @@ fun FullscreenPlayer(
                     Icon(if (progress.ended) Icons.Rounded.Replay else if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         null, Modifier.size(48.dp), tint = Color.White)
                 }
-                FanIcon(Icons.Rounded.Forward10, stringResource(R.string.player_forward_10), Modifier.at(geo.position(geo.main, 0.84f), 60f).layerIn(stage(190), left), enabled = !live) {
+                FanIcon(Icons.Rounded.Forward10, stringResource(R.string.player_forward_10), Modifier.at(geo.position(geo.main, 0.86f), 60f).layerIn(stage(190), left), enabled = !live) {
                     ui.skip(player, 10) { secondsFormat.format(it) } }
                 val chip: @Composable (String, Offset, Float, @Composable () -> Unit, Boolean, Float, () -> Unit) -> Unit = { key, p, width, content, selected, appear, click ->
                     Surface(onClick = { click(); wake() }, enabled = awake, shape = RoundedCornerShape(22.dp),
@@ -346,18 +350,25 @@ fun FullscreenPlayer(
                             .size(width.dp, 44.dp).then(if (key == "quality") Modifier.qualityAnchor() else Modifier).onGloballyPositioned { buttons[key] = it.boundsInParent() }.layerIn(appear, left)) {
                         Box(contentAlignment = Alignment.Center) { content() }
                     }
+                    // A chip that goes away must stop taking taps at its old place.
+                    DisposableEffect(key) { onDispose { buttons.remove(key) } }
                 }
-                chip("exit", geo.position(geo.inner, 0.25f), 44f, { Icon(Icons.Rounded.FullscreenExit, stringResource(R.string.player_exit_fullscreen), Modifier.size(22.dp)) }, false, stage(210), onExit)
-                if (hasNext) chip("next", geo.position(geo.inner, 0.75f), 44f, { Icon(Icons.Rounded.SkipNext, stringResource(R.string.player_next), Modifier.size(22.dp)) }, false, stage(250), onNext)
-                chip("quality", geo.position(geo.outer, 0.5f), 48f, {
-                    Icon(Icons.Rounded.HighQuality, stringResource(R.string.player_quality), Modifier.size(22.dp))
-                }, false, stage(270), onQuality)
-                if (!live) chip("speed", geo.position(geo.outer, 0.15f), 56f, {
+                // Exit alone sits in the inner corner; the rest share the outer ring, spread evenly,
+                // so no two chips crowd each other whatever is present.
+                chip("exit", geo.position(geo.inner, 0.5f), 44f, { Icon(Icons.Rounded.FullscreenExit, stringResource(R.string.player_exit_fullscreen), Modifier.size(22.dp)) }, false, stage(210), onExit)
+                val ring = FanGeometry.outerSlots(listOfNotNull("speed".takeIf { !live }, "quality", "cc".takeIf { captionsAvailable }, "next".takeIf { hasNext }))
+                ring["speed"]?.let { u -> chip("speed", geo.position(geo.outer, u), 56f, {
                     Text(if (ui.boost) "2×" else speedLabel(state.speed), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
-                }, ui.boost || state.speed != 1f, stage(250), onSpeed)
-                if (captionsAvailable) chip("cc", geo.position(geo.outer, 0.85f), 44f, {
+                }, ui.boost || state.speed != 1f, stage(250), onSpeed) }
+                ring["quality"]?.let { u -> chip("quality", geo.position(geo.outer, u), 48f, {
+                    Icon(Icons.Rounded.HighQuality, stringResource(R.string.player_quality), Modifier.size(22.dp))
+                }, false, stage(270), onQuality) }
+                ring["cc"]?.let { u -> chip("cc", geo.position(geo.outer, u), 44f, {
                     Icon(if (captionsOn) Icons.Rounded.ClosedCaption else Icons.Rounded.ClosedCaptionDisabled, stringResource(R.string.player_subtitles), Modifier.size(22.dp))
-                }, captionsOn, stage(290), onCaptions)
+                }, captionsOn, stage(290), onCaptions) }
+                ring["next"]?.let { u -> chip("next", geo.position(geo.outer, u), 44f, {
+                    Icon(Icons.Rounded.SkipNext, stringResource(R.string.player_next), Modifier.size(22.dp))
+                }, false, stage(310), onNext) }
 
             }
             // The title drifts down into place out of a blur, last of all.
@@ -371,6 +382,11 @@ fun FullscreenPlayer(
                         renderEffect = if (android.os.Build.VERSION.SDK_INT >= 31 && r > 0.5f)
                             androidx.compose.ui.graphics.BlurEffect(r, r, androidx.compose.ui.graphics.TileMode.Decal) else null
                     })
+            // Elapsed / total comes and goes with the controls, on the side away from the fan.
+            if (!live && shown > 0f) PlaybackTime(progress, ui.scrubMs, Modifier
+                .align(if (geo.upright) Alignment.TopStart else if (left) Alignment.BottomEnd else Alignment.BottomStart)
+                .padding(start = 20.dp, end = 20.dp, top = if (geo.upright) 44.dp else 0.dp, bottom = if (geo.upright) 0.dp else 16.dp)
+                .graphicsLayer { alpha = titleIn })
             val freeX = geo.freeCenterX.dp
             ui.bubble?.let { Bubble(it, Modifier.offset { IntOffset((freeX - 80.dp).roundToPx(), 58.dp.roundToPx()) }.width(160.dp).wrapContentWidth()) }
             ui.scrubMs?.let { ms ->

@@ -127,7 +127,7 @@ fun ClassicVideoControls(
                     .then(if (fullscreen) Modifier.windowInsetsPadding(WindowInsets.displayCutout.union(WindowInsets.navigationBars)).padding(start = 16.dp, end = 8.dp, bottom = 30.dp)
                         else Modifier.padding(start = 12.dp, end = 4.dp, bottom = 10.dp)),
                     verticalAlignment = Alignment.CenterVertically) {
-                    if (live || scrub != null) Text(if (live) stringResource(R.string.search_live) else "${formatDuration(shown / 1000)} / ${formatDuration(progress.durationMs / 1000)}",
+                    if (live || fullscreen || scrub != null) Text(if (live) stringResource(R.string.search_live) else "${formatDuration(shown / 1000)} / ${formatDuration(progress.durationMs / 1000)}",
                         color = Color.White, style = MaterialTheme.typography.labelMedium)
                     Spacer(Modifier.weight(1f))
                     OverlayIcon(Icons.Rounded.HighQuality, stringResource(R.string.player_quality), tag = "player:quality", onClick = onQuality)
