@@ -40,6 +40,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var settings: AppSettings
 
     private var externalVideoId by mutableStateOf<String?>(null)
+    private var openMusicRequest by mutableStateOf(false)
     private var inPictureInPicture by mutableStateOf(false)
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var pipOnLeave = true
@@ -119,7 +120,8 @@ class MainActivity : ComponentActivity() {
                     app.freshtuber.ui.components.LocalClassic provides preferences.classicLayout,
                     app.freshtuber.ui.player.LocalVideoBounds provides reportVideoBounds,
                     app.freshtuber.ui.components.LocalFoldPosture provides app.freshtuber.ui.components.rememberFoldPosture(this)) {
-                    AppRoot(inPictureInPicture = inPictureInPicture, openVideo = externalVideoId, onVideoOpened = { externalVideoId = null })
+                    AppRoot(inPictureInPicture = inPictureInPicture, openVideo = externalVideoId, onVideoOpened = { externalVideoId = null },
+                        openMusic = openMusicRequest, onMusicOpened = { openMusicRequest = false })
                 }
             }
         }
@@ -133,6 +135,10 @@ class MainActivity : ComponentActivity() {
 
     private fun acceptIntent(intent: Intent?) {
         externalVideoId = intent?.getStringExtra("videoId")?.takeIf { it.matches(Regex("[A-Za-z0-9_-]{11}")) }
+        if (intent?.getBooleanExtra(EXTRA_OPEN_MUSIC, false) == true) {
+            openMusicRequest = true
+            intent.removeExtra(EXTRA_OPEN_MUSIC)
+        }
     }
 
     override fun onStart() {
@@ -246,14 +252,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private companion object {
-        const val PIP_ACTION = "app.freshtuber.PIP_CONTROL"
-        const val PIP_COMMAND = "command"
-        const val PIP_PREVIOUS = 1
-        const val PIP_TOGGLE = 2
-        const val PIP_NEXT = 3
-        const val PIP_BACKGROUND = 4
-        const val PIP_CLOSE = 5
+    companion object {
+        /** Opens the music player (the music notification and its downloads). */
+        const val EXTRA_OPEN_MUSIC = "openMusic"
+        private const val PIP_ACTION = "app.freshtuber.PIP_CONTROL"
+        private const val PIP_COMMAND = "command"
+        private const val PIP_PREVIOUS = 1
+        private const val PIP_TOGGLE = 2
+        private const val PIP_NEXT = 3
+        private const val PIP_BACKGROUND = 4
+        private const val PIP_CLOSE = 5
     }
 
     /** Android only accepts ratios between 1:2.39 and 2.39:1. */

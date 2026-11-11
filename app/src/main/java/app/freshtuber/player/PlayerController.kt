@@ -288,6 +288,10 @@ class PlayerController @Inject constructor(
     private var requestedShort = false
 
     fun isRequested(videoId: String): Boolean = requestedId == videoId
+
+    /** «Смотреть клип» from music: the next opening of [videoId] starts at [positionMs]. */
+    private var pendingStart: Pair<String, Long>? = null
+    fun startNextAt(videoId: String, positionMs: Long) { pendingStart = videoId to positionMs }
     /** True while [playPrevious] reopens a video, so it is not added to the history again. */
     private var goingBack = false
     private var startedAt = 0L
@@ -417,7 +421,9 @@ class PlayerController @Inject constructor(
                     chapters = video.chapters,
                     storyboard = if (local == null) video.storyboard else null,
                 )
-                val resumeAt = if (video.isLive || isShort) null else startAt ?: resumePosition(videoId)
+                val handed = pendingStart?.takeIf { it.first == videoId }?.second
+                pendingStart = null
+                val resumeAt = if (video.isLive || isShort) null else startAt ?: handed ?: resumePosition(videoId)
                 val source = buildSource(video, nowPlaying)
                 limitQuality()
                 _state.update { it.copy(nowPlaying = nowPlaying.copy(qualityAuto = dashActive), loadingId = null) }
