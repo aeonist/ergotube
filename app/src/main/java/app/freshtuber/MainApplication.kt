@@ -21,12 +21,14 @@ class MainApplication : Application(), SingletonImageLoader.Factory {
     @Inject lateinit var extractorDownloader: ExtractorDownloader
     @Inject lateinit var downloads: app.freshtuber.data.downloads.Downloads
     @Inject lateinit var okHttpClient: OkHttpClient
+    @Inject lateinit var musicOffline: app.freshtuber.data.music.MusicOffline
 
     override fun onCreate() {
         super.onCreate()
         NewPipeInitializer.init(extractorDownloader, currentLocale(resources.configuration))
         app.freshtuber.background.SubscriptionWorker.schedule(this)
         downloads.start()
+        musicOffline.start()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {

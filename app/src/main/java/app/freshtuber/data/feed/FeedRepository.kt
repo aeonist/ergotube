@@ -6,12 +6,15 @@ import app.freshtuber.data.extractor.ExtractorSearchSource
 import app.freshtuber.domain.model.ChannelSummary
 import app.freshtuber.domain.model.FeedItem
 import app.freshtuber.domain.model.FeedPage
+import app.freshtuber.domain.model.PlaylistSummary
+import app.freshtuber.innertube.CallAs
 import app.freshtuber.innertube.InnerTubeClient
 import app.freshtuber.innertube.bestThumbnailUrl
 import app.freshtuber.innertube.bool
 import app.freshtuber.innertube.findAll
 import app.freshtuber.innertube.obj
 import app.freshtuber.innertube.parse.FeedParser
+import app.freshtuber.innertube.parse.PlayerResponseParser
 import app.freshtuber.innertube.str
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -75,6 +78,37 @@ class FeedRepository @Inject constructor(
             }
             else -> parseBrowse(source, innerTube.post("browse", continuation(token)))
         }
+    }
+
+    /** The ordinary WEB player returns category metadata even when it supplies no streams. */
+    suspend fun musicCategory(videoId: String): String? = PlayerResponseParser.category(
+        innerTube.post("player", buildJsonObject { put("videoId", videoId) }, CallAs.Anonymous),
+    )
+
+    suspend fun musicMixCards(callAs: CallAs): List<PlaylistSummary> {
+        val home = innerTube.post("browse", buildJsonObject { put("browseId", HOME) }, callAs)
+        val direct = FeedParser.parseMusicMixes(home)
+        val music = FeedParser.parseHome(home).filters.firstOrNull {
+            it.title.equals("Music", true) || it.title.equals("Музыка", true)
+        }?.token ?: return direct
+        return try {
+            (FeedParser.parseMusicMixes(innerTube.post("browse", continuation(music), callAs)) + direct)
+                .distinctBy(PlaylistSummary::id)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            direct.ifEmpty { throw e }
+        }
+    }
+
+    suspend fun musicMix(mix: PlaylistSummary, token: String?, callAs: CallAs): FeedPage {
+        val body = if (token != null) kotlinx.serialization.json.Json.parseToJsonElement(token) as JsonObject
+        else buildJsonObject {
+            put("playlistId", mix.id.removePrefix("VL"))
+            mix.seedVideoId?.let { put("videoId", it) }
+            mix.mixParams?.let { put("params", it) }
+        }
+        return FeedParser.parseMix(innerTube.post("next", body, callAs))
     }
 
     private fun parseBrowse(source: FeedSource, root: JsonObject): FeedPage =

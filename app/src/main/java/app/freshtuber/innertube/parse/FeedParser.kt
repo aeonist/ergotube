@@ -40,6 +40,7 @@ object FeedParser {
                     when (key) {
                         in VIDEO_RENDERERS -> parseVideoRenderer(value)?.let { items += FeedItem.Video(it) }
                         "lockupViewModel" -> parseLockup(value)?.let(items::add)
+                        in RADIO_RENDERERS -> parseRadio(value)?.let { items += FeedItem.Playlist(it) }
                         "shortsLockupViewModel" -> parseShortsLockup(value)?.let { items += FeedItem.Video(it) }
                         "reelItemRenderer" -> parseReelItem(value)?.let { items += FeedItem.Video(it) }
                         "channelRenderer", "gridChannelRenderer" -> parseChannel(value)?.let { items += FeedItem.Channel(it) }
@@ -97,13 +98,46 @@ object FeedParser {
         }.map { item -> item.obj("richItemRenderer")?.obj("content") ?: item }.filter { item ->
             item.obj("continuationItemRenderer") != null ||
                 item.obj("continuationItemViewModel") != null || item.obj("lockupViewModel") != null ||
-                item.obj("videoRenderer") != null
+                item.obj("videoRenderer") != null || RADIO_RENDERERS.any { item.obj(it) != null }
         }
         return parse(JsonObject(mapOf(
             "header" to (grid?.obj("header") ?: root.obj("header") ?: JsonObject(emptyMap())),
             "contents" to JsonArray(mainItems),
         )))
     }
+
+    /**
+     * Discover the actual mix cards in the feed, including music shelves omitted by parseHome.
+     * Only renderer-owned watch endpoints qualify; a menu command cannot create a mix card.
+     */
+    fun parseMusicMixes(root: JsonElement): List<PlaylistSummary> {
+        val lockups = root.findAll("lockupViewModel").mapNotNull {
+            when (val parsed = parseLockup(it)) {
+                is FeedItem.Video -> parsed.video.musicMix
+                is FeedItem.Playlist -> parsed.playlist.takeIf { playlist -> isMixId(playlist.id) }
+                else -> null
+            }
+        }
+        val radios = RADIO_RENDERERS.flatMap { key -> root.findAll(key).mapNotNull(::parseRadio) }
+        return (lockups + radios).distinctBy(PlaylistSummary::id)
+    }
+
+    private fun parseRadio(renderer: JsonElement): PlaylistSummary? {
+        val title = renderer.obj("title").text() ?: return null
+        val endpoint = renderer.path("navigationEndpoint", "watchEndpoint")
+            ?: renderer.path("navigationEndpoint", "watchPlaylistEndpoint")
+        return mixSummary(endpoint, title, renderer.obj("thumbnail").bestThumbnailUrl(), renderer.str("playlistId"))
+    }
+
+    private fun mixSummary(endpoint: JsonElement?, title: String, artwork: String?, fallbackId: String? = null): PlaylistSummary? {
+        val id = (endpoint.str("playlistId") ?: fallbackId)?.removePrefix("VL") ?: return null
+        if (!isMixId(id)) return null
+        val seed = endpoint.str("videoId")?.takeIf { it.matches(VIDEO_ID) }
+            ?: id.removePrefix("RD").takeIf { it.matches(VIDEO_ID) }
+        return PlaylistSummary(id, title, artwork, seedVideoId = seed, mixParams = endpoint.str("params"))
+    }
+
+    private fun isMixId(id: String) = MIX_ID.matches(id.removePrefix("VL"))
 
     /** First `continuationCommand.token` under [element]. */
     fun continuationToken(element: JsonElement?): String? =
@@ -135,6 +169,7 @@ object FeedParser {
             isLive = isLive,
             watchedPercent = v.findAll("thumbnailOverlayResumePlaybackRenderer").firstOrNull().int("percentDurationWatched"),
             notInterested = notInterested(v),
+            musicMix = mixSummary(v.path("navigationEndpoint", "watchEndpoint"), title, v.obj("thumbnail").bestThumbnailUrl()),
         )
     }
 
@@ -155,6 +190,9 @@ object FeedParser {
         val detailRows = if (channelInFirstRow) rows.drop(1) else rows
         val detail = detailRows.flatMap { it.rowParts() }.joinToString(" • ").ifEmpty { null }
 
+        val primary = v.path("rendererContext", "commandContext", "onTap", "innertubeCommand")
+        val watch = primary.obj("watchEndpoint") ?: primary.obj("watchPlaylistEndpoint")
+        val videoArtwork = v.path("contentImage", "thumbnailViewModel", "image").bestSourceUrl()
         return when (v.str("contentType")) {
             "LOCKUP_CONTENT_TYPE_VIDEO" -> {
                 val liveBadge = badges.any { it.str("badgeStyle")?.contains("LIVE") == true }
@@ -166,12 +204,13 @@ object FeedParser {
                         channelId = (avatar ?: rows.firstOrNull()).findAll("browseEndpoint")
                             .firstNotNullOfOrNull { it.str("browseId") },
                         channelAvatarUrl = avatar.path("avatar", "avatarViewModel", "image").bestSourceUrl(),
-                        thumbnailUrl = v.path("contentImage", "thumbnailViewModel", "image").bestSourceUrl(),
+                        thumbnailUrl = videoArtwork,
                         durationText = if (liveBadge) null else badges.firstNotNullOfOrNull { it.str("text") },
                         detailText = detail,
                         isLive = liveBadge,
                         watchedPercent = v.findAll("thumbnailOverlayProgressBarViewModel").firstOrNull().int("startPercent"),
                         notInterested = notInterested(v),
+                        musicMix = mixSummary(watch, title, videoArtwork),
                     ),
                 )
             }
@@ -182,7 +221,8 @@ object FeedParser {
                     thumbnailUrl = v.obj("contentImage").findAll("image").firstNotNullOfOrNull { it.bestSourceUrl() },
                     videoCountText = badges.firstNotNullOfOrNull { it.str("text") },
                     channelName = channelName ?: rows.firstOrNull().rowParts().firstOrNull(),
-                    seedVideoId = v.findAll("watchEndpoint").firstNotNullOfOrNull { it.str("videoId") },
+                    seedVideoId = watch.str("videoId") ?: v.findAll("watchEndpoint").firstNotNullOfOrNull { it.str("videoId") },
+                    mixParams = watch.str("params").takeIf { isMixId(id) },
                 ),
             )
             else -> null
@@ -264,6 +304,10 @@ object FeedParser {
             put("isFeedbackTokenUnencrypted", kotlinx.serialization.json.JsonPrimitive(endpoint.bool("isFeedbackTokenUnencrypted") == true))
         })
     }
+
+    private val MIX_ID = Regex("RD[A-Za-z0-9_-]{1,126}")
+    private val VIDEO_ID = Regex("[A-Za-z0-9_-]{11}")
+    private val RADIO_RENDERERS = setOf("radioRenderer", "compactRadioRenderer", "gridRadioRenderer")
 
     private val VIDEO_RENDERERS = setOf(
         "videoRenderer",

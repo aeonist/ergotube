@@ -45,7 +45,8 @@ class Downloads @Inject constructor(
     @ApplicationScope private val scope: CoroutineScope,
 ) {
     private val dao get() = database.downloads()
-    val items = dao.observe()
+    val items = dao.observe(DownloadKind.Video)
+    val audioItems = dao.observe(DownloadKind.Audio)
     fun isOnline(): Boolean = network.online.value
     private val manager get() = WorkManager.getInstance(context)
     private val controls = Mutex()
@@ -53,8 +54,11 @@ class Downloads @Inject constructor(
     private val fileLocks = ConcurrentHashMap<String, Mutex>()
     private val client = okHttp.newBuilder().apply { interceptors().clear() }.addInterceptor(GoogleVideoInterceptor()).build()
     private val root = File(context.filesDir, "downloads")
-    private fun folder(id: String): File { require(DownloadFiles.validId(id)); return File(root, id) }
-    private fun workName(id: String) = "download-$id"
+    private fun folder(id: String, kind: DownloadKind = DownloadKind.Video): File {
+        require(DownloadFiles.validId(id))
+        return File(root, kind.storageId(id))
+    }
+    private fun workName(id: String, kind: DownloadKind) = "download-${kind.storageId(id)}"
 
     /** Repairs interrupted work and applies a changed Wi-Fi policy to the persistent queue. */
     fun start() {
@@ -67,20 +71,20 @@ class Downloads @Inject constructor(
                         if (info == null || info.state.isFinished || (previousWifi != null && previousWifi != wifi && info.state == WorkInfo.State.RUNNING)) enqueueLocked(item)
                         else manager.updateWork(request(item, wifi)).get(10, TimeUnit.SECONDS)
                     }
-                    dao.all().filter { it.state == DownloadStatus.Deleting }.forEach { removeFiles(it.videoId) }
+                    dao.all().filter { it.state == DownloadStatus.Deleting }.forEach { removeFiles(it.videoId, it.kind) }
                 }
                 previousWifi = wifi
             }
         }
     }
 
-    suspend fun enqueue(video: VideoSummary): Boolean = scope.async(Dispatchers.IO) {
+    suspend fun enqueue(video: VideoSummary, kind: DownloadKind = DownloadKind.Video): Boolean = scope.async(Dispatchers.IO) {
         require(DownloadFiles.validId(video.id))
         controls.withLock {
-            val old = dao.get(video.id)
+            val old = dao.get(video.id, kind)
             if (old != null && old.state in listOf(DownloadStatus.Complete, DownloadStatus.Queued, DownloadStatus.Downloading, DownloadStatus.Deleting)) return@withLock false
             enqueueLocked(old ?: Download(video.id, video.title, video.channelName, video.channelId, video.thumbnailUrl,
-                workId = UUID.randomUUID().toString(), requestedHeight = settings.downloadQuality.first()))
+                workId = UUID.randomUUID().toString(), requestedHeight = settings.downloadQuality.first(), kind = kind))
             true
         }
     }.await()
@@ -88,62 +92,73 @@ class Downloads @Inject constructor(
     private suspend fun enqueueLocked(item: Download) {
         val next = item.copy(status = DownloadStatus.Queued.name, error = null, workId = UUID.randomUUID().toString())
         dao.save(next)
-        manager.enqueueUniqueWork(workName(item.videoId), ExistingWorkPolicy.REPLACE, request(next, settings.downloadWifiOnly.first()))
+        manager.enqueueUniqueWork(workName(item.videoId, item.kind), ExistingWorkPolicy.REPLACE, request(next, settings.downloadWifiOnly.first()))
     }
 
     private fun request(item: Download, wifi: Boolean) = OneTimeWorkRequestBuilder<DownloadWorker>()
         .setId(UUID.fromString(item.workId))
-        .setInputData(workDataOf("videoId" to item.videoId))
+        .setInputData(workDataOf("videoId" to item.videoId, "kind" to item.kind.name))
         .setConstraints(Constraints.Builder().setRequiredNetworkType(if (wifi) NetworkType.UNMETERED else NetworkType.CONNECTED).setRequiresStorageNotLow(true).build())
         .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 15, TimeUnit.SECONDS)
         .build()
 
-    suspend fun pause(id: String) = scope.async(Dispatchers.IO) {
+    suspend fun pause(id: String, kind: DownloadKind = DownloadKind.Video) = scope.async(Dispatchers.IO) {
         controls.withLock {
-            val item = dao.get(id) ?: return@withLock
+            val item = dao.get(id, kind) ?: return@withLock
             if (item.state !in listOf(DownloadStatus.Downloading, DownloadStatus.Queued)) return@withLock
-            dao.state(id, DownloadStatus.Paused.name)
-            manager.cancelUniqueWork(workName(id))
+            dao.state(id, DownloadStatus.Paused.name, kind)
+            manager.cancelUniqueWork(workName(id, kind))
         }
     }.await()
 
-    suspend fun resume(id: String) = scope.async(Dispatchers.IO) {
-        controls.withLock { dao.get(id)?.takeIf { it.state in listOf(DownloadStatus.Paused, DownloadStatus.Failed) }?.let { enqueueLocked(it) } }
+    suspend fun resume(id: String, kind: DownloadKind = DownloadKind.Video) = scope.async(Dispatchers.IO) {
+        controls.withLock { dao.get(id, kind)?.takeIf { it.state in listOf(DownloadStatus.Paused, DownloadStatus.Failed) }?.let { enqueueLocked(it) } }
     }.await()
 
-    suspend fun failedBeforeTransfer(id: String, work: String) = withContext(Dispatchers.IO) {
+    suspend fun failedBeforeTransfer(id: String, work: String, kind: DownloadKind) = withContext(Dispatchers.IO) {
         database.withTransaction {
-            dao.get(id)?.takeIf { it.workId == work && it.state in listOf(DownloadStatus.Queued, DownloadStatus.Downloading) }
+            dao.get(id, kind)?.takeIf { it.workId == work && it.state in listOf(DownloadStatus.Queued, DownloadStatus.Downloading) }
                 ?.let { dao.save(it.copy(status = DownloadStatus.Failed.name, error = "background")) }
         }
     }
 
-    fun delete(id: String) {
+    fun delete(id: String, kind: DownloadKind = DownloadKind.Video) {
         scope.launch {
             controls.withLock {
-                dao.state(id, DownloadStatus.Deleting.name)
-                manager.cancelUniqueWork(workName(id))
-                removeFiles(id)
+                dao.state(id, DownloadStatus.Deleting.name, kind)
+                manager.cancelUniqueWork(workName(id, kind))
+                removeFiles(id, kind)
             }
         }
     }
 
-    private suspend fun removeFiles(id: String) = fileLocks.getOrPut(id) { Mutex() }.withLock {
-        if (folder(id).deleteRecursively()) {
+    private suspend fun removeFiles(id: String, kind: DownloadKind) = fileLocks.getOrPut(kind.storageId(id)) { Mutex() }.withLock {
+        if (folder(id, kind).deleteRecursively()) {
             // The file lock also orders this after the worker's completion callback.
-            context.getSystemService(android.app.NotificationManager::class.java).cancel("complete-$id".hashCode())
-            dao.delete(id)
+            context.getSystemService(android.app.NotificationManager::class.java).cancel("complete-${kind.storageId(id)}".hashCode())
+            dao.delete(id, kind)
         }
-        else dao.get(id)?.let { dao.save(it.copy(status = DownloadStatus.Failed.name, error = "storage")) }
+        else dao.get(id, kind)?.let { dao.save(it.copy(status = DownloadStatus.Failed.name, error = "storage")) }
     }
 
-    suspend fun available(id: String): Download? = withContext(Dispatchers.IO) {
-        val item = dao.get(id)?.takeIf { it.state == DownloadStatus.Complete } ?: return@withContext null
-        if (File(folder(id), "video.media").isFile && (!item.separateAudio || File(folder(id), "audio.media").isFile)) item
-        else { dao.save(item.copy(status = DownloadStatus.Failed.name, error = "storage")); null }
+    suspend fun available(id: String, kind: DownloadKind = DownloadKind.Video): Download? = withContext(Dispatchers.IO) {
+        val item = dao.get(id, kind)?.takeIf { it.state == DownloadStatus.Complete } ?: return@withContext null
+        val dir = folder(id, kind)
+        val audio = File(dir, "audio.media").isFile
+        val present = if (kind == DownloadKind.Audio) audio else File(dir, "video.media").isFile && (!item.separateAudio || audio)
+        if (present) item else {
+            database.withTransaction {
+                if (dao.get(id, kind) == item) dao.save(item.copy(status = DownloadStatus.Failed.name, error = "storage"))
+            }
+            null
+        }
     }
 
-    fun thumbnail(item: Download): String? = File(folder(item.videoId), "thumbnail.jpg").takeIf { it.isFile }?.toURI()?.toString() ?: item.thumbnailUrl
+    fun thumbnail(item: Download): String? = File(folder(item.videoId, item.kind), "thumbnail.jpg").takeIf { it.isFile }?.toURI()?.toString() ?: item.thumbnailUrl
+
+    suspend fun localAudio(id: String): Pair<Download, String>? = available(id, DownloadKind.Audio)?.let { item ->
+        item to File(folder(id, DownloadKind.Audio), "audio.media").toURI().toString()
+    }
 
     suspend fun localVideo(id: String): ResolvedVideo? = available(id)?.let { item ->
         val dir = folder(id)
@@ -156,7 +171,7 @@ class Downloads @Inject constructor(
             item.channelId?.let { ChannelSummary(it, item.channelName.orEmpty()) })
     }
 
-    suspend fun related(except: String) = withContext(Dispatchers.IO) { dao.all().filter { it.videoId != except && it.state == DownloadStatus.Complete }.map { it.summary(thumbnail(it)) } }
+    suspend fun related(except: String) = withContext(Dispatchers.IO) { dao.all().filter { it.kind == DownloadKind.Video && it.videoId != except && it.state == DownloadStatus.Complete }.map { it.summary(thumbnail(it)) } }
 
     suspend fun details(id: String) = withContext(Dispatchers.IO) {
         available(id)?.let { item ->
@@ -169,27 +184,30 @@ class Downloads @Inject constructor(
     }
 
     /** Runs under WorkManager cancellation; database generations prevent stale workers overwriting retries. */
-    suspend fun transfer(id: String, workId: String, progress: (Download) -> Unit) = withContext(Dispatchers.IO) {
+    suspend fun transfer(id: String, workId: String, kind: DownloadKind, progress: (Download) -> Unit) = withContext(Dispatchers.IO) {
         transfers.withPermit {
-        fileLocks.getOrPut(id) { Mutex() }.withLock {
-            val original = dao.get(id)?.takeIf { it.workId == workId && it.state in listOf(DownloadStatus.Queued, DownloadStatus.Downloading) } ?: return@withLock
+        fileLocks.getOrPut(kind.storageId(id)) { Mutex() }.withLock {
+            val original = dao.get(id, kind)?.takeIf { it.workId == workId && it.state in listOf(DownloadStatus.Queued, DownloadStatus.Downloading) } ?: return@withLock
             var item = original.copy(status = DownloadStatus.Downloading.name, error = null)
             updateCurrent(item)
             progress(item)
             try {
                 resolver.invalidate(id)
-                val video = resolver.resolve(id)
+                val audioOnly = kind == DownloadKind.Audio
+                val video = if (audioOnly) resolver.resolveAudio(id) else resolver.resolve(id)
                 if (video.isLive) throw UnsupportedDownload()
-                val tracks = StreamChoice.videoTracks(video.videoCandidates)
+                val tracks = if (audioOnly) emptyList() else StreamChoice.videoTracks(video.videoCandidates)
                 val track = tracks.getOrNull(StreamChoice.pick(tracks, item.requestedHeight))?.takeIf { video.audioUrl != null }
-                val videoUrl = track?.url ?: video.muxedUrl ?: throw UnsupportedDownload()
-                val audioUrl = if (track != null) video.audioUrl else null
-                val dir = folder(id).apply { mkdirs() }
-                val vf = DownloadFiles.fingerprint(videoUrl)
+                val videoUrl = if (audioOnly) null else track?.url ?: video.muxedUrl ?: throw UnsupportedDownload()
+                val economy = audioOnly && settings.preferences.first().musicDownloads == app.freshtuber.data.settings.MusicQuality.Economy
+                val audioUrl = if (audioOnly) (if (economy) video.economyAudioUrl ?: video.audioUrl else video.audioUrl)
+                    else if (track != null) video.audioUrl else null
+                val dir = folder(id, kind).apply { mkdirs() }
+                val vf = videoUrl?.let(DownloadFiles::fingerprint)
                 val af = audioUrl?.let(DownloadFiles::fingerprint)
-                if (!DownloadFiles.canResume(item.videoFingerprint, vf)) { File(dir, "video.part").delete(); File(dir, "video.media").delete() }
+                if (!DownloadFiles.canResume(item.videoFingerprint, vf.orEmpty())) { File(dir, "video.part").delete(); File(dir, "video.media").delete() }
                 if (!DownloadFiles.canResume(item.audioFingerprint, af.orEmpty())) { File(dir, "audio.part").delete(); File(dir, "audio.media").delete() }
-                val total = (ChunkPlan.streamLength(videoUrl) ?: 0L) + (audioUrl?.let(ChunkPlan::streamLength) ?: 0L)
+                val total = (videoUrl?.let(ChunkPlan::streamLength) ?: 0L) + (audioUrl?.let(ChunkPlan::streamLength) ?: 0L)
                 val existing = listOf("video.part", "audio.part", "video.media", "audio.media").sumOf { File(dir, it).length() }
                 if (dir.usableSpace < (total - existing).coerceAtLeast(0) + 16L * 1024 * 1024) throw StorageFull()
                 item = item.copy(title = video.title, channelName = video.channelName, channelId = video.channel?.id ?: item.channelId,
@@ -202,13 +220,13 @@ class Downloads @Inject constructor(
                     val done = listOf("video.part", "audio.part", "video.media", "audio.media").sumOf { File(dir, it).length() }
                     if (System.currentTimeMillis() - lastUpdate > 750) {
                         lastUpdate = System.currentTimeMillis()
-                        dao.progress(id, workId, done, total)
+                        dao.progress(id, workId, done, total, kind)
                         progress(item.copy(bytesDone = done))
                     }
                 }
-                copyStream(videoUrl, File(dir, "video.part"), File(dir, "video.media"), ::report)
+                if (videoUrl != null) copyStream(videoUrl, File(dir, "video.part"), File(dir, "video.media"), ::report)
                 if (audioUrl != null) copyStream(audioUrl, File(dir, "audio.part"), File(dir, "audio.media"), ::report)
-                val details = try { withTimeoutOrNull(6_000) { videos.details(id) } }
+                val details = if (audioOnly) null else try { withTimeoutOrNull(6_000) { videos.details(id) } }
                     catch (e: CancellationException) { throw e } catch (_: Exception) { null }
                 if (details != null) {
                     item = item.copy(channelId = details.channel?.id ?: item.channelId, channelName = details.channel?.name ?: item.channelName)
@@ -221,7 +239,8 @@ class Downloads @Inject constructor(
                 // Artwork and a preferred-language caption are optional; media stays usable without them.
                 video.thumbnailUrl?.let { runCatching { copySmall(it, File(dir, "thumbnail.jpg"), 5L * 1024 * 1024) }.onFailure { if (it is CancellationException) throw it } }
                 val language = context.resources.configuration.locales[0].language
-                val subtitle = video.subtitles.firstOrNull { it.language.substringBefore('-') == language } ?: video.subtitles.firstOrNull { it.language.startsWith("en") }
+                val subtitle = if (audioOnly) null else video.subtitles.firstOrNull { it.language.substringBefore('-') == language }
+                    ?: video.subtitles.firstOrNull { it.language.startsWith("en") }
                 var caption = false
                 if (subtitle != null) try { copySmall(subtitle.url, File(dir, "subtitle"), 8L * 1024 * 1024); caption = true } catch (e: CancellationException) { throw e } catch (_: Exception) { }
                 val done = File(dir, "video.media").length() + File(dir, "audio.media").length()
@@ -230,12 +249,12 @@ class Downloads @Inject constructor(
                 updateCurrent(item)
                 progress(item)
             } catch (e: CancellationException) {
-                withContext(NonCancellable) { updateCurrent(item.copy(status = DownloadStatus.Queued.name, bytesDone = mediaBytes(folder(id)))) }
+                withContext(NonCancellable) { updateCurrent(item.copy(status = DownloadStatus.Queued.name, bytesDone = mediaBytes(folder(id, kind)))) }
                 throw e
             } catch (e: Exception) {
                 if (app.freshtuber.BuildConfig.DEBUG) android.util.Log.w("Downloads", "Transfer failed: ${e.javaClass.simpleName}; cause=${e.cause?.javaClass?.simpleName}")
-                val error = when (e) { is UnsupportedDownload, is org.schabi.newpipe.extractor.exceptions.ContentNotAvailableException -> "unsupported"; is StorageFull -> "space"; is java.io.FileNotFoundException -> "storage"; else -> "network" }
-                updateCurrent(item.copy(status = DownloadStatus.Failed.name, error = error, bytesDone = mediaBytes(folder(id))))
+                val error = when (e) { is UnsupportedDownload, is app.freshtuber.player.NothingPlayableException, is org.schabi.newpipe.extractor.exceptions.ContentNotAvailableException -> "unsupported"; is StorageFull -> "space"; is java.io.FileNotFoundException -> "storage"; else -> "network" }
+                updateCurrent(item.copy(status = DownloadStatus.Failed.name, error = error, bytesDone = mediaBytes(folder(id, kind))))
                 throw e
             }
         }
@@ -243,7 +262,7 @@ class Downloads @Inject constructor(
     }
 
     private suspend fun updateCurrent(item: Download) = database.withTransaction {
-        val current = dao.get(item.videoId)
+        val current = dao.get(item.videoId, item.kind)
         if (current?.workId == item.workId && current.state in listOf(DownloadStatus.Queued, DownloadStatus.Downloading)) dao.save(item)
     }
 

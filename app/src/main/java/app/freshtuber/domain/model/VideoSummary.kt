@@ -22,8 +22,10 @@ data class VideoSummary(
     /** How much of it the signed-in user watched, 0..100. */
     val watchedPercent: Int? = null,
     val notInterested: app.freshtuber.innertube.InnerTubeCommand? = null,
+    val musicMix: PlaylistSummary? = null,
 )
 
+@kotlinx.serialization.Serializable
 data class PlaylistSummary(
     val id: String,
     val title: String,
@@ -32,6 +34,7 @@ data class PlaylistSummary(
     val videoCountText: String? = null,
     val channelName: String? = null,
     val seedVideoId: String? = null,
+    val mixParams: String? = null,
 )
 
 data class ChannelSummary(

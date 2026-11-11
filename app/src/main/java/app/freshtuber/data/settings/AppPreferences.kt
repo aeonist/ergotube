@@ -18,7 +18,20 @@ enum class AppFeature(val key: String, val default: Boolean) {
     LiquidPowerSaver("liquid_power_saver", true),
     /** Energy saving: one flat color averaged from the video instead of the liquid light. */
     LiquidFlat("liquid_flat", false),
+    /** «Музыка» in the main dock instead of Shorts (Shorts move to «Моё»). */
+    MusicTab("music_tab", false),
+    /** Song lyrics from LRCLIB; only artist, title, album and length are sent. */
+    MusicLyrics("music_lyrics", true),
+    /** Download «Микс дня» on Wi-Fi, within the music storage limit. */
+    MusicAutoDaily("music_auto_daily", false),
+    /** Download «Любимое» on Wi-Fi; these are never removed to make room. */
+    MusicAutoFavorites("music_auto_favorites", false),
+    /** Continue music when headphones connect again after they paused it. */
+    MusicResumeOnConnect("music_resume_connect", false),
 }
+
+/** Audio quality for music: the best stream, or a small one (about 50 kbps) that saves data. */
+enum class MusicQuality { Best, Economy }
 
 /** How the background light moves. */
 enum class BackgroundMotion { Always, OnTransition, Off }
@@ -32,7 +45,10 @@ enum class UiStyle { Ergonomic, Classic }
 data class AppPreferences(val features: Map<AppFeature, Boolean> = AppFeature.entries.associateWith { it.default },
     val theme: ThemeMode = ThemeMode.System, val quality: Int = 1080, val downloadQuality: Int = 720,
     val motion: BackgroundMotion = BackgroundMotion.Always, val style: UiStyle = UiStyle.Ergonomic,
-    val wifiQuality: Int = quality, val mobileQuality: Int = quality, val dockWidth: Int = 100) {
+    val wifiQuality: Int = quality, val mobileQuality: Int = quality, val dockWidth: Int = 100,
+    val musicWifi: MusicQuality = MusicQuality.Best, val musicMobile: MusicQuality = MusicQuality.Economy,
+    val musicDownloads: MusicQuality = MusicQuality.Best, val musicLimitGb: Int = 2) {
+    fun musicQuality(wifi: Boolean): MusicQuality = if (wifi) musicWifi else musicMobile
     /** Zero means unrestricted adaptive quality; a resolution caps adaptive playback. */
     fun playbackQuality(wifi: Boolean): Int = if (wifi) wifiQuality else mobileQuality
     fun enabled(feature: AppFeature) = features[feature] ?: feature.default

@@ -30,7 +30,11 @@ class AppSettings @Inject constructor(
             dockWidth = (data[DOCK_WIDTH] ?: 100).coerceIn(0, 100),
             downloadQuality = data[DOWNLOAD_QUALITY]?.coerceIn(144, 4320) ?: 720,
             motion = runCatching { BackgroundMotion.valueOf(data[MOTION] ?: "Always") }.getOrDefault(BackgroundMotion.Always),
-            style = runCatching { UiStyle.valueOf(data[STYLE] ?: "Ergonomic") }.getOrDefault(UiStyle.Ergonomic))
+            style = runCatching { UiStyle.valueOf(data[STYLE] ?: "Ergonomic") }.getOrDefault(UiStyle.Ergonomic),
+            musicWifi = musicQuality(data[MUSIC_WIFI], MusicQuality.Best),
+            musicMobile = musicQuality(data[MUSIC_MOBILE], MusicQuality.Economy),
+            musicDownloads = musicQuality(data[MUSIC_DOWNLOADS], MusicQuality.Best),
+            musicLimitGb = (data[MUSIC_LIMIT] ?: 2).coerceIn(1, 64))
     }
     val backgroundPlayback: Flow<Boolean> = context.settingsStore.data.map { it[booleanPreferencesKey(AppFeature.BackgroundPlayback.key)] ?: true }
     val shortsEnabled: Flow<Boolean> = context.settingsStore.data.map { it[booleanPreferencesKey(AppFeature.ShortsTab.key)] ?: true }
@@ -45,6 +49,12 @@ class AppSettings @Inject constructor(
     suspend fun setPlaybackQuality(wifi: Boolean, height: Int) {
         context.settingsStore.edit { it[if (wifi) WIFI_QUALITY else MOBILE_QUALITY] = validQuality(height) }
     }
+    /** [kind]: 0 Wi-Fi, 1 mobile data, 2 downloads. */
+    suspend fun setMusicQuality(kind: Int, quality: MusicQuality) {
+        context.settingsStore.edit { it[when (kind) { 0 -> MUSIC_WIFI; 1 -> MUSIC_MOBILE; else -> MUSIC_DOWNLOADS }] = quality.name }
+    }
+    suspend fun setMusicLimit(gb: Int) { context.settingsStore.edit { it[MUSIC_LIMIT] = gb.coerceIn(1, 64) } }
+    private fun musicQuality(value: String?, default: MusicQuality) = runCatching { MusicQuality.valueOf(value ?: default.name) }.getOrDefault(default)
     suspend fun resetHiddenVideos() { context.settingsStore.edit { it.remove(HIDDEN_VIDEOS) } }
 
     val notificationsEnabled: Flow<Boolean> = context.settingsStore.data.map { it[NOTIFICATIONS] ?: true }
@@ -108,6 +118,10 @@ class AppSettings @Inject constructor(
 
     private companion object {
         val WIFI_QUALITY = intPreferencesKey("wifi_quality")
+        val MUSIC_WIFI = stringPreferencesKey("music_quality_wifi")
+        val MUSIC_MOBILE = stringPreferencesKey("music_quality_mobile")
+        val MUSIC_DOWNLOADS = stringPreferencesKey("music_quality_downloads")
+        val MUSIC_LIMIT = intPreferencesKey("music_limit_gb")
         val MOBILE_QUALITY = intPreferencesKey("mobile_quality")
         val DOCK_WIDTH = intPreferencesKey("dock_width")
         val THEME = stringPreferencesKey("theme_mode")

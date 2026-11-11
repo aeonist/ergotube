@@ -5,15 +5,25 @@ import kotlinx.coroutines.flow.Flow
 import app.freshtuber.domain.model.*
 import kotlinx.serialization.Serializable
 
+enum class DownloadKind {
+    Video, Audio;
+
+    fun storageId(videoId: String): String = if (this == Video) videoId else "$videoId-audio"
+
+    companion object {
+        fun fromInput(input: String?): DownloadKind = entries.firstOrNull { it.name == input } ?: Video
+    }
+}
+
 enum class DownloadStatus { Queued, Downloading, Paused, Complete, Failed, Deleting }
 
 @Serializable
 data class OfflineMetadata(val description: String?, val views: String?, val date: String?, val descriptionLinks: List<TextLink> = emptyList())
 
 /** Only local paths and non-secret stream fingerprints are persisted, never signed URLs. */
-@Entity(tableName = "downloads")
+@Entity(tableName = "downloads", primaryKeys = ["videoId", "kind"])
 data class Download(
-    @PrimaryKey val videoId: String,
+    val videoId: String,
     val title: String,
     val channelName: String? = null,
     val channelId: String? = null,
@@ -36,6 +46,7 @@ data class Download(
     val subtitleLabel: String? = null,
     val error: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
+    val kind: DownloadKind = DownloadKind.Video,
 ) {
     val state: DownloadStatus get() = DownloadStatus.valueOf(status)
     fun summary(thumbnail: String? = thumbnailUrl) = VideoSummary(videoId, title, channelName = channelName,
@@ -47,14 +58,14 @@ data class Download(
 
 @Dao
 interface DownloadDao {
-    @Query("SELECT * FROM downloads ORDER BY createdAt DESC") fun observe(): Flow<List<Download>>
+    @Query("SELECT * FROM downloads WHERE kind = :kind ORDER BY createdAt DESC") fun observe(kind: DownloadKind): Flow<List<Download>>
     @Query("SELECT * FROM downloads ORDER BY createdAt DESC") suspend fun all(): List<Download>
-    @Query("SELECT * FROM downloads WHERE videoId = :id") suspend fun get(id: String): Download?
+    @Query("SELECT * FROM downloads WHERE videoId = :id AND kind = :kind") suspend fun get(id: String, kind: DownloadKind = DownloadKind.Video): Download?
     @Upsert suspend fun save(download: Download)
-    @Query("DELETE FROM downloads WHERE videoId = :id") suspend fun delete(id: String)
-    @Query("UPDATE downloads SET status = :state WHERE videoId = :id") suspend fun state(id: String, state: String)
-    @Query("UPDATE downloads SET bytesDone = :done, bytesTotal = :total WHERE videoId = :id AND workId = :work AND status = 'Downloading'")
-    suspend fun progress(id: String, work: String, done: Long, total: Long)
+    @Query("DELETE FROM downloads WHERE videoId = :id AND kind = :kind") suspend fun delete(id: String, kind: DownloadKind = DownloadKind.Video)
+    @Query("UPDATE downloads SET status = :state WHERE videoId = :id AND kind = :kind") suspend fun state(id: String, state: String, kind: DownloadKind = DownloadKind.Video)
+    @Query("UPDATE downloads SET bytesDone = :done, bytesTotal = :total WHERE videoId = :id AND kind = :kind AND workId = :work AND status = 'Downloading'")
+    suspend fun progress(id: String, work: String, done: Long, total: Long, kind: DownloadKind = DownloadKind.Video)
 }
 
 /** A retry may resume only the exact same representation, not another codec at the same height. */

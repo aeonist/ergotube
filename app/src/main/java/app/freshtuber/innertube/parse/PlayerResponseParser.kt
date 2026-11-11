@@ -73,6 +73,8 @@ data class PlayerResponse(
  * YoutubeStreamExtractor and yt-dlp.
  */
 object PlayerResponseParser {
+    fun category(root: JsonObject): String? =
+        root.path("microformat", "playerMicroformatRenderer").str("category")
 
     fun parse(root: JsonObject): PlayerResponse {
         val details = root.obj("videoDetails")

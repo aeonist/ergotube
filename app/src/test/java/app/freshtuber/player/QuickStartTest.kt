@@ -121,4 +121,14 @@ class QuickStartTest {
         assertEquals("audio/webm", audio.getAttribute("mimeType"))
         assertFalse(YoutubeDash.usable(tracks, video.audio.copy(ranges = null)))
     }
+
+    @Test fun audioOnlyStartsWithoutAnyDecodableVideoAndRejectsCombinedFallback() {
+        val id = "dQw4w9WgXcQ"
+        val base = PlayerResponseParser.parse(response())
+        val audio = QuickStart.resolved(base, id, "test", audioOnly = true) { false }
+        assertNotNull(audio?.audioUrl)
+        assertTrue(audio!!.videoCandidates.isEmpty())
+        val combined = base.copy(adaptive = base.adaptive.filterNot { it.isAudio })
+        assertNull(QuickStart.resolved(combined, id, "test", audioOnly = true) { true })
+    }
 }

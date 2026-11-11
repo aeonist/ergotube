@@ -7,6 +7,7 @@ import org.schabi.newpipe.extractor.ListExtractor
 import org.schabi.newpipe.extractor.Page
 import org.schabi.newpipe.extractor.ServiceList
 import org.schabi.newpipe.extractor.search.SearchExtractor
+import org.schabi.newpipe.extractor.services.youtube.linkHandler.YoutubeSearchQueryHandlerFactory.MUSIC_SONGS
 import org.schabi.newpipe.extractor.stream.StreamInfoItem
 import org.schabi.newpipe.extractor.stream.StreamType
 import java.util.UUID
@@ -22,21 +23,32 @@ import javax.inject.Singleton
 class ExtractorSearchSource @Inject constructor() {
 
     /** NewPipe pages are objects; screens get an opaque token for them. */
-    private val pages = ConcurrentHashMap<String, Pair<String, Page>>()
+    private data class SearchRequest(val query: String, val songs: Boolean = false) {
+        fun extractor(): SearchExtractor = if (songs) {
+            ServiceList.YouTube.getSearchExtractor(query, listOf(MUSIC_SONGS), "")
+        } else ServiceList.YouTube.getSearchExtractor(query)
+    }
 
-    fun search(query: String): FeedPage {
-        val extractor = ServiceList.YouTube.getSearchExtractor(query)
+    private val pages = ConcurrentHashMap<String, Pair<SearchRequest, Page>>()
+
+    fun search(query: String): FeedPage = search(SearchRequest(query))
+    fun searchSongs(query: String): FeedPage = search(SearchRequest(query, songs = true))
+
+    private fun search(request: SearchRequest): FeedPage {
+        val extractor = request.extractor()
         try {
             extractor.fetchPage()
         } catch (_: SearchExtractor.NothingFoundException) {
             return FeedPage(emptyList())
         }
-        return extractor.initialPage.toFeedPage(query)
+        return extractor.initialPage.toFeedPage(request)
     }
 
     fun searchMore(token: String): FeedPage {
-        val (query, page) = pages.remove(token) ?: return FeedPage(emptyList())
-        return ServiceList.YouTube.getSearchExtractor(query).getPage(page).toFeedPage(query)
+        val (request, page) = pages[token] ?: return FeedPage(emptyList())
+        val result = request.extractor().getPage(page).toFeedPage(request)
+        pages.remove(token)
+        return result
     }
 
     /** One of [Kiosk]: a single page of trending videos. */
@@ -46,9 +58,9 @@ class ExtractorSearchSource @Inject constructor() {
         return FeedPage(extractor.initialPage.items.videoItems())
     }
 
-    private fun ListExtractor.InfoItemsPage<*>.toFeedPage(query: String): FeedPage {
+    private fun ListExtractor.InfoItemsPage<*>.toFeedPage(request: SearchRequest): FeedPage {
         val token = nextPage?.let { page ->
-            UUID.randomUUID().toString().also { pages[it] = query to page }
+            UUID.randomUUID().toString().also { pages[it] = request to page }
         }
         return FeedPage(items.videoItems(), continuation = token)
     }

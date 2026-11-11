@@ -90,6 +90,8 @@ data class ResolvedVideo(
     val durationMs: Long = durationSeconds * 1000,
     /** False for the quick start: chapters and the channel picture come later. */
     val complete: Boolean = true,
+    /** A small original-language audio stream (about 50 kbps) for music on mobile data. */
+    val economyAudioUrl: String? = null,
 )
 
 class NothingPlayableException : Exception("No playable stream")
@@ -116,11 +118,18 @@ class StreamResolver @Inject constructor(
         }
         quick ?: full(id)
     }
+    private val music = StreamCache(io, capacity = 6) { id: String ->
+        val quick = try { quick(id, audioOnly = true) }
+        catch (e: kotlinx.coroutines.CancellationException) { throw e }
+        catch (_: Exception) { null }
+        quick ?: full(id, audioOnly = true)
+    }
+
     /** The complete extraction, for chapters and the channel picture once playback runs. */
     private val complete = StreamCache(io, capacity = 2) { id: String -> full(id) }
 
-    private fun full(id: String): ResolvedVideo =
-        StreamInfo.getInfo(ServiceList.YouTube, "https://www.youtube.com/watch?v=$id").toResolved(id)
+    private fun full(id: String, audioOnly: Boolean = false): ResolvedVideo =
+        StreamInfo.getInfo(ServiceList.YouTube, "https://www.youtube.com/watch?v=$id").toResolved(id, audioOnly)
 
     private val visionOs = VisionOsPlayer()
 
@@ -130,14 +139,14 @@ class StreamResolver @Inject constructor(
     }
 
     /** A single player request (visitor id cached); null when the full extraction must decide. */
-    private fun quick(id: String): ResolvedVideo? {
+    private fun quick(id: String, audioOnly: Boolean = false): ResolvedVideo? {
         val cpn = YoutubeParsingHelper.generateContentPlaybackNonce()
         val raw = visionOs.player(id, cpn)
         val json = kotlinx.serialization.json.Json.parseToJsonElement(com.grack.nanojson.JsonWriter.string(raw)) as kotlinx.serialization.json.JsonObject
         val parsed = PlayerResponseParser.parse(json)
         // A bot check or odd answer may come from a stale visitor id: get a new one next time.
         if (parsed.status != "OK") visionOs.forget()
-        return QuickStart.resolved(parsed, id, cpn, ::canDecode).also {
+        return QuickStart.resolved(parsed, id, cpn, audioOnly, ::canDecode).also {
             if (it == null && app.freshtuber.BuildConfig.DEBUG) android.util.Log.d("StreamResolver",
                 "quick start declined: status=${parsed.status} live=${parsed.isLive} formats=${parsed.adaptive.size} " +
                     "ciphered=${parsed.adaptive.count { f -> f.ciphered }} throttled=${parsed.adaptive.count { f -> f.url?.contains("&n=") == true }}")
@@ -163,16 +172,25 @@ class StreamResolver @Inject constructor(
         }
     }
 
-    fun invalidate(videoId: String) { anonymous.invalidate(videoId); complete.invalidate(videoId) }
+    /** Music always resolves anonymously and requires a standalone audio track. */
+    suspend fun resolveAudio(videoId: String): ResolvedVideo = music.get(videoId)
 
-    private fun StreamInfo.toResolved(videoId: String): ResolvedVideo {
+    fun invalidate(videoId: String) {
+        anonymous.invalidate(videoId)
+        complete.invalidate(videoId)
+        music.invalidate(videoId)
+    }
+
+    private fun StreamInfo.toResolved(videoId: String, audioOnly: Boolean = false): ResolvedVideo {
         val live = streamType == StreamType.LIVE_STREAM || streamType == StreamType.AUDIO_LIVE_STREAM
-        val video = StreamChoice.candidates(videoOnlyStreams, ::canDecode)
+        val video = if (audioOnly) emptyList() else StreamChoice.candidates(videoOnlyStreams, ::canDecode)
         val audio = StreamChoice.bestAudio(audioStreams)
+        val economy = if (audioOnly) StreamChoice.economyAudio(audioStreams) else null
         val streamMs = (videoOnlyStreams + audioStreams).mapNotNull { it.itagItem?.approxDurationMs?.takeIf { ms -> ms > 0 } }.maxOrNull()
         val muxed = videoStreams.filter { it.isUrl && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP }
             .maxByOrNull { it.height }
-        if (!live && (video.isEmpty() || audio == null) && muxed == null) throw NothingPlayableException()
+        if (audioOnly && (live || audio == null)) throw NothingPlayableException()
+        if (!audioOnly && !live && (video.isEmpty() || audio == null) && muxed == null) throw NothingPlayableException()
         if (live && hlsUrl.isNullOrEmpty()) throw NothingPlayableException()
         val ownerId = uploaderUrl?.substringAfter("/channel/", "")?.substringBefore('?')?.substringBefore('/')
             ?.takeIf { it.matches(Regex("UC[A-Za-z0-9_-]{22}")) }
@@ -196,6 +214,7 @@ class StreamResolver @Inject constructor(
                     it.itagItem?.sampleRate ?: 0, it.itagItem?.audioChannels ?: 0)
             },
             durationMs = streamMs ?: duration * 1000,
+            economyAudioUrl = economy?.content,
             muxedUrl = muxed?.content,
             subtitles = subtitles.filter { it.isUrl }.mapNotNull { sub ->
                 val mime = when (sub.format) {
@@ -287,7 +306,10 @@ object Decoders {
 
 /** Turns the quick `player` answer into streams, or null when it is not plainly playable. */
 object QuickStart {
-    fun resolved(response: PlayerResponse, videoId: String, cpn: String, canDecode: (String) -> Boolean): ResolvedVideo? {
+    fun resolved(
+        response: PlayerResponse, videoId: String, cpn: String,
+        audioOnly: Boolean = false, canDecode: (String) -> Boolean,
+    ): ResolvedVideo? {
         if (response.status != "OK" || response.isLive || response.isUpcoming) return null
         if (response.videoId != null && response.videoId != videoId) return null
         // A URL that is ciphered or carries the throttling parameter needs the full extraction.
@@ -297,7 +319,7 @@ object QuickStart {
         fun url(format: PlayerFormat) = format.url + "&cpn=" + cpn
         fun ranges(format: PlayerFormat) = format.initRange?.let { init -> format.indexRange?.let { index ->
             SegmentRanges.of(init.start, init.end, index.start, index.end) } }
-        val video = response.adaptive.filter { it.isVideo && it.height > 0 && playable(it) }
+        val video = response.adaptive.filter { !audioOnly && it.isVideo && it.height > 0 && playable(it) }
             .mapNotNull { format ->
                 val family = StreamChoice.codecMime(format.codecs)
                 if (family != null && !canDecode(family)) return@mapNotNull null
@@ -309,8 +331,11 @@ object QuickStart {
         val audioFormat = response.adaptive.filter { it.isAudio && playable(it) }
             .sortedWith(compareBy<PlayerFormat> { if (it.audioIsDefault == false) 1 else 0 }.thenByDescending { it.bitrate })
             .firstOrNull()
+        val economyFormat = if (!audioOnly) null else response.adaptive.filter { it.isAudio && playable(it) && it.audioIsDefault != false && it.bitrate >= 40_000 }
+            .minByOrNull { it.bitrate }
         val muxed = response.muxed.filter { playable(it) && it.height > 0 }.maxByOrNull { it.height }
-        if ((video.isEmpty() || audioFormat == null) && muxed == null) return null
+        if (audioOnly && audioFormat == null) return null
+        if (!audioOnly && (video.isEmpty() || audioFormat == null) && muxed == null) return null
         val streamMs = (response.adaptive).mapNotNull { it.approxDurationMs?.takeIf { ms -> ms > 0 } }.maxOrNull()
         return ResolvedVideo(
             videoId = videoId,
@@ -339,6 +364,7 @@ object QuickStart {
             },
             durationMs = streamMs ?: response.lengthSeconds * 1000,
             complete = false,
+            economyAudioUrl = economyFormat?.let(::url),
         )
     }
 }
@@ -399,6 +425,14 @@ object StreamChoice {
                 }.thenByDescending { it.averageBitrate },
             )
             .firstOrNull()
+
+    /** The smallest original-language audio stream that still sounds fine (about 50 kbps Opus). */
+    fun economyAudio(streams: List<AudioStream>): AudioStream? =
+        streams
+            .filter { it.isUrl && it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP }
+            .filter { it.audioTrackType == null || it.audioTrackType == AudioTrackType.ORIGINAL }
+            .filter { it.averageBitrate <= 0 || it.averageBitrate >= 40 }
+            .minByOrNull { if (it.averageBitrate > 0) it.averageBitrate else Int.MAX_VALUE }
 
     const val VP9 = "video/x-vnd.on2.vp9"
 

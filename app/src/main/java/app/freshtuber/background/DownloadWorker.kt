@@ -14,8 +14,10 @@ import kotlinx.coroutines.*
 
 class DownloadWorker(context: Context, parameters: WorkerParameters) : CoroutineWorker(context, parameters) {
     private val videoId get() = inputData.getString("videoId").orEmpty()
+    private val kind get() = DownloadKind.fromInput(inputData.getString("kind"))
+    private val storageId get() = kind.storageId(videoId)
     private val dependencies get() = EntryPointAccessors.fromApplication(applicationContext, BackgroundDependencies::class.java)
-    private val notificationId get() = "progress-$videoId".hashCode()
+    private val notificationId get() = "progress-$storageId".hashCode()
 
     override suspend fun getForegroundInfo(): ForegroundInfo = foreground(null)
 
@@ -23,14 +25,14 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
         if (!DownloadFiles.validId(videoId)) return Result.failure()
         return try {
             setForeground(foreground(null))
-            dependencies.downloads().transfer(videoId, id.toString()) { item ->
+            dependencies.downloads().transfer(videoId, id.toString(), kind) { item ->
                 if (item.state == DownloadStatus.Complete) completed(item)
                 else try { NotificationManagerCompat.from(applicationContext).notify(notificationId, notification(item)) } catch (_: SecurityException) { }
             }
             Result.success()
         } catch (e: CancellationException) { throw e }
         catch (_: Exception) {
-            dependencies.downloads().failedBeforeTransfer(videoId, id.toString())
+            dependencies.downloads().failedBeforeTransfer(videoId, id.toString(), kind)
             Result.failure()
         }
     }
@@ -38,14 +40,16 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
     private fun foreground(item: Download?) = if (android.os.Build.VERSION.SDK_INT >= 29) ForegroundInfo(notificationId, notification(item), ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
         else ForegroundInfo(notificationId, notification(item))
 
-    private fun openIntent(): PendingIntent = PendingIntent.getActivity(applicationContext, videoId.hashCode(),
-        Intent(applicationContext, MainActivity::class.java).putExtra("videoId", videoId).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+    private fun openIntent(): PendingIntent = PendingIntent.getActivity(applicationContext, storageId.hashCode(),
+        Intent(applicationContext, MainActivity::class.java).apply {
+            if (kind == DownloadKind.Audio) putExtra("openMusic", true) else putExtra("videoId", videoId)
+        }.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
         PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
 
     private fun notification(item: Download?): Notification {
         dependencies.notifications().createChannels()
-        val pause = PendingIntent.getBroadcast(applicationContext, videoId.hashCode(),
-            Intent(applicationContext, DownloadPauseReceiver::class.java).putExtra("videoId", videoId),
+        val pause = PendingIntent.getBroadcast(applicationContext, storageId.hashCode(),
+            Intent(applicationContext, DownloadPauseReceiver::class.java).putExtra("videoId", videoId).putExtra("kind", kind.name),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val percent = if (item != null && item.bytesTotal > 0) (item.bytesDone * 100 / item.bytesTotal).toInt().coerceIn(0, 100) else 0
         return NotificationCompat.Builder(applicationContext, AppNotifications.DOWNLOADS)
@@ -61,7 +65,7 @@ class DownloadWorker(context: Context, parameters: WorkerParameters) : Coroutine
         val notification = NotificationCompat.Builder(applicationContext, AppNotifications.DOWNLOADS)
             .setSmallIcon(R.drawable.ic_notification).setContentTitle(item.title)
             .setContentText(applicationContext.getString(R.string.download_complete)).setContentIntent(openIntent()).setAutoCancel(true).build()
-        try { NotificationManagerCompat.from(applicationContext).notify("complete-$videoId".hashCode(), notification) } catch (_: SecurityException) { }
+        try { NotificationManagerCompat.from(applicationContext).notify("complete-$storageId".hashCode(), notification) } catch (_: SecurityException) { }
     }
 }
 
@@ -71,7 +75,7 @@ class DownloadPauseReceiver : BroadcastReceiver() {
         val id = intent.getStringExtra("videoId")?.takeIf(DownloadFiles::validId) ?: return
         val pending = goAsync()
         CoroutineScope(SupervisorJob() + Dispatchers.IO).launch {
-            try { EntryPointAccessors.fromApplication(context.applicationContext, BackgroundDependencies::class.java).downloads().pause(id) }
+            try { EntryPointAccessors.fromApplication(context.applicationContext, BackgroundDependencies::class.java).downloads().pause(id, DownloadKind.fromInput(intent.getStringExtra("kind"))) }
             finally { pending.finish() }
         }
     }
