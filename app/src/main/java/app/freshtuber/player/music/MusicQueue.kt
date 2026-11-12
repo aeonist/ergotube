@@ -98,6 +98,18 @@ data class MusicQueue(
         return requeued.copy(current = previous, history = history.dropLast(1), positionMs = 0)
     }
 
+    /**
+     * Back to the [index]th played song (0 is the oldest in [history]). The songs after it,
+     * the current one included, return to the front of their layers in their order, so going
+     * back is the same as pressing Previous that many times.
+     */
+    fun backTo(index: Int): MusicQueue? {
+        if (index !in history.indices) return null
+        var state: MusicQueue = this
+        repeat(history.size - index) { state = state.back() ?: return null }
+        return state
+    }
+
     /** Shuffle reorders only the collection's songs still to come. */
     fun withShuffle(on: Boolean): MusicQueue {
         if (on == shuffle) return this

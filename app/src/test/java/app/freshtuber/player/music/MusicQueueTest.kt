@@ -67,6 +67,15 @@ class MusicQueueTest {
         assertEquals("yt:song2", back.collection.first().id)
     }
 
+    @Test fun backToAPlayedSongRequeuesTheLaterOnesInOrder() {
+        val q = MusicQueue.start(album, 3, null, null)
+        val back = q.backTo(1)!!
+        assertEquals("yt:song2", back.track?.id)
+        assertEquals(listOf("yt:song1"), back.history.map { it.track.id })
+        assertEquals(listOf("yt:song3", "yt:song4", "yt:song5", "yt:song6"), back.collection.map { it.id })
+        assertNull(q.backTo(5))
+    }
+
     @Test fun jumpSkipsTheSongsBeforeTheChosenOne() {
         val q = MusicQueue.start(album, 0, null, null).playNext(song(10))
         val jumped = q.jump(2)!!

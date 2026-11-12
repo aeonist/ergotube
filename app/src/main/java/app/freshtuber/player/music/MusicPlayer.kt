@@ -350,6 +350,13 @@ class MusicPlayer @Inject constructor(
         loadCurrent(0, play = true)
     }
 
+    /** Plays a song from the played part of the queue again (index into the history). */
+    fun replay(index: Int) {
+        val back = queue.backTo(index) ?: return
+        setQueue(back)
+        loadCurrent(0, play = true)
+    }
+
     /** Hold Next: scans forward while the finger stays down. */
     fun scan(on: Boolean) {
         scanJob?.cancel()

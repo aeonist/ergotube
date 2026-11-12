@@ -141,7 +141,11 @@ fun MusicPlayerScreen(onCollapse: () -> Unit, viewModel: MusicViewModel = hiltVi
                 style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, maxLines = 1)
             if (left) collapse()
         }
-        if (face == Face.Cover) {
+        // The big view and the lyrics/queue pages change through a deep blur, like every screen.
+        AnimatedContent(face, Modifier.weight(1f).fillMaxWidth(),
+            transitionSpec = { app.freshtuber.ui.motion.blurSwap(380, 260, 0.94f) }, label = "musicFace") { shownFace ->
+        Column(Modifier.fillMaxSize().then(blurVisible(36.dp, 380, 260))) {
+        if (shownFace == Face.Cover) {
             // The big view: the cover, the title with the heart, and the whole remote under it.
             // The cover with the title under it, together in the middle of the space above the remote.
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
@@ -167,13 +171,15 @@ fun MusicPlayerScreen(onCollapse: () -> Unit, viewModel: MusicViewModel = hiltVi
         } else {
             // Lyrics and the queue open as whole pages; the song stays only in the small line at
             // the bottom, and a tap on it brings the big view back.
-            if (face == Face.Queue) QueueFace(state, viewModel, left, Modifier.weight(1f).fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp))
+            if (shownFace == Face.Queue) QueueFace(state, viewModel, left, Modifier.weight(1f).fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp))
             else LyricsView(track, viewModel, Modifier.weight(1f).fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp))
             Surface(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp), shape = RoundedCornerShape(24.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.92f)) {
                 MusicLine(state, music.player, offline = !online, onOpen = { face = Face.Cover }, onToggle = music::toggle,
                     onNext = next, onPrevious = previous, onStop = music::stop)
             }
+        }
+        }
         }
     }
 }
@@ -216,10 +222,11 @@ private fun CoverArea(track: MusicTrack, showLyrics: Boolean, direction: Int, lo
         .graphicsLayer { translationX = shift * 0.5f; rotationZ = shift / 80f }) {
         // A new song or the lyrics come into focus out of a blur where the cover was; nothing slides.
         AnimatedContent(track to showLyrics, transitionSpec = {
-            if (initialState.first.id != targetState.first.id) app.freshtuber.ui.motion.blurSwap(340, 240, 0.9f)
+            if (initialState.first.id != targetState.first.id) app.freshtuber.ui.motion.blurSwap(420, 300, 0.88f)
             else app.freshtuber.ui.motion.blurSwap(260, 200, 0.97f)
         }, label = "cover") { (shown, lyrics) ->
-            Box(Modifier.fillMaxSize().then(blurVisible(24.dp, 340, 240))) {
+            // A deep blur: the old cover melts away while the new one comes into focus.
+            Box(Modifier.fillMaxSize().then(blurVisible(56.dp, 420, 300))) {
                 if (lyrics) LyricsView(shown, viewModel, Modifier.fillMaxSize())
                 else Cover(shown.artwork, Modifier.fillMaxSize(), corner = 26.dp)
             }
@@ -538,8 +545,27 @@ private fun QueueFace(state: MusicState, viewModel: MusicViewModel, left: Boolea
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         val upcoming = queue.upcoming
-        val list = rememberLazyListState()
+        // Opens on the current song, with the played ones below it out of sight.
+        val list = rememberLazyListState(initialFirstVisibleItemIndex = queue.history.size + if (queue.history.isNotEmpty()) 1 else 0)
+        // Played songs stay under the current one (scroll down to them); a tap plays one again.
+        val played = queue.history
+        // The current song's place: under it the played songs and their label.
+        val currentIndex = if (played.isEmpty()) 0 else played.size + 1
+        LaunchedEffect(current.id) { list.animateScrollToItem(currentIndex) }
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list, reverseLayout = true) {
+            if (played.isNotEmpty()) {
+                // Reversed list: the first items sit lowest, so the oldest song is at the very bottom.
+                played.forEachIndexed { index, entry ->
+                    item(key = "played:$index:${entry.track.id}") {
+                        QueueRow(entry.track, originOf(entry.track, downloaded), current = false, playing = false, layer = null,
+                            dimmed = true, onClick = { music.replay(index) })
+                    }
+                }
+                item(key = "label:played") {
+                    Text(stringResource(R.string.music_layer_played), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp))
+                }
+            }
             item(key = "current") {
                 QueueRow(current, originOf(current, downloaded), current = true, playing = state.playing, layer = null)
             }
