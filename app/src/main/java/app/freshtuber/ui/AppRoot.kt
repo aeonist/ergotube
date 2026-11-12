@@ -270,7 +270,8 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     // The «Музыка» ear stands on top of Home's bottom chip row (right above the dock when Home
     // has no chips). It folds away with the chips when scrolling hides them, so the feed reaches
     // the dock. The classic layout keeps it in the dock column.
-    val homeEar: (@Composable () -> Unit)? = if (!musicInApp || classic) null else ({
+    // While a song plays its line is already in the dock, so the ear is not needed.
+    val homeEar: (@Composable () -> Unit)? = if (!musicInApp || classic || musicState.active) null else ({
         app.freshtuber.ui.motion.BlurVisibility(earHide.visible && !mineOpen, collapse = true) {
             app.freshtuber.ui.music.MusicEar(true, leftHanded, onClick = { openSection(MusicListenRoute) })
         }
@@ -425,7 +426,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
                     onNext = music::next, onPrevious = music::previous, onStop = music::stop)
             })
             // The ear belongs to Home alone; outside the classic layout Home draws it above its chips.
-            val ear: (@Composable () -> Unit)? = if (!musicInApp || !classic || destination?.hasRoute<HomeRoute>() != true) null else ({
+            val ear: (@Composable () -> Unit)? = if (!musicInApp || !classic || musicState.active || destination?.hasRoute<HomeRoute>() != true) null else ({
                 app.freshtuber.ui.music.MusicEar(earHide.visible && !mineOpen, leftHanded, onClick = { openSection(MusicListenRoute) })
             })
             if (classic) Column {

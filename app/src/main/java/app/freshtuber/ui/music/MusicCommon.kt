@@ -119,6 +119,7 @@ fun TrackRow(
     onFlick: ((Flick) -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
     showMore: Boolean = true,
+    leading: (@Composable () -> Unit)? = null,
 ) {
     val flick = LocalFlickHost.current
     val haptics = LocalHapticFeedback.current
@@ -137,9 +138,10 @@ fun TrackRow(
             } else Modifier)
             .clickable(onClick = onClick)
             .background(if (current) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f) else Color.Transparent)
-            .padding(horizontal = 16.dp, vertical = 6.dp),
+            .padding(start = if (leading != null) 4.dp else 16.dp, end = 16.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        leading?.invoke()
         Cover(track.artwork, Modifier.size(48.dp), corner = 8.dp)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {

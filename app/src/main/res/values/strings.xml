@@ -472,4 +472,8 @@
     <string name="search_source_video">Video</string>
     <string name="music_close">Close</string>
     <string name="music_remove_from_playlist">Remove from the playlist</string>
+    <string name="music_lyrics_short">Lyrics</string>
+    <string name="music_downloaded">Downloaded</string>
+    <string name="music_downloading">Downloading</string>
+    <string name="music_on_phone">On phone</string>
 </resources>

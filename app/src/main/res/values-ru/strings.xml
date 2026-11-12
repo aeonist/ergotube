@@ -478,4 +478,8 @@
     <string name="search_source_video">Видео</string>
     <string name="music_close">Закрыть</string>
     <string name="music_remove_from_playlist">Убрать из плейлиста</string>
+    <string name="music_lyrics_short">Текст</string>
+    <string name="music_downloaded">Скачано</string>
+    <string name="music_downloading">Скачивается</string>
+    <string name="music_on_phone">На телефоне</string>
 </resources>
