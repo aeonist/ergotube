@@ -58,6 +58,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun MusicLibraryScreen(collection: String?, viewModel: MusicViewModel = hiltViewModel()) {
     MusicNotes(viewModel)
+    MusicFolderAccess(viewModel)
     val left = LocalLeftHanded.current
     val navigation = LocalMusicNavigation.current
     val context = LocalContext.current

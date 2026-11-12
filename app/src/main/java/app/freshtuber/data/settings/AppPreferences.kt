@@ -30,8 +30,11 @@ enum class AppFeature(val key: String, val default: Boolean) {
     MusicResumeOnConnect("music_resume_connect", false),
     /** Downloaded songs are saved as tagged files in the phone's Music folder, for other players too. */
     MusicToFolder("music_to_folder", true),
-    /** Songs from the phone's Music folder show under «С телефона» on their own (needs audio access). */
-    MusicShowFolder("music_show_folder", false),
+    /**
+     * Songs from the phone's Music folder show under «С телефона» on their own. On by default:
+     * the first visit to Music asks for audio access, and a refusal turns it off.
+     */
+    MusicShowFolder("music_show_folder", true),
     /** The app opens on «Слушать» instead of the video Home. */
     StartWithMusic("start_with_music", false),
     /** Off removes music from the app: no tab above the dock, no song line, no music search. */

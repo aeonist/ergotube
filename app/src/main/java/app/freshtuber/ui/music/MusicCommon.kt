@@ -370,3 +370,17 @@ fun songsAndMinutes(count: Int, durationMs: Long, known: Boolean = true): String
     val minutes = (durationMs / 60_000).toInt()
     return if (minutes > 0 && known) "$songs · ${stringResource(R.string.music_minutes, minutes)}" else songs
 }
+
+/**
+ * «Показывать треки из Music» is on by default; the first visit to Music asks for audio access.
+ * Given, the folder is read at once; refused, the switch turns off, so it is asked only once.
+ */
+@Composable
+fun MusicFolderAccess(viewModel: MusicViewModel) {
+    val ask = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { granted ->
+        viewModel.showFolder(granted)
+    }
+    LaunchedEffect(Unit) {
+        if (viewModel.folderNeedsAccess()) runCatching { ask.launch(app.freshtuber.data.music.MusicFolder.readPermission) }.onFailure { viewModel.showFolder(false) }
+    }
+}

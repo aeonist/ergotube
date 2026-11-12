@@ -177,6 +177,8 @@ class MusicViewModel @Inject constructor(
         }
     }
     val folderReadable get() = folder.canRead()
+    /** The stored switch is on but audio access was never given: Music should ask for it. */
+    suspend fun folderNeedsAccess(): Boolean = settings.preferences.first().enabled(AppFeature.MusicShowFolder) && !folder.canRead()
     fun rescanFolder() { viewModelScope.launch { folder.scan() } }
 
     fun removeDuplicates() {

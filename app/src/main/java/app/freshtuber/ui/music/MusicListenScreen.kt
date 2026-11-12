@@ -44,6 +44,7 @@ import java.time.format.TextStyle
 @Composable
 fun MusicListenScreen(viewModel: MusicViewModel = hiltViewModel()) {
     MusicNotes(viewModel)
+    MusicFolderAccess(viewModel)
     LaunchedEffect(Unit) { viewModel.loadHome() }
     val home by viewModel.home.collectAsStateWithLifecycle()
     val online by viewModel.online.collectAsStateWithLifecycle()
