@@ -269,10 +269,12 @@ private fun MusicPad(state: MusicState, player: androidx.media3.common.Player, l
             }) { change, amount -> drag += amount; change.consume() }
         }
         .padding(horizontal = 6.dp, vertical = 4.dp)) {
-        // The remote: seven buttons in one row, play and the neighbours in the middle of the reach.
+        // The remote: seven buttons in one row. Previous, play and next stand together at the
+        // thumb's edge (the right one, the left one for the left hand); heart, lyrics, queue and
+        // «⋯» fill the rest of the row.
         Row(Modifier.fillMaxWidth().height(64.dp), verticalAlignment = Alignment.CenterVertically) {
             val nextLabel = stringResource(R.string.music_next)
-            val buttons: List<@Composable RowScope.() -> Unit> = listOf(
+            val transport: List<@Composable RowScope.() -> Unit> = listOf(
                 { Slot { PadIcon(Icons.Rounded.SkipPrevious, stringResource(R.string.music_previous), onClick = onPrevious) } },
                 { Slot { FilledIconButton(onClick = onToggle, modifier = Modifier.size(56.dp), shape = CircleShape) {
                     Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
@@ -288,13 +290,15 @@ private fun MusicPad(state: MusicState, player: androidx.media3.common.Player, l
                         if (scanning) onScan(false) else if (released) onNext()
                     })
                 }, contentAlignment = Alignment.Center) { Icon(Icons.Rounded.SkipNext, null, Modifier.size(28.dp)) } } },
+            )
+            val others: List<@Composable RowScope.() -> Unit> = listOf(
                 { Slot { PadIcon(if (hearted) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                     stringResource(if (hearted) R.string.music_unfavorite else R.string.music_favorite), selected = hearted, onClick = onHeart) } },
                 { Slot { PadIcon(Icons.Rounded.Lyrics, stringResource(R.string.music_lyrics), selected = lyricsOn, onClick = onLyrics) } },
                 { Slot { PadIcon(Icons.AutoMirrored.Rounded.QueueMusic, stringResource(R.string.music_queue), selected = queueOn, onClick = onQueue) } },
                 { Slot { PadIcon(Icons.Rounded.MoreHoriz, stringResource(R.string.music_more), onClick = onMore) } },
             )
-            (if (left) buttons.reversed() else buttons).forEach { it() }
+            (if (left) transport.reversed() + others.reversed() else others + transport).forEach { it() }
         }
         // Time and what comes next; a tap on the text shows the queue.
         Row(Modifier.fillMaxWidth().height(44.dp), verticalAlignment = Alignment.CenterVertically) {
