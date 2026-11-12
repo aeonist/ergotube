@@ -476,4 +476,8 @@
     <string name="music_downloaded">Downloaded</string>
     <string name="music_downloading">Downloading</string>
     <string name="music_on_phone">On phone</string>
+    <string name="music_shuffle_short">Shuffle</string>
+    <string name="music_repeat_one_short">Repeat 1</string>
+    <string name="music_on_phone_short">On phone</string>
+    <string name="music_downloading_short">Saving…</string>
 </resources>

@@ -482,4 +482,8 @@
     <string name="music_downloaded">Скачано</string>
     <string name="music_downloading">Скачивается</string>
     <string name="music_on_phone">На телефоне</string>
+    <string name="music_shuffle_short">Случайно</string>
+    <string name="music_repeat_one_short">Повтор 1</string>
+    <string name="music_on_phone_short">В телефоне</string>
+    <string name="music_downloading_short">Качаю…</string>
 </resources>
