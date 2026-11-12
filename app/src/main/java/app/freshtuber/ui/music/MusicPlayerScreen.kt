@@ -141,7 +141,7 @@ fun MusicPlayerScreen(onCollapse: () -> Unit, viewModel: MusicViewModel = hiltVi
             if (left) collapse()
         }
         if (face == Face.Cover) {
-            // The big view: the cover, the title with the heart, and the whole remote under it.
+            // The big view: the cover, the title with the heart, and the fan remote in the corner under the thumb.
             // Spare height goes above the cover, so the cover, the title and the remote stay together.
             BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp), contentAlignment = Alignment.BottomCenter) {
                 val side = minOf(maxWidth, maxHeight)
@@ -150,7 +150,7 @@ fun MusicPlayerScreen(onCollapse: () -> Unit, viewModel: MusicViewModel = hiltVi
                     onSeek = { seconds -> music.seekBy(seconds * 1000L); haptics.performHapticFeedback(HapticFeedbackType.SegmentTick) })
             }
             TitleRow(track, left, hearted, onHeart = { viewModel.toggleHeart(track); haptics.performHapticFeedback(HapticFeedbackType.Confirm) })
-            MusicPad(state, music.player, left, download = download, youTube = track.isYouTube,
+            MusicFan(state, music.player, left, download = download, youTube = track.isYouTube,
                 onShuffle = { music.toggleShuffle(); haptics.performHapticFeedback(HapticFeedbackType.SegmentTick) },
                 onRepeat = { music.cycleRepeat(); haptics.performHapticFeedback(HapticFeedbackType.SegmentTick) },
                 onDownload = { viewModel.download(track) },
@@ -271,182 +271,6 @@ private fun TitleRow(track: MusicTrack, left: Boolean, hearted: Boolean, onHeart
     }
 }
 
-/**
- * The music pad: the second liquid drop, pressed to the thumb. From the top: the labelled row
- * (shuffle, repeat, download, lyrics, queue, «Ещё»), the track, and at the bottom, under the
- * thumb, the time with previous, play and next at the thumb's edge. Every state shows on its button.
- */
-@Composable
-private fun MusicPad(state: MusicState, player: androidx.media3.common.Player, left: Boolean,
-    download: app.freshtuber.data.downloads.Download?, youTube: Boolean,
-    onShuffle: () -> Unit, onRepeat: () -> Unit, onDownload: () -> Unit, onLyrics: () -> Unit, onQueue: () -> Unit, onMore: () -> Unit,
-    onPrevious: () -> Unit, onNext: () -> Unit, onToggle: () -> Unit,
-    onScan: (Boolean) -> Unit, onSeekTo: (Long) -> Unit) {
-    val light = app.freshtuber.ui.liquid.LocalLiquidLight.current
-    val radius = with(LocalDensity.current) { 30.dp.toPx() }
-    DisposableEffect(light) { onDispose { light?.setDrop(1, null, 0f) } }
-    val progress = rememberProgress(player)
-    val duration = progress.durationMs.takeIf { it > 0 } ?: state.queue.track?.durationMs ?: 0L
-    var scrubMs by remember { mutableStateOf<Long?>(null) }
-    var fine by remember { mutableStateOf(false) }
-    val shownMs = scrubMs ?: progress.positionMs.takeIf { progress.durationMs > 0 } ?: state.queue.positionMs
-    val haptics = LocalHapticFeedback.current
-    val scope = rememberCoroutineScope()
-    val queue = state.queue
-    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
-        .onGloballyPositioned { light?.setDrop(1, it.boundsInRoot(), radius) }
-        .pointerInput(Unit) {
-            var drag = 0f
-            detectVerticalDragGestures(onDragStart = { drag = 0f }, onDragEnd = {
-                if (drag < -36.dp.toPx()) { haptics.performHapticFeedback(HapticFeedbackType.GestureEnd); onQueue() }
-            }) { change, amount -> drag += amount; change.consume() }
-        }
-        .padding(horizontal = 6.dp, vertical = 6.dp)) {
-        // Top, the rarer buttons with their names: shuffle, repeat, download, lyrics, queue, «Ещё».
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            val status = download?.state
-            val tools: List<@Composable RowScope.() -> Unit> = listOf(
-                { LabeledButton(Icons.Rounded.Shuffle, stringResource(R.string.music_shuffle_short), selected = queue.shuffle, onClick = onShuffle) },
-                {
-                    LabeledButton(if (queue.repeat == RepeatMode.One) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-                        stringResource(if (queue.repeat == RepeatMode.One) R.string.music_repeat_one_short else R.string.music_repeat),
-                        selected = queue.repeat != RepeatMode.Off,
-                        description = stringResource(when (queue.repeat) { RepeatMode.Off -> R.string.music_repeat_off; RepeatMode.All -> R.string.music_repeat_all; RepeatMode.One -> R.string.music_repeat_one }),
-                        onClick = onRepeat)
-                },
-                {
-                    when {
-                        !youTube -> LabeledButton(Icons.Rounded.PhoneAndroid, stringResource(R.string.music_on_phone_short), enabled = false) {}
-                        status == app.freshtuber.data.downloads.DownloadStatus.Complete ->
-                            LabeledButton(Icons.Rounded.DownloadDone, stringResource(R.string.music_downloaded), selected = true, enabled = false) {}
-                        status != null && status != app.freshtuber.data.downloads.DownloadStatus.Failed ->
-                            LabeledButton(Icons.Rounded.Downloading, stringResource(R.string.music_downloading_short), selected = true, enabled = false) {}
-                        else -> LabeledButton(Icons.Rounded.Download, stringResource(R.string.music_download), onClick = onDownload)
-                    }
-                },
-                { LabeledButton(Icons.AutoMirrored.Rounded.Notes, stringResource(R.string.music_lyrics_short), onClick = onLyrics) },
-                { LabeledButton(Icons.AutoMirrored.Rounded.QueueMusic, stringResource(R.string.music_queue), onClick = onQueue) },
-                { LabeledButton(Icons.Rounded.MoreHoriz, stringResource(R.string.music_more), onClick = onMore) },
-            )
-            (if (left) tools.reversed() else tools).forEach { it() }
-        }
-        // The track: drag along it to seek; lift the finger above it to seek finely.
-        Box(Modifier.fillMaxWidth().padding(top = 4.dp).height(30.dp)) {
-            ScrubBar(if (duration > 0) shownMs.toFloat() / duration else 0f, state.chapters, duration, scrubbing = scrubMs != null,
-                modifier = Modifier.fillMaxSize().pointerInput(duration) {
-                    if (duration <= 0) return@pointerInput
-                    awaitEachGesture {
-                        val down = awaitFirstDown()
-                        val width = size.width.toFloat().coerceAtLeast(1f)
-                        val liftPx = app.freshtuber.ui.player.Scrub.FINE_LIFT_DP * density
-                        var position = (down.position.x / width).coerceIn(0f, 1f) * duration
-                        var lastX = down.position.x
-                        var isFine = false
-                        scrubMs = position.toLong()
-                        while (true) {
-                            val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
-                            if (!change.pressed) break
-                            change.consume()
-                            val nowFine = down.position.y - change.position.y > liftPx
-                            if (nowFine != isFine) { isFine = nowFine; fine = nowFine; haptics.performHapticFeedback(HapticFeedbackType.SegmentTick) }
-                            position = if (isFine) (position + (change.position.x - lastX) / width * duration * app.freshtuber.ui.player.Scrub.FINE_FACTOR).coerceIn(0f, duration.toFloat())
-                                else (change.position.x / width).coerceIn(0f, 1f) * duration
-                            lastX = change.position.x
-                            scrubMs = position.toLong()
-                        }
-                        onSeekTo(position.toLong())
-                        scrubMs = null
-                        fine = false
-                    }
-                })
-            scrubMs?.let { Bubble(formatDuration(it / 1000) + if (fine) " · ×5" else "", Modifier.align(Alignment.TopCenter).offset(y = (-30).dp)) }
-        }
-        // Bottom, under the thumb: the time on the far side, previous, play and next at the thumb's edge.
-        Row(Modifier.fillMaxWidth().height(76.dp), verticalAlignment = Alignment.CenterVertically) {
-            val nextLabel = stringResource(R.string.music_next)
-            val time: @Composable () -> Unit = {
-                Column(Modifier.padding(horizontal = 10.dp), horizontalAlignment = if (left) Alignment.End else Alignment.Start) {
-                    val timeStyle = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = app.freshtuber.ui.theme.TabularNumbers)
-                    Text(formatDuration(shownMs / 1000), style = timeStyle)
-                    Text(if (duration > 0) formatDuration(duration / 1000) else "", style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = app.freshtuber.ui.theme.TabularNumbers),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Chapter.at(state.chapters, shownMs / 1000)?.title?.let {
-                        Text(it, Modifier.widthIn(max = 120.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-            }
-            val previousButton: @Composable () -> Unit = {
-                PadIcon(Icons.Rounded.SkipPrevious, stringResource(R.string.music_previous), big = true, onClick = onPrevious)
-            }
-            val playButton: @Composable () -> Unit = {
-                FilledIconButton(onClick = onToggle, modifier = Modifier.size(68.dp), shape = CircleShape) {
-                    Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        stringResource(if (state.playing) R.string.player_pause else R.string.player_play), Modifier.size(36.dp))
-                }
-            }
-            // Hold Next to scan forward.
-            val nextButton: @Composable () -> Unit = {
-                Box(Modifier.size(52.dp).clip(CircleShape).semantics { contentDescription = nextLabel }.pointerInput(Unit) {
-                    detectTapGestures(onPress = {
-                        var scanning = false
-                        val hold = scope.launch { delay(380); scanning = true; onScan(true) }
-                        val released = tryAwaitRelease()
-                        hold.cancel()
-                        if (scanning) onScan(false) else if (released) onNext()
-                    })
-                }, contentAlignment = Alignment.Center) { Icon(Icons.Rounded.SkipNext, null, Modifier.size(32.dp)) }
-            }
-            if (left) {
-                nextButton(); Spacer(Modifier.width(8.dp)); playButton(); Spacer(Modifier.width(8.dp)); previousButton()
-                Spacer(Modifier.weight(1f)); time()
-            } else {
-                time(); Spacer(Modifier.weight(1f))
-                previousButton(); Spacer(Modifier.width(8.dp)); playButton(); Spacer(Modifier.width(8.dp)); nextButton()
-            }
-        }
-    }
-}
-
-/** A button with its name under the icon, an equal share of the row. */
-@Composable
-private fun RowScope.LabeledButton(icon: ImageVector, label: String, selected: Boolean = false, enabled: Boolean = true,
-    description: String? = null, onClick: () -> Unit) {
-    val tint = when {
-        selected -> MaterialTheme.colorScheme.primary
-        enabled -> MaterialTheme.colorScheme.onSurface
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    Column(Modifier.weight(1f).heightIn(min = 60.dp).clip(RoundedCornerShape(16.dp))
-        .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
-        .semantics { this.selected = selected; if (description != null) contentDescription = description }.padding(vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Icon(icon, null, Modifier.size(24.dp), tint = tint)
-        Spacer(Modifier.height(4.dp))
-        Text(label, style = MaterialTheme.typography.labelSmall, color = tint, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
-    }
-}
-
-@Composable
-private fun ScrubBar(fraction: Float, chapters: List<Chapter>, durationMs: Long, scrubbing: Boolean, modifier: Modifier) {
-    val accent = MaterialTheme.colorScheme.primary
-    val rail = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
-    val gap = MaterialTheme.colorScheme.surface
-    val dot by androidx.compose.animation.core.animateFloatAsState(if (scrubbing) 9f else 6f, label = "musicDot")
-    Canvas(modifier.padding(horizontal = 10.dp)) {
-        val y = size.height / 2
-        val stroke = 4.dp.toPx()
-        drawLine(rail, Offset(0f, y), Offset(size.width, y), stroke, StrokeCap.Round)
-        val f = fraction.coerceIn(0f, 1f)
-        drawLine(accent, Offset(0f, y), Offset(size.width * f, y), stroke, StrokeCap.Round)
-        if (durationMs > 0) chapters.drop(1).forEach { c ->
-            val x = size.width * (c.startSeconds * 1000f / durationMs)
-            if (x in 0f..size.width) drawLine(gap, Offset(x, y - 4.dp.toPx()), Offset(x, y + 4.dp.toPx()), 2.dp.toPx())
-        }
-        drawCircle(accent, dot.dp.toPx(), Offset(size.width * f, y))
-    }
-}
-
 @Composable
 private fun PadIcon(icon: ImageVector, label: String, selected: Boolean = false, big: Boolean = false, onClick: () -> Unit) {
     IconButton(onClick, Modifier.size(if (big) 52.dp else 44.dp).semantics { this.selected = selected },
@@ -454,12 +278,6 @@ private fun PadIcon(icon: ImageVector, label: String, selected: Boolean = false,
             contentColor = MaterialTheme.colorScheme.primary) else IconButtonDefaults.iconButtonColors()) {
         Icon(icon, label, Modifier.size(if (big) 32.dp else 24.dp))
     }
-}
-
-/** One button of the remote: an equal share of the row, centred. */
-@Composable
-private fun RowScope.Slot(content: @Composable () -> Unit) {
-    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) { content() }
 }
 
 private val SleepChoices = listOf(MusicSleep.Off, MusicSleep.Minutes(15), MusicSleep.Minutes(30), MusicSleep.Minutes(45),
