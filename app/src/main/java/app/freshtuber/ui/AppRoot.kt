@@ -267,8 +267,9 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     val musicLine = musicInApp && musicState.active && !onShorts
     val dockSpace = (if (classic) compactDockSpace else Reach.DockHeight + 22.dp + navBottom) + if (musicLine) app.freshtuber.ui.music.MusicLineHeight else 0.dp
     // The «Музыка» ear stands above the dock on Home; the chip row at the bottom of Home sits above it.
+    // The space folds away with the ear when scrolling hides it, so the feed reaches the dock.
     val earSpace by androidx.compose.animation.core.animateDpAsState(
-        if (musicInApp && !classic) app.freshtuber.ui.music.MusicEarHeight else 0.dp, label = "earSpace")
+        if (musicInApp && !classic && earHide.visible && !mineOpen) app.freshtuber.ui.music.MusicEarHeight else 0.dp, label = "earSpace")
     var bannerHeight by remember { mutableStateOf(0.dp) }
     val screenBottom by androidx.compose.animation.core.animateDpAsState(
         if (keyboardVisible) 0.dp else dockSpace + bannerHeight, label = "screenBottom")
