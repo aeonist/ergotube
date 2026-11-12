@@ -190,7 +190,7 @@ fun FanOverlay(host: FanHost) {
         val open = remember { androidx.compose.animation.core.Animatable(0f) }
         LaunchedEffect(host.session) {
             if (host.session != null) { open.snapTo(0f); open.animateTo(1f, androidx.compose.animation.core.tween(340, easing = androidx.compose.animation.core.LinearEasing)) }
-            else open.animateTo(0f, androidx.compose.animation.core.tween(200, easing = app.freshtuber.ui.motion.Motion.Accelerate))
+            else open.animateTo(0f, androidx.compose.animation.core.tween(280, easing = androidx.compose.animation.core.FastOutSlowInEasing))
         }
         val session = lastSession ?: return@Box
         if (open.value <= 0f && !visible) return@Box
@@ -210,18 +210,39 @@ fun FanOverlay(host: FanHost) {
             if (length < 1f) Offset.Zero else d / length * minOf(length, radius - 44 * density.density)
         }
         val reach by animateFloatAsState(if (session.moved && visible) 1f else 0f, app.freshtuber.ui.motion.Motion.spring(), label = "fanReach")
-        val sector by animateFloatAsState(if (session.selected != null && visible) 1f else 0f, androidx.compose.animation.core.tween(140), label = "fanSector")
-        var sectorAt by remember(session) { mutableFloatStateOf(90f) }
-        session.selected?.let { sectorAt = it.degrees }
-        Canvas(Modifier.fillMaxSize()) {
-            drawRect(scrim, alpha = 0.5f * whole)
+        val sector by animateFloatAsState(if (session.selected != null && visible) 1f else 0f, androidx.compose.animation.core.tween(320, easing = app.freshtuber.ui.motion.Motion.Emphasized), label = "fanSector")
+        var sectorAt by remember(session) { mutableStateOf(session.center) }
+        session.selected?.let { sectorAt = FanMath.itemPosition(session.center, radius, it) }
+        // The glow glides from one direction to the next instead of jumping.
+        val glowAt by androidx.compose.animation.core.animateOffsetAsState(sectorAt,
+            androidx.compose.animation.core.spring(dampingRatio = 0.9f, stiffness = 260f), label = "fanGlowAt")
+        // The direction the finger points, for focusing the near items and blurring the far ones.
+        val pointing = if (pull.getDistance() > 1f) atan2(-pull.y, pull.x) else null
+        Canvas(Modifier.fillMaxSize()) { drawRect(scrim, alpha = 0.42f * whole) }
+        // Ring, glow and thread are drawn soft: gradients that fade at the edges, blurred once more where the system can.
+        Canvas(Modifier.fillMaxSize().graphicsLayer {
+            if (android.os.Build.VERSION.SDK_INT >= 31) renderEffect = androidx.compose.ui.graphics.BlurEffect(10.dp.toPx(), 10.dp.toPx(), androidx.compose.ui.graphics.TileMode.Decal)
+        }) {
             val grow = FanMotion.backOut((open.value * 1.6f).coerceAtMost(1f))
-            drawCircle(ringColor, radius * (0.55f + 0.45f * grow), session.center, alpha = whole, style = Stroke(width = 76.dp.toPx()))
-            if (sector > 0.01f) drawArc(glow, startAngle = -sectorAt - 27f, sweepAngle = 54f, useCenter = false,
-                topLeft = session.center - Offset(radius, radius), size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2),
-                alpha = 0.10f * sector * whole, style = Stroke(width = 76.dp.toPx()))
-            if (reach > 0.01f) drawLine(glow, session.center, session.center + pull * reach, strokeWidth = 5.dp.toPx(),
-                cap = androidx.compose.ui.graphics.StrokeCap.Round, alpha = 0.22f * reach * whole)
+            val ringR = radius * (0.55f + 0.45f * grow)
+            val band = 52.dp.toPx()
+            val outer = ringR + band
+            val inner = ((ringR - band) / outer).coerceIn(0f, 1f)
+            drawCircle(androidx.compose.ui.graphics.Brush.radialGradient(
+                0f to Color.Transparent, inner to Color.Transparent,
+                (ringR / outer) to ringColor, 1f to Color.Transparent, center = session.center, radius = outer),
+                outer, session.center, alpha = whole)
+            if (sector > 0.01f) {
+                val glowR = 78.dp.toPx()
+                drawCircle(androidx.compose.ui.graphics.Brush.radialGradient(
+                    0f to glow.copy(alpha = 0.20f), 0.45f to glow.copy(alpha = 0.09f), 1f to Color.Transparent, center = glowAt, radius = glowR),
+                    glowR, glowAt, alpha = sector * whole)
+            }
+            if (reach > 0.01f) {
+                val tip = session.center + pull * reach
+                drawLine(androidx.compose.ui.graphics.Brush.linearGradient(listOf(glow.copy(alpha = 0.18f), glow.copy(alpha = 0.05f)), session.center, tip),
+                    session.center, tip, strokeWidth = 9.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round, alpha = reach * whole)
+            }
         }
         val label = session.selected?.let { stringResource(it.labelRes) } ?: stringResource(R.string.fan_hint)
         val labelTop = with(density) { maxOf(64.dp.toPx(), session.center.y - radius - 104.dp.toPx()).toDp() }
@@ -240,7 +261,14 @@ fun FanOverlay(host: FanHost) {
             val p = FanMath.itemPosition(session.center, radius, action)
             val selected = session.selected == action
             val enabled = action in session.available
-            val lift by animateFloatAsState(if (selected && visible) 1f else 0f, app.freshtuber.ui.motion.Motion.spring(), label = "fan-item")
+            val lift by animateFloatAsState(if (selected && visible) 1f else 0f, androidx.compose.animation.core.spring(dampingRatio = 0.8f, stiffness = 320f), label = "fan-item")
+            // Items away from where the finger points go soft: the far side blurs and fades a little.
+            val farTarget = if (!visible || pointing == null || picked != null) 0f else {
+                var d = abs(pointing - action.degrees * PI.toFloat() / 180f) % (2 * PI.toFloat())
+                if (d > PI) d = 2 * PI.toFloat() - d
+                ((d / PI.toFloat() - 0.25f) / 0.75f).coerceIn(0f, 1f).let { it * it * (3f - 2f * it) }
+            }
+            val far by animateFloatAsState(farTarget * reach, androidx.compose.animation.core.spring(dampingRatio = 1f, stiffness = 200f), label = "fan-far")
             val isPicked = picked == action
             val out = if (isPicked) 1f else FanMotion.itemProgress(open.value, index, shown.size)
             val eased = if (visible) FanMotion.backOut(out) else out
@@ -254,22 +282,21 @@ fun FanOverlay(host: FanHost) {
                     .size(76.dp, 58.dp)
                     .graphicsLayer {
                         val flash = if (isPicked) 1f - open.value else 0f
-                        val size = (0.8f + 0.2f * eased) * (1f + 0.16f * lift) * (1f + 0.3f * flash)
+                        val size = (0.8f + 0.2f * eased) * (1f + 0.14f * lift) * (1f + 0.3f * flash) * (1f - 0.08f * far)
                         scaleX = size; scaleY = size
-                        alpha = if (isPicked) open.value else out.coerceIn(0f, 1f)
-                        val r = (1f - (if (isPicked) 1f - flash else out).coerceIn(0f, 1f)) * 14.dp.toPx()
+                        alpha = (if (isPicked) open.value else out.coerceIn(0f, 1f)) * (1f - 0.45f * far)
+                        val entry = (1f - (if (isPicked) 1f - flash else out).coerceIn(0f, 1f)) * 20.dp.toPx()
+                        val r = entry + far * 7.dp.toPx() + (if (isPicked) flash * 16.dp.toPx() else 0f)
                         if (android.os.Build.VERSION.SDK_INT >= 31) renderEffect = if (r > 0.5f)
                             androidx.compose.ui.graphics.BlurEffect(r, r, androidx.compose.ui.graphics.TileMode.Decal) else null
                     }
-                    .background(if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(20.dp))
+                    .background(androidx.compose.ui.graphics.lerp(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.86f),
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.92f), lift), RoundedCornerShape(20.dp))
                     .padding(horizontal = 2.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
             ) {
-                val color = when {
-                    selected -> MaterialTheme.colorScheme.surface
-                    enabled -> MaterialTheme.colorScheme.onSurface
-                    else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                }
+                val rest = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                val color = androidx.compose.ui.graphics.lerp(rest, MaterialTheme.colorScheme.surface, lift)
                 Icon(action.icon, null, tint = color)
                 Text(stringResource(action.labelRes), color = color, fontSize = 10.5.sp, lineHeight = 12.sp, maxLines = 2,
                     textAlign = TextAlign.Center, style = MaterialTheme.typography.labelSmall)

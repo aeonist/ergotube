@@ -257,7 +257,8 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     SideEffect { light?.setRouteCovered(inPictureInPicture) }
     SideEffect { if (!onMusicPlayer) light?.musicMode = inMusic }
     // «Моё» is a frosted pane: the screen behind it blurs while it is open (Android 12+).
-    val behindBlur by androidx.compose.animation.core.animateDpAsState(if (fanHost.session != null || flickHost.center != null || (mineOpen && dockVisible)) 18.dp else 0.dp, label = "mineBlur")
+    val behindBlur by androidx.compose.animation.core.animateDpAsState(if (fanHost.session != null) 26.dp else if (flickHost.center != null || (mineOpen && dockVisible)) 18.dp else 0.dp,
+        androidx.compose.animation.core.tween(320, easing = androidx.compose.animation.core.FastOutSlowInEasing), label = "mineBlur")
     val density = LocalDensity.current
     val navBottom = with(density) { WindowInsets.navigationBars.getBottom(this).toDp() }
     val compactDockSpace = Reach.CompactDockHeight + navBottom
