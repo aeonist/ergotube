@@ -266,6 +266,9 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     // While music is on, its song line sits in the dock drop above the buttons.
     val musicLine = musicInApp && musicState.active && !onShorts
     val dockSpace = (if (classic) compactDockSpace else Reach.DockHeight + 22.dp + navBottom) + if (musicLine) app.freshtuber.ui.music.MusicLineHeight else 0.dp
+    // The «Музыка» ear stands above the dock on Home; the chip row at the bottom of Home sits above it.
+    val earSpace by androidx.compose.animation.core.animateDpAsState(
+        if (musicInApp && !classic) app.freshtuber.ui.music.MusicEarHeight else 0.dp, label = "earSpace")
     var bannerHeight by remember { mutableStateOf(0.dp) }
     val screenBottom by androidx.compose.animation.core.animateDpAsState(
         if (keyboardVisible) 0.dp else dockSpace + bannerHeight, label = "screenBottom")
@@ -311,7 +314,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
                     )
                 }
             }
-            composable<HomeRoute> { Box(docked.then(transitionBlur()).nestedScroll(earHide.connection)) { ClassicTop(classic, { openSection(SearchRoute) }, { openSection(SettingsRoute) }) { HomeScreen(navigation, onSignIn = signIn, scrollToTop = homeScrollPending, onScrolledToTop = { homeScrollPending = false }) } } }
+            composable<HomeRoute> { Box(docked.padding(bottom = earSpace).then(transitionBlur()).nestedScroll(earHide.connection)) { ClassicTop(classic, { openSection(SearchRoute) }, { openSection(SettingsRoute) }) { HomeScreen(navigation, onSignIn = signIn, scrollToTop = homeScrollPending, onScrolledToTop = { homeScrollPending = false }) } } }
             composable<ShortsRoute> { Box(Modifier.fillMaxSize().then(transitionBlur())) { ShortsScreen(navigation, onSignIn = signIn, settled = settled) } }
             composable<ShortsViewerRoute> { Box(Modifier.fillMaxSize().then(transitionBlur())) { ShortsScreen(navigation, onSignIn = signIn, settled = settled) } }
             composable<SubscriptionsRoute> { Box(docked.then(transitionBlur())) { ClassicTop(classic, { openSection(SearchRoute) }, { openSection(SettingsRoute) }) {
