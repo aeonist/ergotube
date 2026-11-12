@@ -59,9 +59,10 @@ import kotlin.math.abs
 /** Where music screens can go; provided by the app root. */
 interface MusicNavigation {
     fun openPlayer()
-    /** A library collection: `fav`, `downloads`, `phone` or `playlist:<id>`. */
+    /** A library collection: `fav` or `playlist:<id>`. */
     fun openCollection(collection: String)
-    fun openTab(tab: app.freshtuber.ui.navigation.MusicTab)
+    /** The «Музыка» page. */
+    fun openMusicHome()
     /** «Смотреть клип»: the video opens at the song's current second; the song pauses. */
     fun watchVideo(track: MusicTrack)
 }
@@ -288,11 +289,9 @@ fun TrackMenu(track: MusicTrack, viewModel: MusicViewModel, onDismiss: () -> Uni
     val left = LocalLeftHanded.current
     val context = LocalContext.current
     val navigation = LocalMusicNavigation.current
-    val favorites by viewModel.favorites.collectAsState()
+    val libraryIds by viewModel.libraryIds.collectAsState()
     val downloaded by viewModel.downloaded.collectAsState()
-    val tracks by viewModel.tracks.collectAsState()
-    val favorite = track.id in favorites
-    val saved = tracks.any { it.id == track.id }
+    val favorite = MusicLibraryLogic.hearted(track, libraryIds)
     val download = downloaded[track.videoId]
     var picker by remember { mutableStateOf(false) }
     val shareTitle = stringResource(R.string.music_share)
@@ -310,7 +309,7 @@ fun TrackMenu(track: MusicTrack, viewModel: MusicViewModel, onDismiss: () -> Uni
             val tiles = buildList {
                 add(TileItem(Icons.AutoMirrored.Rounded.QueueMusic, stringResource(R.string.music_play_next)) { viewModel.music.playNext(track); onDismiss() })
                 add(TileItem(if (favorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
-                    stringResource(if (favorite) R.string.music_unfavorite else R.string.music_favorite), selected = favorite) { viewModel.toggleFavorite(track); onDismiss() })
+                    stringResource(if (favorite) R.string.music_unfavorite else R.string.music_favorite), selected = favorite) { viewModel.toggleHeart(track); onDismiss() })
                 add(TileItem(Icons.AutoMirrored.Rounded.PlaylistAdd, stringResource(R.string.music_play_last)) { viewModel.music.playLast(track); onDismiss() })
                 if (track.isYouTube) {
                     if (download == null) add(TileItem(Icons.Rounded.Download, stringResource(R.string.music_download)) { viewModel.download(track); onDismiss() })
@@ -320,9 +319,7 @@ fun TrackMenu(track: MusicTrack, viewModel: MusicViewModel, onDismiss: () -> Uni
                 if (track.isYouTube) add(TileItem(Icons.Rounded.Radio, stringResource(R.string.music_radio)) { viewModel.music.playRadio(track); navigation?.openPlayer(); onDismiss() })
                 if (track.isYouTube) add(TileItem(Icons.Rounded.SmartDisplay, stringResource(R.string.music_watch_video)) { onDismiss(); navigation?.watchVideo(track) })
                 if (track.isYouTube) add(TileItem(Icons.Rounded.Share, shareTitle) { shareTrack(context, track, shareTitle); onDismiss() })
-                if (playlistId != null) add(TileItem(Icons.Rounded.RemoveCircleOutline, stringResource(R.string.music_remove)) { viewModel.removeFromPlaylist(playlistId, track); onDismiss() })
-                else if (saved) add(TileItem(Icons.Rounded.RemoveCircleOutline, stringResource(R.string.music_remove)) { viewModel.remove(track); onDismiss() })
-                else add(TileItem(Icons.Rounded.LibraryAdd, stringResource(R.string.music_save)) { viewModel.save(track); onDismiss() })
+                if (playlistId != null) add(TileItem(Icons.Rounded.RemoveCircleOutline, stringResource(R.string.music_remove_from_playlist)) { viewModel.removeFromPlaylist(playlistId, track); onDismiss() })
                 if (track.isYouTube) add(TileItem(Icons.Rounded.ThumbUp, stringResource(R.string.music_like_youtube)) { viewModel.likeOnYouTube(track); onDismiss() })
             }
             TileGrid(tiles, columns = 4, left = left)

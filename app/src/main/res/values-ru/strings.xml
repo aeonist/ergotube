@@ -418,7 +418,7 @@
     <string name="music_source_online">Только в сети</string>
     <string name="music_flick_hint">Махни: вверх — следующей, вправо — скачать, влево — в конец, вниз — поделиться</string>
     <string name="music_search_hint">Песни и исполнители</string>
-    <string name="music_search_phone">На телефоне</string>
+    <string name="music_search_phone">У тебя</string>
     <string name="music_search_youtube">В YouTube</string>
     <string name="music_search_idle">Поиск песен на телефоне и в YouTube</string>
     <string name="music_search_empty">Ничего не нашлось</string>
@@ -463,4 +463,19 @@
     <string name="update_available">Доступно обновление, сборка %d</string>
     <string name="update_later">Позже</string>
     <string name="update_install">Обновить</string>
+    <!-- Сборка 28: одна страница «Музыка» -->
+    <string name="settings_music_in_app">Музыка в приложении</string>
+    <string name="settings_music_in_app_hint">Выключи, чтобы убрать ушко «Музыка», строку песни и музыкальный поиск</string>
+    <string name="music_mine">Моё</string>
+    <string name="music_play_now">Сразу включить</string>
+    <string name="music_offline_hidden">Нет сети. Скрыто песен: %1$d, вернутся вместе с сетью</string>
+    <string name="music_show">Показывать</string>
+    <string name="music_sort">Сортировка</string>
+    <string name="music_mode">Режим</string>
+    <string name="music_menu_more">Меню «Любимого»</string>
+    <string name="music_playlist_menu">Меню плейлиста</string>
+    <string name="search_source_music">Музыка</string>
+    <string name="search_source_video">Видео</string>
+    <string name="music_close">Закрыть</string>
+    <string name="music_remove_from_playlist">Убрать из плейлиста</string>
 </resources>

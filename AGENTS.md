@@ -50,3 +50,6 @@ Takeout/NewPipe subscription import is outside the completed eight-stage plan. D
 
 ## Build 27 (12 Nov 2026)
 Tester polish: two-row portrait remote, Back always leaves the player, quiet playback recovery, Music/ErgoTube export with tags and marker, labelled jam shelves, update banner from GitHub releases (needs a public repo; `UPDATE_REPO` in app/build.gradle.kts). Release tags must name `buildN`. 181 JVM tests. The user asked to stop emulator testing after it crashed; do not run long emulator sessions unasked. APKs `apk/ErgoTube-build27-*.apk`.
+
+## Build 28 (12 Nov 2026)
+One «Музыка» page, ear above the shared dock on Home, single «Любимое» with offline hiding, heart instead of «В библиотеку», 7-button player remote with a three-face scene, queue «Режим», Музыка/Видео switch in Search, «Музыка в приложении» switch. Built and unit-tested only, not run on a device. See docs/DECISIONS.md «Build 28». APK `apk/ErgoTube-build28-music-debug.apk`.

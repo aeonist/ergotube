@@ -10,6 +10,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.ui.draw.alpha
 import androidx.compose.material.icons.rounded.AllInclusive
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.*
@@ -33,70 +37,37 @@ import java.time.LocalDateTime
 import java.time.format.TextStyle
 
 /**
- * «Слушать», the first music screen. Read from the top like Home: the daily mix, the song
- * the listener stopped at, jams from their YouTube Home and recent songs.
+ * The one «Музыка» page, read from the top like Home: jams from the Music filter, jams from the
+ * Home page, the «Моё» row (Любимое, playlists, + Плейлист), and at the thumb the two things that
+ * play at once: «Микс дня» and «Мой джем». Without a network the jams pale and cannot start.
  */
 @Composable
 fun MusicListenScreen(viewModel: MusicViewModel = hiltViewModel()) {
     MusicNotes(viewModel)
     LaunchedEffect(Unit) { viewModel.loadHome() }
     val home by viewModel.home.collectAsStateWithLifecycle()
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    val recent by viewModel.recent.collectAsStateWithLifecycle()
-    val downloaded by viewModel.downloaded.collectAsStateWithLifecycle()
+    val online by viewModel.online.collectAsStateWithLifecycle()
+    val libraryIds by viewModel.libraryIds.collectAsStateWithLifecycle()
+    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val navigation = LocalMusicNavigation.current
-    val context = LocalContext.current
-    val shareTitle = stringResource(R.string.music_share)
+    val left = app.freshtuber.ui.components.LocalLeftHanded.current
     val dailyTitle = stringResource(R.string.music_daily_mix)
-    var menu by remember { mutableStateOf<MusicTrack?>(null) }
-    menu?.let { TrackMenu(it, viewModel, onDismiss = { menu = null }) }
+    val jamTitle = stringResource(R.string.music_my_jam)
+    var newPlaylist by remember { mutableStateOf(false) }
+    if (newPlaylist) PlaylistPicker(null, viewModel) { newPlaylist = false }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
-        item(key = "header") { ScreenHeader(stringResource(R.string.music_listen_title), dayPart()) }
-        item(key = "daily") {
-            DailyMix(home, downloaded.keys, onPlay = { viewModel.playDaily(dailyTitle); navigation?.openPlayer() },
-                onShuffle = { viewModel.playDaily(dailyTitle, shuffle = true); navigation?.openPlayer() })
-        }
-        val current = state.queue.track
-        if (current != null && !state.playing) item(key = "continue") {
-            Label(stringResource(R.string.music_continue))
-            val position = state.queue.positionMs
-            TrackRow(current, originOf(current, downloaded), onClick = { viewModel.music.play(); navigation?.openPlayer() }, onMore = { menu = current },
-                detail = if (current.durationMs > 0) stringResource(R.string.music_position, formatDuration(position / 1000), formatDuration(current.durationMs / 1000)) else null,
-                trailing = { IconButton(onClick = { viewModel.music.play() }) { Icon(Icons.Rounded.PlayArrow, stringResource(R.string.player_play)) } })
-        }
-        // «Мой джем» stands apart: one wide card first, the other mixes of the Home page in a row below.
-        val mine = home.jams.mine
-        if (mine != null) item(key = "myJam") {
-            val title = stringResource(R.string.music_my_jam)
-            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(top = 14.dp).clip(RoundedCornerShape(22.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f))
-                .clickable { viewModel.playJam(mine.copy(title = title)); navigation?.openPlayer() }.padding(10.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                if (mine.thumbnailUrl != null) Cover(mine.thumbnailUrl, Modifier.size(64.dp).lightSource(mine.thumbnailUrl), corner = 14.dp)
-                else Box(Modifier.size(64.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.AllInclusive, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                }
-                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                    Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(stringResource(R.string.music_my_jam_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2, overflow = TextOverflow.Ellipsis)
-                }
-                Box(Modifier.size(48.dp).background(MaterialTheme.colorScheme.primary, CircleShape), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.PlayArrow, stringResource(R.string.player_play), tint = MaterialTheme.colorScheme.onPrimary)
-                }
-            }
-        }
-        // Two shelves, each saying where YouTube showed its mixes.
+        item(key = "header") { ScreenHeader(stringResource(R.string.nav_music), dayPart()) }
+        // Two labelled shelves of jams; both stay, each says where YouTube showed it.
         listOf(
-            Triple("jamsHome", home.jams.home, if (home.signedIn) R.string.music_jams else R.string.music_jams_anon),
             Triple("jamsMusic", home.jams.music, R.string.music_jams_music),
+            Triple("jamsHome", home.jams.home, if (home.signedIn) R.string.music_jams else R.string.music_jams_anon),
         ).forEach { (key, jams, label) ->
             if (jams.isNotEmpty()) item(key = key) {
                 Label(stringResource(label))
-                LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                LazyRow(Modifier.alpha(if (online) 1f else 0.38f), contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(jams, key = { it.id }) { jam ->
-                        Column(Modifier.width(150.dp).clip(RoundedCornerShape(16.dp)).clickable { viewModel.playJam(jam); navigation?.openPlayer() }.padding(4.dp)) {
+                        Column(Modifier.width(150.dp).clip(RoundedCornerShape(16.dp)).clickable(enabled = online) { viewModel.playJam(jam); navigation?.openPlayer() }.padding(4.dp)) {
                             Cover(jam.thumbnailUrl, Modifier.size(142.dp).lightSource(jam.thumbnailUrl), corner = 14.dp)
                             Text(jam.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
                             (jam.channelName ?: jam.videoCountText)?.let {
@@ -107,18 +78,24 @@ fun MusicListenScreen(viewModel: MusicViewModel = hiltViewModel()) {
                 }
             }
         }
-        if (recent.isNotEmpty()) {
-            item(key = "recentLabel") { Label(stringResource(R.string.music_recent)) }
-            items(recent.size, key = { "r" + recent[it].id }) { index ->
-                val track = recent[index]
-                TrackRow(track, originOf(track, downloaded), current = track.id == current?.id,
-                    onClick = { viewModel.music.playCollection(recent, index, null); navigation?.openPlayer() },
-                    onMore = { menu = track }, onFlick = { viewModel.flick(it, track, context, shareTitle) },
-                    modifier = Modifier.lightSource(track.artwork))
+        item(key = "mine") {
+            Label(stringResource(R.string.music_mine))
+            MineRow(libraryIds.size, playlists, left, onOpen = { navigation?.openCollection(it) }, onNewPlaylist = { newPlaylist = true })
+        }
+        item(key = "playNow") {
+            Label(stringResource(R.string.music_play_now))
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                val tiles: List<@Composable RowScope.() -> Unit> = listOf(
+                    { DailyTile(home, online, Modifier.weight(1f), onPlay = { viewModel.playDaily(dailyTitle); navigation?.openPlayer() },
+                        onShuffle = { viewModel.playDaily(dailyTitle, shuffle = true); navigation?.openPlayer() }) },
+                    { JamTile(home.jams.mine, jamTitle, online, Modifier.weight(1f)) { mine -> viewModel.playJam(mine.copy(title = jamTitle)); navigation?.openPlayer() } },
+                )
+                // The tile of the working hand sits nearest the thumb.
+                (if (left) tiles else tiles.reversed()).forEach { it() }
             }
         }
-        if (recent.isEmpty() && home.daily == null && !home.dailyLoading && current == null) item(key = "empty") {
-            Box(Modifier.height(240.dp)) { MessageState(stringResource(R.string.music_listen_empty)) }
+        if (home.daily == null && !home.dailyLoading && home.jams.isEmpty && !online) item(key = "empty") {
+            Box(Modifier.height(160.dp)) { MessageState(stringResource(R.string.music_listen_empty)) }
         }
     }
 }
@@ -127,6 +104,31 @@ fun MusicListenScreen(viewModel: MusicViewModel = hiltViewModel()) {
 private fun Label(text: String) {
     Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 6.dp))
+}
+
+/** «Моё»: «Любимое», the playlists, then «+ Плейлист». */
+@Composable
+private fun MineRow(favorites: Int, playlists: List<app.freshtuber.data.music.PlaylistCount>, left: Boolean,
+    onOpen: (String) -> Unit, onNewPlaylist: () -> Unit) {
+    data class Tile(val icon: androidx.compose.ui.graphics.vector.ImageVector, val label: String, val count: String, val onClick: () -> Unit)
+    val tiles = listOf(Tile(Icons.Rounded.Favorite, stringResource(R.string.music_favorites), favorites.toString()) { onOpen("fav") }) +
+        playlists.map { p -> Tile(Icons.AutoMirrored.Rounded.QueueMusic, p.name, p.count.toString()) { onOpen("playlist:${p.id}") } } +
+        Tile(Icons.Rounded.Add, stringResource(R.string.music_playlist_add), " ") { onNewPlaylist() }
+    LazyRow(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp), reverseLayout = !left) {
+        items(tiles, key = { it.label + it.count }) { tile ->
+            Surface(onClick = tile.onClick, modifier = Modifier.width(84.dp), shape = RoundedCornerShape(20.dp),
+                color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f)) {
+                Column(Modifier.padding(vertical = 10.dp, horizontal = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(Modifier.size(44.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
+                        Icon(tile.icon, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                    }
+                    Text(tile.label, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
+                    Text(tile.count, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
 }
 
 /** «Вторник, вечер». */
@@ -144,41 +146,56 @@ private fun dayPart(): String {
     return stringResource(R.string.music_day_part, day, part)
 }
 
-/** The daily mix: a 2×2 collage of its covers, what it is, and a big Play under the thumb. */
+/** «Микс дня»: play at once, with a shuffle button. */
 @Composable
-private fun DailyMix(home: HomeMusic, downloaded: Set<String>, onPlay: () -> Unit, onShuffle: () -> Unit) {
+private fun DailyTile(home: HomeMusic, online: Boolean, modifier: Modifier, onPlay: () -> Unit, onShuffle: () -> Unit) {
     val mix = home.daily
-    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp)) {
-        val covers = mix?.tracks.orEmpty().mapNotNull { it.artwork }.distinct().take(4)
-        Box(Modifier.fillMaxWidth().aspectRatio(1.25f).clip(RoundedCornerShape(24.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh).clickable(enabled = mix != null, onClick = onPlay)) {
-            if (covers.isEmpty()) {
-                if (home.dailyLoading) CircularProgressIndicator(Modifier.align(Alignment.Center))
-            } else Column(Modifier.fillMaxSize()) {
-                covers.chunked(2).forEach { row ->
-                    Row(Modifier.weight(1f).fillMaxWidth()) {
-                        row.forEach { url -> Cover(url, Modifier.weight(1f).fillMaxHeight().lightSource(url), corner = 0.dp) }
-                        if (row.size == 1) Spacer(Modifier.weight(1f))
+    val enabled = mix != null && online
+    Surface(modifier.alpha(if (online) 1f else 0.38f), shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f)) {
+        Column(Modifier.clickable(enabled = enabled, onClick = onPlay).padding(12.dp)) {
+            val covers = mix?.tracks.orEmpty().mapNotNull { it.artwork }.distinct().take(4)
+            Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
+                if (covers.isEmpty()) {
+                    if (home.dailyLoading && online) CircularProgressIndicator(Modifier.align(Alignment.Center))
+                } else Column(Modifier.fillMaxSize()) {
+                    covers.chunked(2).forEach { row ->
+                        Row(Modifier.weight(1f).fillMaxWidth()) {
+                            row.forEach { url -> Cover(url, Modifier.weight(1f).fillMaxHeight().lightSource(url), corner = 0.dp) }
+                            if (row.size == 1) Spacer(Modifier.weight(1f))
+                        }
                     }
                 }
             }
-        }
-        Row(Modifier.fillMaxWidth().padding(top = 10.dp, start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.music_daily_mix), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
-                if (mix != null) {
-                    val all = mix.tracks.isNotEmpty() && mix.tracks.all { it.videoId in downloaded }
-                    val meta = songsAndMinutes(mix.tracks.size, mix.tracks.sumOf { it.durationMs }, known = mix.tracks.all { it.durationMs > 0 }) +
-                        if (all) " · " + stringResource(R.string.music_downloaded_mark) else ""
-                    Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(stringResource(if (mix.personalized) R.string.music_daily_personal else R.string.music_daily_popular),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.music_daily_mix), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (mix != null) Text(songsAndMinutes(mix.tracks.size, mix.tracks.sumOf { it.durationMs }, known = mix.tracks.all { it.durationMs > 0 }),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
+                IconButton(onClick = onShuffle, enabled = enabled) { Icon(Icons.Rounded.Shuffle, stringResource(R.string.music_shuffle)) }
             }
-            IconButton(onClick = onShuffle, enabled = mix != null) { Icon(Icons.Rounded.Shuffle, stringResource(R.string.music_shuffle)) }
-            Spacer(Modifier.width(4.dp))
-            FilledIconButton(onClick = onPlay, enabled = mix != null, modifier = Modifier.size(56.dp), shape = CircleShape) {
-                Icon(Icons.Rounded.PlayArrow, stringResource(R.string.music_play_all), Modifier.size(32.dp))
+        }
+    }
+}
+
+/** «Мой джем»: endless, starts at once. */
+@Composable
+private fun JamTile(mine: app.freshtuber.domain.model.PlaylistSummary?, title: String, online: Boolean, modifier: Modifier, onPlay: (app.freshtuber.domain.model.PlaylistSummary) -> Unit) {
+    val enabled = mine != null && online
+    Surface(modifier.alpha(if (online) 1f else 0.38f), shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f)) {
+        Column(Modifier.clickable(enabled = enabled) { mine?.let(onPlay) }.padding(12.dp)) {
+            Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
+                if (mine?.thumbnailUrl != null) Cover(mine.thumbnailUrl, Modifier.fillMaxSize().lightSource(mine.thumbnailUrl), corner = 0.dp)
+                else Icon(Icons.Rounded.AllInclusive, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
+            }
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(stringResource(R.string.music_my_jam_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                Box(Modifier.size(40.dp).background(MaterialTheme.colorScheme.primary, CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.PlayArrow, stringResource(R.string.player_play), tint = MaterialTheme.colorScheme.onPrimary)
+                }
             }
         }
     }

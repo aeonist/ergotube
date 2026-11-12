@@ -34,6 +34,8 @@ enum class AppFeature(val key: String, val default: Boolean) {
     MusicShowFolder("music_show_folder", false),
     /** The app opens on «Слушать» instead of the video Home. */
     StartWithMusic("start_with_music", false),
+    /** Off removes music from the app: no tab above the dock, no song line, no music search. */
+    MusicInApp("music_in_app", true),
 }
 
 /** Audio quality for music: the best stream, or a small one (about 50 kbps) that saves data. */

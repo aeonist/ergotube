@@ -32,12 +32,16 @@ class DockLayoutTest {
     }
 
     @Test fun mineTilesPutTheMostUsedLowestOnTheHandSide() {
-        // Right hand: Watch later bottom right, Music beside it, Settings on top.
+        // Right hand: Watch later bottom right, Downloads beside it, Settings on top. Music has its own ear now.
         val items = MineItem.entries.filter { it != MineItem.Shorts }
-        assertEquals(listOf(MineItem.Settings, MineItem.Playlists, MineItem.History, MineItem.Downloads, MineItem.Music, MineItem.WatchLater),
+        assertEquals(listOf(null, MineItem.Settings, MineItem.Playlists, MineItem.History, MineItem.Downloads, MineItem.WatchLater),
             app.freshtuber.ui.components.handGrid(items, 2, left = false))
-        assertEquals(listOf(MineItem.Playlists, MineItem.Settings, MineItem.Downloads, MineItem.History, MineItem.WatchLater, MineItem.Music),
+        assertEquals(listOf(MineItem.Settings, null, MineItem.History, MineItem.Playlists, MineItem.WatchLater, MineItem.Downloads),
             app.freshtuber.ui.components.handGrid(items, 2, left = true))
+    }
+
+    @Test fun mineHasNoMusicTile() {
+        assertEquals(false, MineItem.entries.any { it.name == "Music" })
     }
 
     @Test fun musicTakesShortsPlaceWhenChosen() {
@@ -45,11 +49,5 @@ class DockLayoutTest {
             DockLayout.order(left = false, shorts = true, music = true))
         assertEquals(listOf(DockTab.Home, DockTab.Music, DockTab.Search, DockTab.Subscriptions, DockTab.Mine),
             DockLayout.order(left = true, shorts = false, music = true))
-    }
-
-    @Test fun musicDockKeepsVideoFarthestFromTheThumb() {
-        assertEquals(listOf(MusicTab.Video, MusicTab.Search, MusicTab.Library, MusicTab.Listen), DockLayout.musicOrder(left = false))
-        assertEquals(listOf(MusicTab.Listen, MusicTab.Library, MusicTab.Search, MusicTab.Video), DockLayout.musicOrder(left = true))
-        assertEquals(DockLayout.musicOrder(left = true), DockLayout.musicOrder(left = false, swapHomeMine = true))
     }
 }

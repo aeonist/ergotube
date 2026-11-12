@@ -414,7 +414,7 @@
     <string name="music_source_online">Online only</string>
     <string name="music_flick_hint">Flick: up next, right download, left to the end, down share</string>
     <string name="music_search_hint">Songs and artists</string>
-    <string name="music_search_phone">On the phone</string>
+    <string name="music_search_phone">Yours</string>
     <string name="music_search_youtube">On YouTube</string>
     <string name="music_search_idle">Search songs on the phone and on YouTube</string>
     <string name="music_search_empty">Nothing found</string>
@@ -457,4 +457,19 @@
     <string name="update_available">Update available: build %d</string>
     <string name="update_later">Later</string>
     <string name="update_install">Update</string>
+    <!-- Build 28: one Music page -->
+    <string name="settings_music_in_app">Music in the app</string>
+    <string name="settings_music_in_app_hint">Turn off to remove the Music tab, the song line and music search</string>
+    <string name="music_mine">Mine</string>
+    <string name="music_play_now">Play right away</string>
+    <string name="music_offline_hidden">No connection. %1$d songs hidden, they return with the network</string>
+    <string name="music_show">Show</string>
+    <string name="music_sort">Sort</string>
+    <string name="music_mode">Mode</string>
+    <string name="music_menu_more">Favourites menu</string>
+    <string name="music_playlist_menu">Playlist menu</string>
+    <string name="search_source_music">Music</string>
+    <string name="search_source_video">Video</string>
+    <string name="music_close">Close</string>
+    <string name="music_remove_from_playlist">Remove from the playlist</string>
 </resources>

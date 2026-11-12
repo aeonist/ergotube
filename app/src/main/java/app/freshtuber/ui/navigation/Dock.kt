@@ -49,18 +49,9 @@ enum class DockTab(val icon: ImageVector, val selectedIcon: ImageVector, @param:
     Music(Icons.Rounded.Headphones, Icons.Rounded.Headphones, R.string.nav_music),
 }
 
-/** The music dock: Video is farthest from the thumb, Listen right under it. */
-enum class MusicTab(val icon: ImageVector, @param:StringRes val labelRes: Int) {
-    Video(Icons.Rounded.SmartDisplay, R.string.music_tab_video),
-    Search(Icons.Rounded.Search, R.string.nav_search),
-    Library(Icons.Rounded.LibraryMusic, R.string.music_tab_library),
-    Listen(Icons.Rounded.Headphones, R.string.music_tab_listen),
-}
-
 /** Tiles of «Моё», most used first: the first one sits lowest, on the working-hand side. */
 enum class MineItem(val icon: ImageVector, @param:StringRes val labelRes: Int, @param:StringRes val hintRes: Int) {
     WatchLater(Icons.Rounded.Schedule, R.string.mine_later, R.string.mine_later_hint),
-    Music(Icons.Rounded.Headphones, R.string.mine_music, R.string.mine_music_hint),
     Downloads(Icons.Rounded.DownloadDone, R.string.library_downloads, R.string.mine_downloads_hint),
     History(Icons.Rounded.History, R.string.library_history, R.string.mine_history_hint),
     Playlists(Icons.AutoMirrored.Rounded.PlaylistPlay, R.string.library_playlists, R.string.mine_playlists_hint),
@@ -86,12 +77,6 @@ object DockLayout {
         return if (inverted) base.reversed() else base
     }
 
-    /** Music dock order; mirrored like the main dock. */
-    fun musicOrder(left: Boolean, swapHomeMine: Boolean = false): List<MusicTab> {
-        val base = MusicTab.entries.toList()
-        return if (left xor swapHomeMine) base.reversed() else base
-    }
-
 }
 
 /**
@@ -100,24 +85,13 @@ object DockLayout {
  */
 @Composable
 fun AppDock(selected: DockTab?, mineOpen: Boolean, left: Boolean, shorts: Boolean, onSelect: (DockTab) -> Unit, modifier: Modifier = Modifier,
-    music: Boolean = false, line: (@Composable () -> Unit)? = null) {
+    music: Boolean = false, line: (@Composable () -> Unit)? = null, ear: (@Composable () -> Unit)? = null) {
     val preferences = app.freshtuber.ui.theme.LocalAppPreferences.current
-    DockDrop(left, modifier, line) {
+    DockDrop(left, modifier, line, ear) {
         DockLayout.order(left, shorts, preferences.enabled(app.freshtuber.data.settings.AppFeature.SwapHomeMine), music).forEach { tab ->
             val active = if (tab == DockTab.Mine) mineOpen || (selected == DockTab.Mine) else selected == tab && !mineOpen
             DockButton(tab.labelRes, if (active) tab.selectedIcon else tab.icon, active, "dock:${tab.name}",
                 if (tab == DockTab.Mine) stringResource(R.string.nav_mine_description) else null, Modifier.weight(1f)) { onSelect(tab) }
-        }
-    }
-}
-
-/** The music dock: the same drop, with Video · Search · Library · Listen. */
-@Composable
-fun MusicDock(selected: MusicTab?, left: Boolean, onSelect: (MusicTab) -> Unit, modifier: Modifier = Modifier, line: (@Composable () -> Unit)? = null) {
-    val preferences = app.freshtuber.ui.theme.LocalAppPreferences.current
-    DockDrop(left, modifier, line) {
-        DockLayout.musicOrder(left, preferences.enabled(app.freshtuber.data.settings.AppFeature.SwapHomeMine)).forEach { tab ->
-            DockButton(tab.labelRes, tab.icon, selected == tab, "music:${tab.name}", null, Modifier.weight(1f)) { onSelect(tab) }
         }
     }
 }
@@ -128,7 +102,7 @@ fun MusicDock(selected: MusicTab?, left: Boolean, onSelect: (MusicTab) -> Unit, 
  * the same drop, above the buttons.
  */
 @Composable
-private fun DockDrop(left: Boolean, modifier: Modifier, line: (@Composable () -> Unit)?, buttons: @Composable RowScope.() -> Unit) {
+private fun DockDrop(left: Boolean, modifier: Modifier, line: (@Composable () -> Unit)?, ear: (@Composable () -> Unit)?, buttons: @Composable RowScope.() -> Unit) {
     val light = app.freshtuber.ui.liquid.LocalLiquidLight.current
     val radius = with(androidx.compose.ui.platform.LocalDensity.current) { 34.dp.toPx() }
     DisposableEffect(light) { onDispose { light?.setDrop(0, null, 0f) } }
@@ -136,6 +110,7 @@ private fun DockDrop(left: Boolean, modifier: Modifier, line: (@Composable () ->
     val expanded = app.freshtuber.ui.components.isLargeScreen()
     // Expanded inner screens always use the whole width; phone width is a personal setting.
     Column(modifier.fillMaxWidth(), horizontalAlignment = if (left) Alignment.Start else Alignment.End) {
+        ear?.invoke()
         BoxWithConstraints(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
             .padding(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 14.dp).fillMaxWidth(),
             contentAlignment = if (left) Alignment.CenterStart else Alignment.CenterEnd) {

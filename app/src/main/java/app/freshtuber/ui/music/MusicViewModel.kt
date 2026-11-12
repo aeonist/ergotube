@@ -127,6 +127,17 @@ class MusicViewModel @Inject constructor(
         viewModelScope.launch { music.playCollection(mix.tracks.map { library.known(it) }, 0, title, shuffle = shuffle) }
     }
 
+    /** The ids of the one library («Любимое»); the heart is on for these. */
+    val libraryIds: StateFlow<Set<String>> = library.tracks.map { list -> list.map { it.id }.toSet() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
+
+    /** The heart: adds the song to «Любимое», or takes it out of the one library again. */
+    fun toggleHeart(track: MusicTrack) {
+        viewModelScope.launch {
+            if (MusicLibraryLogic.hearted(track, libraryIds.value)) library.remove(track) else music.toggleFavorite(track.copy(favorite = false))
+        }
+    }
+
     fun toggleFavorite(track: MusicTrack) { viewModelScope.launch { music.toggleFavorite(track) } }
     fun save(track: MusicTrack) { viewModelScope.launch { library.save(track) } }
     fun remove(track: MusicTrack) { viewModelScope.launch { library.remove(track) } }
@@ -225,7 +236,10 @@ class MusicViewModel @Inject constructor(
         if (q.isEmpty()) { _search.value = SearchResults(); return }
         _search.value = SearchResults(q, loading = true)
         searchJob = viewModelScope.launch {
-            val phone = library.search(q).sortedBy { if (it.source == MusicSource.Phone) 0 else 1 }
+            val downloadedIds = downloaded.value.values.filter { it.state == DownloadStatus.Complete }.map { it.videoId }.toSet()
+            // Without a network only what plays from the phone is offered.
+            val phone = library.search(q).let { found -> if (online.value) found else found.filter { MusicLibraryLogic.isLocal(it, downloadedIds) } }
+                .sortedBy { if (it.source == MusicSource.Phone) 0 else 1 }
             _search.value = _search.value.copy(phone = phone)
             val youtube = if (!online.value) emptyList() else try { discovery.searchYouTube(q).map { library.known(it) } }
                 catch (e: CancellationException) { throw e } catch (_: Exception) { _search.value = _search.value.copy(failed = true); emptyList() }

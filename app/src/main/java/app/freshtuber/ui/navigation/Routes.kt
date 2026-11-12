@@ -17,10 +17,9 @@ import kotlinx.serialization.Serializable
 @Serializable data class ChannelRoute(val channelId: String)
 /** Shorts opened from a shelf: these Shorts in order, starting at [start]. */
 @Serializable data class ShortsViewerRoute(val videoIds: List<String>, val thumbnails: List<String>, val start: Int)
-/** «Слушать», the music home. */
+/** The «Музыка» page. */
 @Serializable data object MusicListenRoute
 /** The music library, or one shelf of it: `fav`, `downloads`, `phone`, `playlist:<id>`. */
 @Serializable data class MusicLibraryRoute(val collection: String? = null)
-@Serializable data object MusicSearchRoute
 /** «Сейчас играет». */
 @Serializable data object MusicPlayerRoute

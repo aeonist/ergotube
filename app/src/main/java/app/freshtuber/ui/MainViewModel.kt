@@ -37,6 +37,9 @@ class MainViewModel @Inject constructor(
     val leftHanded = settings.leftHanded.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val musicTab = settings.preferences.map { it.enabled(app.freshtuber.data.settings.AppFeature.MusicTab) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    /** «Музыка в приложении»: off removes the ear, the song line and music search. */
+    val musicInApp = settings.preferences.map { it.enabled(app.freshtuber.data.settings.AppFeature.MusicInApp) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
     /** Finished downloads, shown next to «Скачанное». */
     val completedDownloads = downloads.items.map { list -> list.count { it.state == app.freshtuber.data.downloads.DownloadStatus.Complete } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)

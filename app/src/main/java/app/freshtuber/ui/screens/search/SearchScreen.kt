@@ -50,6 +50,7 @@ import app.freshtuber.ui.feed.FeedNavigation
 fun SearchScreen(
     navigation: FeedNavigation,
     onSignIn: () -> Unit,
+    sourceSwitch: (@Composable () -> Unit)? = null,
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
     val left = LocalLeftHanded.current
@@ -175,6 +176,7 @@ fun SearchScreen(
             Column {
                 field()
                 if (!suggestionsVisible && hasQuery && state.filters.size > 1) chips()
+                sourceSwitch?.invoke()
             }
         }
         if (suggestionsVisible) Box(Modifier.weight(1f)) { suggestionRows() }
@@ -186,6 +188,7 @@ fun SearchScreen(
             BottomBar {
                 if (showSuggestions) suggestionRows()
                 else if (hasQuery && state.filters.size > 1) chips()
+                sourceSwitch?.invoke()
                 field()
             }
         }
