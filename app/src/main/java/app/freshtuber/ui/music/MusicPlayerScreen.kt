@@ -14,6 +14,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -142,14 +143,17 @@ fun MusicPlayerScreen(onCollapse: () -> Unit, viewModel: MusicViewModel = hiltVi
         }
         if (face == Face.Cover) {
             // The big view: the cover, the title with the heart, and the whole remote under it.
-            // Spare height goes above the cover, so the cover, the title and the remote stay together.
-            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp), contentAlignment = Alignment.BottomCenter) {
-                val side = minOf(maxWidth, maxHeight)
-                CoverArea(track, false, direction, long, state, viewModel, Modifier.size(side),
-                    onTap = { face = Face.Lyrics }, onNext = next, onPrevious = previous,
-                    onSeek = { seconds -> music.seekBy(seconds * 1000L); haptics.performHapticFeedback(HapticFeedbackType.SegmentTick) })
+            // The cover with the title under it, together in the middle of the space above the remote.
+            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                val side = minOf(maxWidth - 48.dp, maxHeight - 16.dp - TitleRowHeight).coerceAtLeast(0.dp)
+                Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                    CoverArea(track, false, direction, long, state, viewModel, Modifier.size(side),
+                        onTap = { face = Face.Lyrics }, onNext = next, onPrevious = previous,
+                        onSeek = { seconds -> music.seekBy(seconds * 1000L); haptics.performHapticFeedback(HapticFeedbackType.SegmentTick) })
+                    Spacer(Modifier.height(8.dp))
+                    TitleRow(track, left, hearted, onHeart = { viewModel.toggleHeart(track); haptics.performHapticFeedback(HapticFeedbackType.Confirm) })
+                }
             }
-            TitleRow(track, left, hearted, onHeart = { viewModel.toggleHeart(track); haptics.performHapticFeedback(HapticFeedbackType.Confirm) })
             MusicPad(state, music.player, left, download = download, youTube = track.isYouTube,
                 onShuffle = { music.toggleShuffle(); haptics.performHapticFeedback(HapticFeedbackType.SegmentTick) },
                 onRepeat = { music.cycleRepeat(); haptics.performHapticFeedback(HapticFeedbackType.SegmentTick) },
@@ -255,26 +259,35 @@ private fun LyricsView(track: MusicTrack, viewModel: MusicViewModel, modifier: M
     }
 }
 
+private val TitleRowHeight = 64.dp
+
 @Composable
 private fun TitleRow(track: MusicTrack, left: Boolean, hearted: Boolean, onHeart: () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().heightIn(min = TitleRowHeight).padding(horizontal = 20.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         val heart: @Composable () -> Unit = {
             PadIcon(if (hearted) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                 stringResource(if (hearted) R.string.music_unfavorite else R.string.music_favorite), selected = hearted, onClick = onHeart)
         }
         if (left) heart()
-        Column(Modifier.weight(1f).padding(horizontal = 6.dp), horizontalAlignment = if (left) Alignment.End else Alignment.Start) {
-            Text(track.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(track.artist.orEmpty(), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        // A new song's title comes into focus out of a blur, as the cover does.
+        AnimatedContent(track, Modifier.weight(1f), contentKey = { it.id },
+            transitionSpec = { app.freshtuber.ui.motion.blurSwap(340, 240, 0.97f) }, label = "title") { track ->
+        Column(Modifier.fillMaxWidth().then(blurVisible(14.dp, 340, 240)).padding(horizontal = 6.dp), horizontalAlignment = if (left) Alignment.End else Alignment.Start) {
+            // A long title or artist runs along slowly instead of being cut.
+            Text(track.title, Modifier.basicMarquee(iterations = Int.MAX_VALUE, initialDelayMillis = 1_500, repeatDelayMillis = 2_000),
+                style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Text(track.artist.orEmpty(), Modifier.basicMarquee(iterations = Int.MAX_VALUE, initialDelayMillis = 1_500, repeatDelayMillis = 2_000),
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        }
         }
         if (!left) heart()
     }
 }
 
 /**
- * The music pad: the second liquid drop, pressed to the thumb. From the top: the labelled row
- * (shuffle, repeat, download, lyrics, queue, «Ещё»), the track, and at the bottom, under the
- * thumb, the time with previous, play and next at the thumb's edge. Every state shows on its button.
+ * The music pad: the second liquid drop, kept low. From the top: the named buttons (download,
+ * lyrics, queue, «Ещё»), the track with the time at its ends, and at the bottom previous, play
+ * and next in the middle with shuffle and repeat at the sides. Every state shows on its button.
  */
 @Composable
 private fun MusicPad(state: MusicState, player: androidx.media3.common.Player, left: Boolean,
@@ -301,19 +314,11 @@ private fun MusicPad(state: MusicState, player: androidx.media3.common.Player, l
                 if (drag < -36.dp.toPx()) { haptics.performHapticFeedback(HapticFeedbackType.GestureEnd); onQueue() }
             }) { change, amount -> drag += amount; change.consume() }
         }
-        .padding(horizontal = 6.dp, vertical = 6.dp)) {
-        // Top, the rarer buttons with their names: shuffle, repeat, download, lyrics, queue, «Ещё».
+        .padding(horizontal = 6.dp, vertical = 4.dp)) {
+        // Top: the named buttons.
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             val status = download?.state
             val tools: List<@Composable RowScope.() -> Unit> = listOf(
-                { LabeledButton(Icons.Rounded.Shuffle, stringResource(R.string.music_shuffle_short), selected = queue.shuffle, onClick = onShuffle) },
-                {
-                    LabeledButton(if (queue.repeat == RepeatMode.One) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
-                        stringResource(if (queue.repeat == RepeatMode.One) R.string.music_repeat_one_short else R.string.music_repeat),
-                        selected = queue.repeat != RepeatMode.Off,
-                        description = stringResource(when (queue.repeat) { RepeatMode.Off -> R.string.music_repeat_off; RepeatMode.All -> R.string.music_repeat_all; RepeatMode.One -> R.string.music_repeat_one }),
-                        onClick = onRepeat)
-                },
                 {
                     when {
                         !youTube -> LabeledButton(Icons.Rounded.PhoneAndroid, stringResource(R.string.music_on_phone_short), enabled = false) {}
@@ -330,80 +335,74 @@ private fun MusicPad(state: MusicState, player: androidx.media3.common.Player, l
             )
             (if (left) tools.reversed() else tools).forEach { it() }
         }
-        // The track: drag along it to seek; lift the finger above it to seek finely.
-        Box(Modifier.fillMaxWidth().padding(top = 4.dp).height(30.dp)) {
-            ScrubBar(if (duration > 0) shownMs.toFloat() / duration else 0f, state.chapters, duration, scrubbing = scrubMs != null,
-                modifier = Modifier.fillMaxSize().pointerInput(duration) {
-                    if (duration <= 0) return@pointerInput
-                    awaitEachGesture {
-                        val down = awaitFirstDown()
-                        val width = size.width.toFloat().coerceAtLeast(1f)
-                        val liftPx = app.freshtuber.ui.player.Scrub.FINE_LIFT_DP * density
-                        var position = (down.position.x / width).coerceIn(0f, 1f) * duration
-                        var lastX = down.position.x
-                        var isFine = false
-                        scrubMs = position.toLong()
-                        while (true) {
-                            val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
-                            if (!change.pressed) break
-                            change.consume()
-                            val nowFine = down.position.y - change.position.y > liftPx
-                            if (nowFine != isFine) { isFine = nowFine; fine = nowFine; haptics.performHapticFeedback(HapticFeedbackType.SegmentTick) }
-                            position = if (isFine) (position + (change.position.x - lastX) / width * duration * app.freshtuber.ui.player.Scrub.FINE_FACTOR).coerceIn(0f, duration.toFloat())
-                                else (change.position.x / width).coerceIn(0f, 1f) * duration
-                            lastX = change.position.x
+        // The track with the played and the total time at its ends: drag along it to seek; lift
+        // the finger above it to seek finely.
+        Row(Modifier.fillMaxWidth().height(28.dp).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            val timeStyle = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = app.freshtuber.ui.theme.TabularNumbers)
+            Text(formatDuration(shownMs / 1000), style = timeStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Box(Modifier.weight(1f).fillMaxHeight()) {
+                ScrubBar(if (duration > 0) shownMs.toFloat() / duration else 0f, state.chapters, duration, scrubbing = scrubMs != null,
+                    modifier = Modifier.fillMaxSize().pointerInput(duration) {
+                        if (duration <= 0) return@pointerInput
+                        awaitEachGesture {
+                            val down = awaitFirstDown()
+                            val width = size.width.toFloat().coerceAtLeast(1f)
+                            val liftPx = app.freshtuber.ui.player.Scrub.FINE_LIFT_DP * density
+                            var position = (down.position.x / width).coerceIn(0f, 1f) * duration
+                            var lastX = down.position.x
+                            var isFine = false
                             scrubMs = position.toLong()
+                            while (true) {
+                                val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                                if (!change.pressed) break
+                                change.consume()
+                                val nowFine = down.position.y - change.position.y > liftPx
+                                if (nowFine != isFine) { isFine = nowFine; fine = nowFine; haptics.performHapticFeedback(HapticFeedbackType.SegmentTick) }
+                                position = if (isFine) (position + (change.position.x - lastX) / width * duration * app.freshtuber.ui.player.Scrub.FINE_FACTOR).coerceIn(0f, duration.toFloat())
+                                    else (change.position.x / width).coerceIn(0f, 1f) * duration
+                                lastX = change.position.x
+                                scrubMs = position.toLong()
+                            }
+                            onSeekTo(position.toLong())
+                            scrubMs = null
+                            fine = false
                         }
-                        onSeekTo(position.toLong())
-                        scrubMs = null
-                        fine = false
-                    }
-                })
-            scrubMs?.let { Bubble(formatDuration(it / 1000) + if (fine) " · ×5" else "", Modifier.align(Alignment.TopCenter).offset(y = (-30).dp)) }
-        }
-        // Bottom, under the thumb: the time on the far side, previous, play and next at the thumb's edge.
-        Row(Modifier.fillMaxWidth().height(76.dp), verticalAlignment = Alignment.CenterVertically) {
-            val nextLabel = stringResource(R.string.music_next)
-            val time: @Composable () -> Unit = {
-                Column(Modifier.padding(horizontal = 10.dp), horizontalAlignment = if (left) Alignment.End else Alignment.Start) {
-                    val timeStyle = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = app.freshtuber.ui.theme.TabularNumbers)
-                    Text(formatDuration(shownMs / 1000), style = timeStyle)
-                    Text(if (duration > 0) formatDuration(duration / 1000) else "", style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = app.freshtuber.ui.theme.TabularNumbers),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Chapter.at(state.chapters, shownMs / 1000)?.title?.let {
-                        Text(it, Modifier.widthIn(max = 120.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    }
-                }
-            }
-            val previousButton: @Composable () -> Unit = {
-                PadIcon(Icons.Rounded.SkipPrevious, stringResource(R.string.music_previous), big = true, onClick = onPrevious)
-            }
-            val playButton: @Composable () -> Unit = {
-                FilledIconButton(onClick = onToggle, modifier = Modifier.size(68.dp), shape = CircleShape) {
-                    Icon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        stringResource(if (state.playing) R.string.player_pause else R.string.player_play), Modifier.size(36.dp))
-                }
-            }
-            // Hold Next to scan forward.
-            val nextButton: @Composable () -> Unit = {
-                Box(Modifier.size(52.dp).clip(CircleShape).semantics { contentDescription = nextLabel }.pointerInput(Unit) {
-                    detectTapGestures(onPress = {
-                        var scanning = false
-                        val hold = scope.launch { delay(380); scanning = true; onScan(true) }
-                        val released = tryAwaitRelease()
-                        hold.cancel()
-                        if (scanning) onScan(false) else if (released) onNext()
                     })
-                }, contentAlignment = Alignment.Center) { Icon(Icons.Rounded.SkipNext, null, Modifier.size(32.dp)) }
+                scrubMs?.let { ms ->
+                    val chapter = Chapter.at(state.chapters, ms / 1000)?.title?.let { " · $it" }.orEmpty()
+                    Bubble(formatDuration(ms / 1000) + chapter + if (fine) " · ×5" else "", Modifier.align(Alignment.TopCenter).offset(y = (-34).dp))
+                }
             }
-            if (left) {
-                nextButton(); Spacer(Modifier.width(8.dp)); playButton(); Spacer(Modifier.width(8.dp)); previousButton()
-                Spacer(Modifier.weight(1f)); time()
-            } else {
-                time(); Spacer(Modifier.weight(1f))
-                previousButton(); Spacer(Modifier.width(8.dp)); playButton(); Spacer(Modifier.width(8.dp)); nextButton()
+            Text(if (duration > 0) formatDuration(duration / 1000) else "", style = timeStyle, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        // Bottom: previous, play and next in the middle, shuffle and repeat at the sides.
+        Row(Modifier.fillMaxWidth().height(62.dp), verticalAlignment = Alignment.CenterVertically) {
+            val nextLabel = stringResource(R.string.music_next)
+            LabeledButton(Icons.Rounded.Shuffle, stringResource(R.string.music_shuffle_short), selected = queue.shuffle, width = 72.dp, onClick = onShuffle)
+            Spacer(Modifier.weight(1f))
+            PadIcon(Icons.Rounded.SkipPrevious, stringResource(R.string.music_previous), big = true, onClick = onPrevious)
+            Spacer(Modifier.width(10.dp))
+            FilledIconButton(onClick = onToggle, modifier = Modifier.size(58.dp), shape = CircleShape) {
+                BlurIcon(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                    stringResource(if (state.playing) R.string.player_pause else R.string.player_play), Modifier.size(32.dp))
             }
+            Spacer(Modifier.width(10.dp))
+            // Hold Next to scan forward.
+            Box(Modifier.size(52.dp).clip(CircleShape).semantics { contentDescription = nextLabel }.pointerInput(Unit) {
+                detectTapGestures(onPress = {
+                    var scanning = false
+                    val hold = scope.launch { delay(380); scanning = true; onScan(true) }
+                    val released = tryAwaitRelease()
+                    hold.cancel()
+                    if (scanning) onScan(false) else if (released) onNext()
+                })
+            }, contentAlignment = Alignment.Center) { Icon(Icons.Rounded.SkipNext, null, Modifier.size(30.dp)) }
+            Spacer(Modifier.weight(1f))
+            LabeledButton(if (queue.repeat == RepeatMode.One) Icons.Rounded.RepeatOne else Icons.Rounded.Repeat,
+                stringResource(if (queue.repeat == RepeatMode.One) R.string.music_repeat_one_short else R.string.music_repeat),
+                selected = queue.repeat != RepeatMode.Off, width = 72.dp,
+                description = stringResource(when (queue.repeat) { RepeatMode.Off -> R.string.music_repeat_off; RepeatMode.All -> R.string.music_repeat_all; RepeatMode.One -> R.string.music_repeat_one }),
+                onClick = onRepeat)
         }
     }
 }
@@ -411,19 +410,22 @@ private fun MusicPad(state: MusicState, player: androidx.media3.common.Player, l
 /** A button with its name under the icon, an equal share of the row. */
 @Composable
 private fun RowScope.LabeledButton(icon: ImageVector, label: String, selected: Boolean = false, enabled: Boolean = true,
-    description: String? = null, onClick: () -> Unit) {
-    val tint = when {
+    description: String? = null, width: androidx.compose.ui.unit.Dp? = null, onClick: () -> Unit) {
+    val tint by androidx.compose.animation.animateColorAsState(when {
         selected -> MaterialTheme.colorScheme.primary
         enabled -> MaterialTheme.colorScheme.onSurface
         else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    Column(Modifier.weight(1f).heightIn(min = 60.dp).clip(RoundedCornerShape(16.dp))
+    }, tween(260), label = "labeledTint")
+    Column((if (width != null) Modifier.width(width) else Modifier.weight(1f)).heightIn(min = 50.dp).clip(RoundedCornerShape(16.dp))
         .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
-        .semantics { this.selected = selected; if (description != null) contentDescription = description }.padding(vertical = 6.dp),
+        .semantics { this.selected = selected; if (description != null) contentDescription = description }.padding(vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Icon(icon, null, Modifier.size(24.dp), tint = tint)
-        Spacer(Modifier.height(4.dp))
-        Text(label, style = MaterialTheme.typography.labelSmall, color = tint, maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+        BlurIcon(icon, null, Modifier.size(24.dp), tint = tint)
+        Spacer(Modifier.height(2.dp))
+        AnimatedContent(label, transitionSpec = { app.freshtuber.ui.motion.blurSwap(260, 180, 0.94f) }, label = "labeledText") { shown ->
+            Text(shown, Modifier.then(blurVisible(8.dp, 260, 180)), style = MaterialTheme.typography.labelSmall, color = tint,
+                maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+        }
     }
 }
 
@@ -452,7 +454,15 @@ private fun PadIcon(icon: ImageVector, label: String, selected: Boolean = false,
     IconButton(onClick, Modifier.size(if (big) 52.dp else 44.dp).semantics { this.selected = selected },
         colors = if (selected) IconButtonDefaults.iconButtonColors(containerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
             contentColor = MaterialTheme.colorScheme.primary) else IconButtonDefaults.iconButtonColors()) {
-        Icon(icon, label, Modifier.size(if (big) 32.dp else 24.dp))
+        BlurIcon(icon, label, Modifier.size(if (big) 32.dp else 24.dp))
+    }
+}
+
+/** An icon that changes (heart, play/pause, download state, repeat) through a blur, like everything else. */
+@Composable
+private fun BlurIcon(icon: ImageVector, contentDescription: String?, modifier: Modifier = Modifier, tint: Color = LocalContentColor.current) {
+    AnimatedContent(icon, transitionSpec = { app.freshtuber.ui.motion.blurSwap(260, 180, 0.88f) }, label = "blurIcon") { shown ->
+        Icon(shown, contentDescription, modifier.then(blurVisible(10.dp, 260, 180)), tint = tint)
     }
 }
 
