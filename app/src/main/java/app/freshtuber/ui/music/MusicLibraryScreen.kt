@@ -142,13 +142,13 @@ fun MusicLibraryScreen(collection: String?, viewModel: MusicViewModel = hiltView
         }
         ContextBar(actions, left)
     }
-    if (sortOpen) ModalBottomSheet(onDismissRequest = { sortOpen = false }) {
+    if (sortOpen) app.freshtuber.ui.components.BlurSheet(onDismissRequest = { sortOpen = false }) {
         Column(Modifier.padding(bottom = 16.dp)) {
             Text(stringResource(R.string.music_sort), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
             ChoiceRows(LibrarySort.entries.map { stringResource(it.labelRes) }, sort.ordinal) { sort = LibrarySort.entries[it]; sortOpen = false }
         }
     }
-    if (moreOpen) ModalBottomSheet(onDismissRequest = { moreOpen = false }) {
+    if (moreOpen) app.freshtuber.ui.components.BlurSheet(onDismissRequest = { moreOpen = false }) {
         Column(Modifier.padding(bottom = 16.dp)) {
             if (playlistId != null) {
                 MenuRow(Icons.Rounded.Edit, stringResource(R.string.music_rename)) { moreOpen = false; renaming = true }

@@ -1,5 +1,6 @@
 package app.freshtuber.ui.screens.shorts
 
+import app.freshtuber.ui.motion.blurVisible
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.runtime.*
 import androidx.compose.material.icons.outlined.ThumbUp
@@ -332,10 +333,10 @@ private fun ShortPage(
         if (loading || progress?.buffering == true) CircularProgressIndicator(Modifier.align(Alignment.Center), color = Color.White)
         else androidx.compose.animation.AnimatedVisibility(!inPip && player != null && progress != null && !progress.isPlaying && !player.playWhenReady && progress.durationMs > 0,
             Modifier.align(Alignment.Center),
-            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.scaleIn(initialScale = 0.8f),
-            exit = androidx.compose.animation.fadeOut() + androidx.compose.animation.scaleOut(targetScale = 1.15f)) {
+            enter = app.freshtuber.ui.motion.blurIn(260, fromScale = 0.8f),
+            exit = app.freshtuber.ui.motion.blurOut(220, toScale = 1.15f)) {
             Icon(Icons.Rounded.PlayArrow, null, tint = Color.White,
-                modifier = Modifier.size(72.dp).background(Color(0x8C000000), CircleShape).padding(16.dp))
+                modifier = Modifier.then(blurVisible(14.dp)).size(72.dp).background(Color(0x8C000000), CircleShape).padding(16.dp))
         }
     }
 }
@@ -375,11 +376,8 @@ private fun ShortActions(id: String, viewModel: VideoViewModel, navigation: Feed
     val glass = remember(hue) { app.freshtuber.ui.theme.Oklab.lch(0.30f, 0.07f, hue, 0.62f) }
     Box(Modifier.fillMaxSize().windowInsetsPadding(side)) {
         // Caption card: channel with Subscribe, then the title; tap opens the description.
-        // It rises into place once the Short's details arrive instead of popping in.
-        androidx.compose.animation.AnimatedVisibility(details != null, Modifier.align(Alignment.BottomStart),
-            enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(260)) +
-                androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(340, easing = app.freshtuber.ui.motion.Motion.Decelerate)) { it / 3 },
-            exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(160))) {
+        // It comes into focus out of a blur once the Short's details arrive instead of popping in.
+        app.freshtuber.ui.motion.BlurVisibility(details != null, Modifier.align(Alignment.BottomStart), enterMs = 340, exitMs = 180, fromScale = 0.97f) {
         (details ?: lastDetails[0])?.let { d ->
             Column(Modifier.fillMaxWidth()
                 .padding(start = if (left) 80.dp else 12.dp, end = if (left) 12.dp else 80.dp, bottom = bottomSpace + 14.dp)
@@ -421,7 +419,7 @@ private fun ShortActions(id: String, viewModel: VideoViewModel, navigation: Feed
             ShortButton(Icons.Rounded.MoreHoriz, stringResource(R.string.video_more), null, false, true, glass) { more = true }
         }
     }
-    if (descriptionOpen) ModalBottomSheet(onDismissRequest = { descriptionOpen = false }) {
+    if (descriptionOpen) app.freshtuber.ui.components.BlurSheet(onDismissRequest = { descriptionOpen = false }) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.shorts_description), style = MaterialTheme.typography.titleLarge)
@@ -432,7 +430,7 @@ private fun ShortActions(id: String, viewModel: VideoViewModel, navigation: Feed
             }
         }
     }
-    if (more) ModalBottomSheet(onDismissRequest = { more = false }) {
+    if (more) app.freshtuber.ui.components.BlurSheet(onDismissRequest = { more = false }) {
         val share = stringResource(R.string.video_share)
         val downloadNotifications = app.freshtuber.ui.components.rememberDownloadNotifications()
         val tiles = buildList {

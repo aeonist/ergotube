@@ -220,7 +220,7 @@ fun ListScreen(
             }
         }
         if (actions.isNotEmpty()) {
-            AnimatedVisibility(hide.visible, enter = expandVertically(), exit = shrinkVertically()) {
+            app.freshtuber.ui.motion.BlurVisibility(hide.visible, collapse = true) {
                 ContextBar(actions, left)
             }
         }

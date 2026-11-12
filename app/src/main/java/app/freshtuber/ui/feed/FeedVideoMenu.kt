@@ -158,7 +158,7 @@ fun FeedVideoMenu(video: VideoSummary, recommendation: Boolean, act: (FanAction)
     }
     LaunchedEffect(picker.opened) { if (!sheetOpen && pickerSeen && !picker.opened && message == null) onDismiss() }
     val left = LocalLeftHanded.current
-    if (sheetOpen) ModalBottomSheet(onDismissRequest = onDismiss) {
+    if (sheetOpen) app.freshtuber.ui.components.BlurSheet(onDismissRequest = onDismiss) {
         Text(video.title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
             maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(horizontal = 20.dp).padding(bottom = 8.dp))
         val labels = FanAction.entries.associateWith { stringResource(it.labelRes) }

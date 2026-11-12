@@ -31,12 +31,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -62,7 +60,6 @@ import coil3.compose.AsyncImage
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CommentsSheet(state: CommentsUiState, viewModel: VideoViewModel, onOpenChannel: (String) -> Unit) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var replyTo by remember { mutableStateOf<Comment?>(null) }
     var draft by rememberSaveable { mutableStateOf("") }
     val listState = rememberLazyListState()
@@ -76,7 +73,7 @@ fun CommentsSheet(state: CommentsUiState, viewModel: VideoViewModel, onOpenChann
         if (nearEnd && state.comments.isNotEmpty()) viewModel.loadMoreComments()
     }
 
-    ModalBottomSheet(onDismissRequest = viewModel::closeComments, sheetState = sheetState) {
+    app.freshtuber.ui.components.BlurSheet(onDismissRequest = viewModel::closeComments) {
         Column(Modifier.fillMaxHeight(0.92f).imePadding()) {
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -273,7 +270,7 @@ private fun ComposeBar(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlaylistPickerSheet(state: PlaylistPickerState, viewModel: VideoViewModel) {
-    ModalBottomSheet(onDismissRequest = viewModel::closePlaylistPicker) {
+    app.freshtuber.ui.components.BlurSheet(onDismissRequest = viewModel::closePlaylistPicker) {
         Text(
             stringResource(R.string.save_to_playlist),
             style = MaterialTheme.typography.titleMedium,

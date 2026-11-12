@@ -143,7 +143,7 @@ fun SubscriptionsScreen(
 
     val classic = app.freshtuber.ui.components.LocalClassic.current
     Column(Modifier.fillMaxSize()) {
-        if (classic && strip.isNotEmpty()) androidx.compose.animation.AnimatedVisibility(hide.visible) {
+        if (classic && strip.isNotEmpty()) app.freshtuber.ui.motion.BlurVisibility(hide.visible, collapse = true) {
             ChannelStrip(strip, selectedChannel, true,
                 onPick = { id -> if (id != null && id == selectedChannel) navigation.openChannel(id) else selectedChannel = id },
                 onList = { listOpen = true })
@@ -186,14 +186,14 @@ fun SubscriptionsScreen(
                 if (!left) Spacer(Modifier.weight(1f))
                 handOrder(controls, left).forEach { it() }
             }
-            if (!classic && strip.isNotEmpty()) androidx.compose.animation.AnimatedVisibility(hide.visible) {
+            if (!classic && strip.isNotEmpty()) app.freshtuber.ui.motion.BlurVisibility(hide.visible, collapse = true) {
                 ChannelStrip(strip, selectedChannel, left,
                     onPick = { id -> if (id != null && id == selectedChannel) navigation.openChannel(id) else selectedChannel = id },
                     onList = { listOpen = true })
             }
         }
     }
-    if (listOpen) ModalBottomSheet(onDismissRequest = { listOpen = false }) {
+    if (listOpen) app.freshtuber.ui.components.BlurSheet(onDismissRequest = { listOpen = false }) {
         androidx.compose.foundation.lazy.LazyColumn(Modifier.fillMaxWidth(), reverseLayout = fromBottom) {
             items(strip, key = { it.id }) { channel ->
                 ListItem(headlineContent = { Text(channel.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },

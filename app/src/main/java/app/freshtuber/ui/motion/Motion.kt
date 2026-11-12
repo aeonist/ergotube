@@ -73,6 +73,77 @@ fun AnimatedVisibilityScope.transitionBlur(max: Dp = 22.dp): Modifier {
     }
 }
 
+/**
+ * The app's one way to show and hide anything (sheets, buttons, bars, chips, the ear): it comes
+ * into focus out of a blur and goes back into one, the way the watch page leaves. Nothing slides
+ * in or out. [p] runs 0 (gone) .. 1 (here); the thing grows from [fromScale] as it sharpens.
+ */
+fun Modifier.blurFade(p: () -> Float, max: Dp = 16.dp, fromScale: Float = 0.94f): Modifier = graphicsLayer {
+    val v = p().coerceIn(0f, 1f)
+    alpha = v
+    val s = fromScale + (1f - fromScale) * v
+    scaleX = s; scaleY = s
+    if (Build.VERSION.SDK_INT >= 31) {
+        val r = (1f - v) * max.toPx()
+        renderEffect = if (r > 0.5f) BlurEffect(r, r, TileMode.Decal) else null
+    }
+}
+
+/** Enter half of the blur appearance (fade and a slight grow; the blur itself comes from [blurVisible]). */
+fun blurIn(ms: Int = 300, delay: Int = 0, fromScale: Float = 0.94f): androidx.compose.animation.EnterTransition =
+    androidx.compose.animation.fadeIn(tween(ms, delay, Motion.Decelerate)) + androidx.compose.animation.scaleIn(tween(ms, delay, Motion.Decelerate), fromScale)
+
+/** Exit half of the blur appearance. */
+fun blurOut(ms: Int = 220, toScale: Float = 0.94f): androidx.compose.animation.ExitTransition =
+    androidx.compose.animation.fadeOut(tween(ms, easing = Motion.Accelerate)) + androidx.compose.animation.scaleOut(tween(ms, easing = Motion.Accelerate), toScale)
+
+/**
+ * Shows or hides [content] through a blur. With [collapse] the space it takes opens and closes
+ * too (for bars inside a column), but the content itself never slides or gets cut.
+ */
+@Composable
+fun BlurVisibility(
+    visible: Boolean,
+    modifier: Modifier = Modifier,
+    collapse: Boolean = false,
+    max: Dp = 16.dp,
+    enterMs: Int = 300,
+    exitMs: Int = 220,
+    fromScale: Float = 0.94f,
+    content: @Composable AnimatedVisibilityScope.() -> Unit,
+) {
+    val enter = blurIn(enterMs, fromScale = fromScale).let {
+        if (collapse) it + androidx.compose.animation.expandVertically(tween(enterMs, easing = Motion.Decelerate), expandFrom = androidx.compose.ui.Alignment.Top, clip = false) else it
+    }
+    val exit = blurOut(exitMs, fromScale).let {
+        if (collapse) it + androidx.compose.animation.shrinkVertically(tween(exitMs + 60, easing = Motion.Emphasized), shrinkTowards = androidx.compose.ui.Alignment.Top, clip = false) else it
+    }
+    androidx.compose.animation.AnimatedVisibility(visible, modifier, enter = enter, exit = exit) {
+        androidx.compose.foundation.layout.Box(blurVisible(max, enterMs, exitMs)) { content() }
+    }
+}
+
+/** Blur for anything inside an AnimatedVisibility / AnimatedContent: sharp when settled. */
+@Composable
+fun AnimatedVisibilityScope.blurVisible(max: Dp = 16.dp, enterMs: Int = 300, exitMs: Int = 220): Modifier {
+    if (Build.VERSION.SDK_INT < 31) return Modifier
+    val amount = transition.animateFloat(
+        transitionSpec = {
+            if (targetState == EnterExitState.Visible) tween(enterMs, easing = Motion.Decelerate)
+            else tween(exitMs, easing = Motion.Accelerate)
+        },
+        label = "blurVisible",
+    ) { if (it == EnterExitState.Visible) 0f else 1f }
+    return Modifier.graphicsLayer {
+        val r = amount.value * max.toPx()
+        renderEffect = if (r > 0.5f) BlurEffect(r, r, TileMode.Decal) else null
+    }
+}
+
+/** A cross-fade through a blur for AnimatedContent: the old one blurs away while the new one sharpens. */
+fun blurSwap(enterMs: Int = 300, exitMs: Int = 200, fromScale: Float = 0.94f): androidx.compose.animation.ContentTransform =
+    androidx.compose.animation.ContentTransform(blurIn(enterMs, 40, fromScale), blurOut(exitMs, 1.04f))
+
 /** True once a screen has fully arrived and is not leaving. */
 val AnimatedVisibilityScope.settled: Boolean
     get() = transition.currentState == EnterExitState.Visible && transition.targetState == EnterExitState.Visible

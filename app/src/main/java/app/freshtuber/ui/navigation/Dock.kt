@@ -1,5 +1,6 @@
 package app.freshtuber.ui.navigation
 
+import app.freshtuber.ui.motion.blurFade
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
@@ -193,7 +194,7 @@ fun MineList(downloads: Int, onPick: (MineItem) -> Unit, onDismiss: () -> Unit, 
     items: List<MineItem> = MineItem.entries.filter { it != MineItem.Shorts }) {
     BackHandler(onBack = onDismiss)
     val left = app.freshtuber.ui.components.LocalLeftHanded.current
-    // The tiles rise a little out of the dock as the pane opens.
+    // The tiles come into focus out of a blur as the pane opens.
     val appear = remember { androidx.compose.animation.core.Animatable(0f) }
     androidx.compose.runtime.LaunchedEffect(Unit) {
         appear.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.86f, stiffness = 520f))
@@ -206,10 +207,7 @@ fun MineList(downloads: Int, onPick: (MineItem) -> Unit, onDismiss: () -> Unit, 
         app.freshtuber.ui.components.SectionTiles(items, left,
             Modifier.align(if (left) Alignment.BottomStart else Alignment.BottomEnd)
                 .padding(start = 12.dp, end = 12.dp, bottom = 10.dp + bottomInset).widthIn(max = 560.dp)
-                .graphicsLayer {
-                    alpha = appear.value
-                    translationY = (1f - appear.value) * 24.dp.toPx()
-                }) { item, modifier ->
+                .blurFade({ appear.value }, max = 18.dp, fromScale = 0.94f)) { item, modifier ->
             val hint = when (item) {
                 MineItem.Downloads -> if (downloads > 0) resources.getQuantityString(R.plurals.mine_downloads_count, downloads, downloads)
                     else resources.getString(R.string.mine_downloads_hint)

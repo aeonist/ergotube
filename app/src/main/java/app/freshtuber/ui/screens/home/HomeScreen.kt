@@ -127,7 +127,7 @@ fun HomeScreen(
     val chips = state.filters.map { filter -> ChipItem(filter.title, filter.selected) { viewModel.feed.selectFilter(filter) } }
     Column(Modifier.fillMaxSize()) {
         // Classic: YouTube's chip row right under the top bar, hiding while reading down.
-        if (classic && state.filters.size > 1) AnimatedVisibility(hide.visible, enter = expandVertically(), exit = shrinkVertically()) {
+        if (classic && state.filters.size > 1) app.freshtuber.ui.motion.BlurVisibility(hide.visible, collapse = true) {
             app.freshtuber.ui.classic.ClassicChips(chips)
         }
         FeedList(
@@ -148,7 +148,7 @@ fun HomeScreen(
             }),
         )
         // Filters live at the bottom, starting at the working-hand edge.
-        if (!classic && state.filters.size > 1) AnimatedVisibility(hide.visible, enter = expandVertically(), exit = shrinkVertically()) {
+        if (!classic && state.filters.size > 1) app.freshtuber.ui.motion.BlurVisibility(hide.visible, collapse = true) {
             BottomBar {
                 HandChips(chips, left, Modifier.padding(vertical = 4.dp))
             }

@@ -100,7 +100,7 @@ fun PortraitVideoLayer(player: Player, state: PlayerState, onMinimize: () -> Uni
         when {
             loading -> CircularProgressIndicator(Modifier.align(Alignment.Center), color = Color.White)
         }
-        AnimatedVisibility(flash.icon != null, Modifier.align(Alignment.Center), enter = fadeIn(), exit = fadeOut()) {
+        app.freshtuber.ui.motion.BlurVisibility(flash.icon != null, Modifier.align(Alignment.Center), max = 12.dp, fromScale = 0.85f) {
             flash.icon?.let { Icon(it, null, Modifier.size(68.dp).background(Color(0x80000000), CircleShape).padding(14.dp), tint = Color.White) }
         }
         hint?.let { total ->

@@ -300,7 +300,7 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SettingsSheet(title: String, onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    app.freshtuber.ui.components.BlurSheet(onDismissRequest = onDismiss) {
         val scroll = rememberScrollState()
         // Start scrolled to the end, so the most used rows are on screen under the thumb.
         LaunchedEffect(scroll.maxValue) { if (scroll.value == 0) scroll.scrollTo(scroll.maxValue) }

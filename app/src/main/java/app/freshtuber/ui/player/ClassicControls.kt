@@ -99,7 +99,7 @@ fun ClassicVideoControls(
         )
     }) {
         val loading = state.loadingId != null || progress.buffering
-        AnimatedVisibility(hide.visible, enter = fadeIn(tween(160)), exit = fadeOut(tween(220))) {
+        app.freshtuber.ui.motion.BlurVisibility(hide.visible, max = 12.dp, enterMs = 180, exitMs = 220, fromScale = 1f) {
             Box(Modifier.fillMaxSize().background(Color(0x99000000))) {
                 // Top row.
                 Row(Modifier.align(Alignment.TopStart).fillMaxWidth()

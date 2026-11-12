@@ -484,3 +484,10 @@ Implements the approved mockup `.impeccable/mocks/music-final-mockup.html`; chec
 - Unchanged: «Как музыку», «Слушать» on a video card, music settings, start with music, Music-folder export, `MusicPlayer`/`MusicQueue`/`MusicService`. The older «Музыка вместо Shorts» setting still works (ignored when music is off).
 - Limits: not run on a device. The queue face is the plain queue list inside the cover slot; layout of the 7-button row on very narrow screens (≈320 dp) is unverified. The classic layout shows the ear above its tab bar.
 - Tests: 5 new `MusicLibraryLogicTest`, `DockLayoutTest` updated (music dock removed, «Моё» without Music). APK `apk/ErgoTube-build28-music-debug.apk`.
+
+## Build 29 — every appear and hide goes through a blur (12 November 2026)
+- **One motion for show/hide:** everything that appears now comes into focus out of a blur with a slight scale, and everything that leaves blurs away, the way the watch page leaves. Nothing slides any more. Covered: all sheets, the dock, the «Музыка» ear, the mini-player, «Моё» tiles, the update banner, chips and search bars hiding on scroll, the player pad, card-fan items, the Shorts caption and the cover swap in the music player.
+- **How:** `ui/components/BlurSheet.kt` replaces every Material `ModalBottomSheet`; `ui/motion/Motion.kt` gains `blurFade`, `blurIn`, `blurOut`, `BlurVisibility`, `blurVisible` and `blurSwap`, used instead of `AnimatedVisibility` with slides.
+- **Not changed:** `AlertDialog`s and dropdown menus stay the system ones. Screen-to-screen navigation transitions in `AppRoot` keep their existing fade/scale (the watch page still drifts slightly as it opens and leaves).
+- Limits: built and unit-tested only, not run on a device. Blur needs Android 12+; on older phones the same transitions are plain fades with the scale.
+- Tests: 186 JVM tests pass. APK `apk/ErgoTube-build29-blur-debug.apk`.

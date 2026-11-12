@@ -1,5 +1,6 @@
 package app.freshtuber.ui.feed
 
+import app.freshtuber.ui.motion.blurVisible
 import androidx.annotation.StringRes
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.togetherWith
@@ -225,10 +226,8 @@ fun FanOverlay(host: FanHost) {
         val label = session.selected?.let { stringResource(it.labelRes) } ?: stringResource(R.string.fan_hint)
         val labelTop = with(density) { maxOf(64.dp.toPx(), session.center.y - radius - 104.dp.toPx()).toDp() }
         androidx.compose.animation.AnimatedContent(label, Modifier.fillMaxWidth().padding(top = labelTop, start = 12.dp, end = 12.dp).graphicsLayer { alpha = whole },
-            transitionSpec = { (androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(120)) +
-                androidx.compose.animation.slideInVertically(app.freshtuber.ui.motion.Motion.spring()) { it / 3 })
-                .togetherWith(androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(90))) }, label = "fanLabel") { text ->
-            Text(text, Modifier.fillMaxWidth(), color = Color.White,
+            transitionSpec = { app.freshtuber.ui.motion.blurSwap(180, 120, 0.9f) }, label = "fanLabel") { text ->
+            Text(text, Modifier.fillMaxWidth().then(blurVisible(10.dp, 180, 120)), color = Color.White,
                 fontSize = 19.sp, textAlign = TextAlign.Center, style = MaterialTheme.typography.titleMedium.copy(
                     shadow = Shadow(Color.Black.copy(alpha = 0.6f), blurRadius = 8f)))
         }
@@ -247,17 +246,20 @@ fun FanOverlay(host: FanHost) {
             val eased = if (visible) FanMotion.backOut(out) else out
             Column(
                 Modifier.offset {
-                    // The chosen item leans toward the finger; the others fly out of the middle.
+                    // The chosen item leans toward the finger; the others come into focus in place.
                     val direction = (p - session.center) / radius
-                    val at = session.center + (p - session.center) * eased + direction * (7.dp.toPx() * lift)
+                    val at = p + direction * (7.dp.toPx() * lift)
                     IntOffset((at.x - 38.dp.toPx()).toInt(), (at.y - 29.dp.toPx()).toInt())
                 }
                     .size(76.dp, 58.dp)
                     .graphicsLayer {
                         val flash = if (isPicked) 1f - open.value else 0f
-                        val size = (0.45f + 0.55f * eased) * (1f + 0.16f * lift) * (1f + 0.3f * flash)
+                        val size = (0.8f + 0.2f * eased) * (1f + 0.16f * lift) * (1f + 0.3f * flash)
                         scaleX = size; scaleY = size
                         alpha = if (isPicked) open.value else out.coerceIn(0f, 1f)
+                        val r = (1f - (if (isPicked) 1f - flash else out).coerceIn(0f, 1f)) * 14.dp.toPx()
+                        if (android.os.Build.VERSION.SDK_INT >= 31) renderEffect = if (r > 0.5f)
+                            androidx.compose.ui.graphics.BlurEffect(r, r, androidx.compose.ui.graphics.TileMode.Decal) else null
                     }
                     .background(if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(20.dp))
                     .padding(horizontal = 2.dp),

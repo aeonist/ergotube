@@ -38,6 +38,7 @@ import app.freshtuber.ui.motion.Motion
 import app.freshtuber.ui.motion.leaving
 import app.freshtuber.ui.motion.settled
 import app.freshtuber.ui.motion.transitionBlur
+import app.freshtuber.ui.motion.blurVisible
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -363,8 +364,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
         update?.takeIf { dockVisible }?.let { available ->
             app.freshtuber.ui.components.UpdateBanner(available, updateCollapsed, leftHanded,
                 onUpdate = { runCatching { uriHandler.openUri(available.url) } }, onCollapse = viewModel.updates::collapse,
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = bannerHeight + if (fullDock) dockSpace else compactDockSpace)
-                    .padding(bottom = if (updateCollapsed) 72.dp else 0.dp))
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = bannerHeight + if (fullDock) dockSpace else compactDockSpace))
         }
         val belowContent = bannerHeight + if (fullDock) dockSpace else 0.dp
         val nowPlaying = playerState.nowPlaying
@@ -376,8 +376,10 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
         androidx.compose.animation.AnimatedVisibility(miniVisible && nowPlaying != null,
             Modifier.zIndex(if (miniRaised) 1f else 0f),
             enter = EnterTransition.None,
-            exit = if (nowPlaying == null) fadeOut(tween(220, easing = Motion.Accelerate)) else ExitTransition.None) {
+            exit = if (nowPlaying == null) app.freshtuber.ui.motion.blurOut(240, 0.9f) else ExitTransition.None) {
             val playing = lastPlaying[0] ?: return@AnimatedVisibility
+            // Closing it blurs the floating video away (its picture is a texture, so it blurs too).
+            Box(if (nowPlaying == null) blurVisible(24.dp, exitMs = 240) else Modifier) {
             FloatingMiniPlayer(player = viewModel.player.player, nowPlaying = playing, left = leftHanded,
                 bottomClearance = barSpace.height + belowContent, corner = miniCorner, onCorner = { miniCorner = it },
                 widthDp = miniWidth, onWidth = { miniWidth = it },
@@ -387,8 +389,10 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
                 tapOpens = app.freshtuber.ui.theme.LocalAppPreferences.current.enabled(app.freshtuber.data.settings.AppFeature.MiniPlayerTapOpens),
                 hidden = mineOpen, onRaised = { miniRaised = it },
                 modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)))
+            }
         }
-        if (mineOpen && dockVisible) MineList(downloads, bottomInset = if (onShorts) compactDockSpace else dockSpace,
+        // «Моё» blurs away when it closes, as it came.
+        app.freshtuber.ui.motion.BlurVisibility(mineOpen && dockVisible, max = 18.dp, enterMs = 1, exitMs = Motion.EXIT_MS, fromScale = 1f) { MineList(downloads, bottomInset = if (onShorts) compactDockSpace else dockSpace,
             items = MineItem.entries.filter { it != MineItem.Shorts || (musicTab && shortsEnabled) }, onPick = { item ->
             mineOpen = false
             openSection(when (item) {
@@ -399,16 +403,13 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
                 MineItem.Playlists -> LibraryListRoute(LibrarySection.Playlists.name)
                 MineItem.Settings -> SettingsRoute
             })
-        }, onDismiss = { mineOpen = false })
+        }, onDismiss = { mineOpen = false }) }
         SnackbarHost(snackbarHost, Modifier.align(Alignment.BottomCenter)
             .padding(bottom = if (onMusicPlayer) 250.dp else barSpace.height + belowContent + 8.dp + if (onShorts && dockVisible) compactDockSpace else 0.dp)
             .then(if (onPlayer) Modifier.navigationBarsPadding() else Modifier))
-        // The dock slides away under the player and back when it closes.
-        androidx.compose.animation.AnimatedVisibility(fullDock, Modifier.align(Alignment.BottomCenter),
-            enter = androidx.compose.animation.slideInVertically(androidx.compose.animation.core.tween(Motion.ENTER_MS, easing = Motion.Decelerate)) { it } +
-                androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(Motion.ENTER_MS)),
-            exit = androidx.compose.animation.slideOutVertically(androidx.compose.animation.core.tween(Motion.EXIT_MS, easing = Motion.Accelerate)) { it } +
-                androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(Motion.EXIT_MS))) {
+        // The dock blurs away under the player and comes back into focus when it closes.
+        app.freshtuber.ui.motion.BlurVisibility(fullDock, Modifier.align(Alignment.BottomCenter),
+            max = 20.dp, enterMs = Motion.ENTER_MS, exitMs = Motion.EXIT_MS, fromScale = 0.96f) {
             val line: (@Composable () -> Unit)? = if (!musicLine) null else ({
                 app.freshtuber.ui.music.MusicLine(musicState, music.player, offline = !online,
                     onOpen = { navController.navigate(MusicPlayerRoute) { launchSingleTop = true } }, onToggle = music::toggle,
@@ -428,9 +429,8 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
         }
     }
     // Over a Short the dock is a slim row of icons drawn on the video itself.
-    androidx.compose.animation.AnimatedVisibility(dockVisible && onShorts, Modifier.align(Alignment.BottomCenter),
-        enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(Motion.ENTER_MS)),
-        exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(Motion.EXIT_MS))) {
+    app.freshtuber.ui.motion.BlurVisibility(dockVisible && onShorts, Modifier.align(Alignment.BottomCenter),
+        max = 20.dp, enterMs = Motion.ENTER_MS, exitMs = Motion.EXIT_MS, fromScale = 0.96f) {
         if (classic) app.freshtuber.ui.classic.ClassicNavBar(currentTab, mineOpen, shortsEnabled, overVideo = true, onSelect = selectTab)
         else CompactDock(selected = currentTab, mineOpen = mineOpen, left = leftHanded, shorts = shortsEnabled, onSelect = selectTab, music = musicTab)
     }

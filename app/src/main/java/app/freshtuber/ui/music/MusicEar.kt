@@ -1,5 +1,6 @@
 package app.freshtuber.ui.music
 
+import app.freshtuber.ui.motion.blurFade
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
@@ -23,8 +24,8 @@ import app.freshtuber.R
 val MusicEarHeight = 40.dp
 
 /**
- * The «Музыка» ear above the dock on Home. It slides down behind the dock while the feed is
- * read and comes back when the feed scrolls up. It sits on the working-hand side.
+ * The «Музыка» ear above the dock on Home. It blurs away while the feed is read and comes
+ * back into focus when the feed scrolls up. It sits on the working-hand side.
  */
 @Composable
 fun MusicEar(visible: Boolean, left: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
@@ -32,7 +33,7 @@ fun MusicEar(visible: Boolean, left: Boolean, onClick: () -> Unit, modifier: Mod
     Box(modifier.fillMaxWidth().height(MusicEarHeight).padding(horizontal = 14.dp), contentAlignment = if (left) Alignment.BottomStart else Alignment.BottomEnd) {
         if (appear > 0.01f) Surface(onClick = onClick, enabled = visible, shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 6.dp, bottomEnd = 6.dp),
             color = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-            modifier = Modifier.graphicsLayer { translationY = (1f - appear) * 28.dp.toPx(); alpha = appear }) {
+            modifier = Modifier.blurFade({ appear }, max = 14.dp, fromScale = 0.9f)) {
             Row(Modifier.height(34.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Headphones, null, Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))

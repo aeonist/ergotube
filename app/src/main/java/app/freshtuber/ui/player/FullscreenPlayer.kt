@@ -371,11 +371,10 @@ fun FullscreenPlayer(
                 }, false, stage(310), onNext) }
 
             }
-            // The title drifts down into place out of a blur, last of all.
+            // The title comes into focus out of a blur, last of all.
             val titleIn = app.freshtuber.ui.motion.Motion.Decelerate.transform(stage(200, 260))
             if (titleIn > 0f) Text(now?.title.orEmpty(), color = Color.White, style = MaterialTheme.typography.titleSmall.merge(Shade), maxLines = 1,
                 overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 20.dp, top = 14.dp).fillMaxWidth(if (geo.upright) 0.9f else 0.58f)
-                    .offset { IntOffset(0, ((1f - titleIn) * -12).dp.roundToPx()) }
                     .graphicsLayer {
                         alpha = titleIn
                         val r = (1f - titleIn) * 10.dp.toPx()
@@ -426,8 +425,6 @@ private fun Modifier.layerIn(p: Float, left: Boolean): Modifier = graphicsLayer 
     alpha = e
     val s = 0.55f + 0.45f * FanOvershoot.transform(p)
     scaleX = s; scaleY = s
-    translationX = (1f - e) * (if (left) -18f else 18f) * density
-    translationY = (1f - e) * 18f * density
     val r = (1f - e) * 8f * density
     renderEffect = if (android.os.Build.VERSION.SDK_INT >= 31 && r > 0.5f)
         androidx.compose.ui.graphics.BlurEffect(r, r, androidx.compose.ui.graphics.TileMode.Decal) else null

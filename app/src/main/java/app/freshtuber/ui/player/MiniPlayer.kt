@@ -203,6 +203,10 @@ fun FloatingMiniPlayer(
                     alpha = if (arriving) 0f else appear.value * hide * (1f - closing.value)
                     val s = (0.88f + 0.12f * appear.value) * (1f - 0.42f * pull) * (1f - 0.6f * closing.value)
                     scaleX = s; scaleY = s
+                    // Like every window in the app, it comes and goes through a blur.
+                    val r = if (arriving) 0f else (1f - appear.value * hide * (1f - closing.value)) * 18.dp.toPx()
+                    if (android.os.Build.VERSION.SDK_INT >= 31) renderEffect = if (r > 0.5f)
+                        androidx.compose.ui.graphics.BlurEffect(r, r, androidx.compose.ui.graphics.TileMode.Decal) else null
                 }
                 .semantics { contentDescription = openLabel; role = Role.Button; onClick { open(); true } },
             shape = RoundedCornerShape(12.dp), color = Color.Black, shadowElevation = 8.dp,
@@ -271,8 +275,7 @@ fun FloatingMiniPlayer(
                     poster = handoff?.poster(videoId) ?: nowPlaying.thumbnailUrl)
                 val playing = progress.isPlaying || (progress.buffering && player.playWhenReady)
                 val big = width >= 200.dp
-                androidx.compose.animation.AnimatedVisibility(controls, Modifier.fillMaxSize(),
-                    enter = androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut()) {
+                app.freshtuber.ui.motion.BlurVisibility(controls, Modifier.fillMaxSize(), max = 8.dp, fromScale = 1f) {
                     Box(Modifier.fillMaxSize().background(Color(0x66000000))) {
                         // Close and open on the outer edge (by the screen edge), the grip on the inner corner.
                         val right = corner and 1 == 1
@@ -341,7 +344,8 @@ private fun BoxScope.CloseTarget(visible: Boolean, armed: Boolean, center: Offse
             alpha = shown
             val s = (0.7f + 0.3f * shown) * (1f + 0.22f * grow)
             scaleX = s; scaleY = s
-            translationY = (1f - shown) * 24.dp.toPx()
+            val r = (1f - shown) * 14.dp.toPx()
+            if (android.os.Build.VERSION.SDK_INT >= 31) renderEffect = if (r > 0.5f) androidx.compose.ui.graphics.BlurEffect(r, r, androidx.compose.ui.graphics.TileMode.Decal) else null
         }
         .clip(CircleShape)
         .background(androidx.compose.ui.graphics.lerp(Color(0xE6202020), BrandColors.Red, grow))

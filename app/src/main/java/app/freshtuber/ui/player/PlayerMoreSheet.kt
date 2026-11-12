@@ -80,7 +80,7 @@ fun PlayerMoreSheet(state: PlayerState, video: VideoUiState, controller: PlayerC
     val shareTitle = stringResource(R.string.video_share)
     val off = stringResource(R.string.player_off)
     val toggle: (MorePick) -> Unit = { pick = if (pick == it) null else it }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    app.freshtuber.ui.components.BlurSheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             // Top, small: the channel and its notifications.
             video.details?.channel?.let { channel ->
@@ -101,7 +101,7 @@ fun PlayerMoreSheet(state: PlayerState, video: VideoUiState, controller: PlayerC
                 }
             }
             // The open choice, right above the switch that opened it.
-            AnimatedVisibility(pick != null, enter = expandVertically(), exit = shrinkVertically()) {
+            app.freshtuber.ui.motion.BlurVisibility(pick != null, collapse = true) {
                 val current = pick
                 Column(Modifier.fillMaxWidth()) {
                     if (current != null) {

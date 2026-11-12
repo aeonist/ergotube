@@ -1,5 +1,6 @@
 package app.freshtuber.ui.screens.player
 
+import app.freshtuber.ui.motion.blurVisible
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.graphics.drawable.ColorDrawable
@@ -383,11 +384,11 @@ fun PlayerScreen(
         // What a pad gesture just did ("+10 с → 4:10") floats above the control zone, never over the buttons.
         if (!big && !classic) androidx.compose.animation.AnimatedVisibility(padUi.bubble != null,
             Modifier.align(Alignment.BottomCenter).padding(bottom = padUi.zoneHeight + 8.dp),
-            enter = androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(120)) + androidx.compose.animation.scaleIn(app.freshtuber.ui.motion.Motion.spring(), initialScale = 0.85f),
-            exit = androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(160))) {
+            enter = app.freshtuber.ui.motion.blurIn(180, fromScale = 0.85f),
+            exit = app.freshtuber.ui.motion.blurOut(180)) {
             var shown by remember { mutableStateOf("") }
             padUi.bubble?.let { shown = it }
-            Bubble(shown)
+            Box(blurVisible(10.dp, 180, 180)) { Bubble(shown) }
         }
         if (currentPage && !inPip) {
             val streamError = playerState.error?.takeIf { controller.isRequested(videoId) }
@@ -426,12 +427,12 @@ private fun PortraitPage(
         if (!scrolls) Spacer(Modifier.fillMaxWidth().height(videoHeight))
         Box(Modifier.weight(1f)) {
             // Loading and errors fade into the page instead of swapping in.
-            androidx.compose.animation.Crossfade(when {
+            androidx.compose.animation.AnimatedContent(when {
                 state.loading -> 0
                 details == null -> 1
                 else -> 2
-            }, animationSpec = androidx.compose.animation.core.tween(320), label = "pageBody") { phase ->
-                when {
+            }, transitionSpec = { app.freshtuber.ui.motion.blurSwap(fromScale = 0.98f) }, label = "pageBody") { phase ->
+                Box(Modifier.fillMaxSize().then(blurVisible(14.dp))) { when {
                     phase == 0 -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -439,7 +440,7 @@ private fun PortraitPage(
                     else -> VideoBody(details, state, navigation, listState, offline = now?.isOffline == true,
                         onTimestamp = viewModel::seekTo, onSubscribe = viewModel::toggleSubscription,
                         videoSpace = if (scrolls) videoHeight else null, related = related, modifier = Modifier.nestedScroll(padHide.connection))
-                }
+                } }
             }
         }
         // Everything pressed sits here, under the thumb.
@@ -447,15 +448,11 @@ private fun PortraitPage(
             .onSizeChanged { padUi.zoneHeight = with(density) { it.height.toDp() } }
             .navigationBarsPadding().padding(bottom = 14.dp)) {
             val padShown = padHide.visible || padUi.active || padUi.scrubMs != null
-            androidx.compose.animation.AnimatedVisibility(!padShown, enter = androidx.compose.animation.fadeIn(), exit = androidx.compose.animation.fadeOut()) {
+            app.freshtuber.ui.motion.BlurVisibility(!padShown, collapse = true, max = 8.dp) {
                 MiniProgress(viewModel.player, playerState.segments.takeIf { now?.videoId == viewModel.videoId }.orEmpty())
             }
             PlayerActions(state, viewModel, left, pinned = pinned, onPin = { viewModel.setVideoPinned(!pinned) }, onMore = onMore)
-            androidx.compose.animation.AnimatedVisibility(padShown,
-                enter = androidx.compose.animation.expandVertically(androidx.compose.animation.core.tween(320, easing = app.freshtuber.ui.motion.Motion.Decelerate)) +
-                    androidx.compose.animation.fadeIn(androidx.compose.animation.core.tween(240)),
-                exit = androidx.compose.animation.shrinkVertically(androidx.compose.animation.core.tween(260, easing = app.freshtuber.ui.motion.Motion.Emphasized)) +
-                    androidx.compose.animation.fadeOut(androidx.compose.animation.core.tween(160))) {
+            app.freshtuber.ui.motion.BlurVisibility(padShown, collapse = true, max = 18.dp, enterMs = 320, exitMs = 240, fromScale = 0.96f) {
                 PlayerPad(
                     player = viewModel.player,
                     ui = padUi,
@@ -653,7 +650,7 @@ private fun TitleBlock(details: VideoDetails, offline: Boolean = false, compact:
             )
         }
     }
-    if (expanded) androidx.compose.material3.ModalBottomSheet(onDismissRequest = { expanded = false }) {
+    if (expanded) app.freshtuber.ui.components.BlurSheet(onDismissRequest = { expanded = false }) {
         Column(Modifier.fillMaxWidth().verticalScroll(androidx.compose.foundation.rememberScrollState())
             .padding(horizontal = 20.dp).padding(bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(details.title, style = MaterialTheme.typography.titleLarge)
@@ -696,18 +693,18 @@ private fun ClassicPortraitPage(details: VideoDetails?, state: VideoUiState, nav
         .drawBehind { drawRect(Color.Black, size = androidx.compose.ui.geometry.Size(size.width, statusBar.getTop(this).toFloat())) }
         .statusBarsPadding()) {
         Spacer(Modifier.fillMaxWidth().height(videoHeight))
-        androidx.compose.animation.Crossfade(when {
+        androidx.compose.animation.AnimatedContent(when {
             state.loading -> 0
             details == null -> 1
             else -> 2
-        }, Modifier.weight(1f), animationSpec = androidx.compose.animation.core.tween(240), label = "classicBody") { phase ->
-            when {
+        }, Modifier.weight(1f), transitionSpec = { app.freshtuber.ui.motion.blurSwap(fromScale = 0.98f) }, label = "classicBody") { phase ->
+            Box(Modifier.fillMaxSize().then(blurVisible(14.dp))) { when {
                 phase == 0 -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 phase == 1 || details == null -> Unit
                 else -> ClassicWatchBody(details, state, navigation, listState, viewModel, offline = now?.isOffline == true, onMore = onMore, related = related)
-            }
+            } }
         }
     }
 }

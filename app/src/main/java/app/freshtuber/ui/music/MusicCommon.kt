@@ -212,7 +212,12 @@ fun FlickOverlay(host: FlickHost) {
     if (phase <= 0f) return
     val haptics = LocalHapticFeedback.current
     LaunchedEffect(center != null) { if (center != null) haptics.performHapticFeedback(HapticFeedbackType.LongPress) }
-    Box(Modifier.fillMaxSize().graphicsLayer { alpha = phase }) {
+    Box(Modifier.fillMaxSize().graphicsLayer {
+        alpha = phase
+        val r = (1f - phase) * 16.dp.toPx()
+        if (android.os.Build.VERSION.SDK_INT >= 31) renderEffect = if (r > 0.5f)
+            androidx.compose.ui.graphics.BlurEffect(r, r, androidx.compose.ui.graphics.TileMode.Decal) else null
+    }) {
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.45f)))
         Text(host.selected?.let { stringResource(it.labelRes) } ?: stringResource(R.string.music_flick_hint),
             Modifier.fillMaxWidth().padding(top = 72.dp, start = 24.dp, end = 24.dp), color = Color.White, textAlign = TextAlign.Center,
@@ -296,7 +301,7 @@ fun TrackMenu(track: MusicTrack, viewModel: MusicViewModel, onDismiss: () -> Uni
     var picker by remember { mutableStateOf(false) }
     val shareTitle = stringResource(R.string.music_share)
     if (picker) { PlaylistPicker(track, viewModel) { picker = false; onDismiss() }; return }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    app.freshtuber.ui.components.BlurSheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Cover(track.artwork, Modifier.size(44.dp), corner = 8.dp)
@@ -333,7 +338,7 @@ fun PlaylistPicker(track: MusicTrack?, viewModel: MusicViewModel, onDismiss: () 
     val playlists by viewModel.playlists.collectAsState()
     var naming by remember { mutableStateOf(playlists.isEmpty() && track == null) }
     var name by remember { mutableStateOf("") }
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    app.freshtuber.ui.components.BlurSheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
             playlists.forEach { playlist ->
                 Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable { track?.let { viewModel.addToPlaylist(playlist, it) }; onDismiss() }

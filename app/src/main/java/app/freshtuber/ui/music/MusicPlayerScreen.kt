@@ -1,5 +1,6 @@
 package app.freshtuber.ui.music
 
+import app.freshtuber.ui.motion.blurVisible
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -188,13 +189,15 @@ private fun CoverArea(track: MusicTrack, showLyrics: Boolean, direction: Int, lo
             detectTapGestures(onTap = { onTap() }, onDoubleTap = if (long) { { at -> onSeek(if (at.x < size.width / 2) -10 else 10) } } else null)
         }
         .graphicsLayer { translationX = shift * 0.5f; rotationZ = shift / 80f }) {
+        // A new song or the lyrics come into focus out of a blur where the cover was; nothing slides.
         AnimatedContent(track to showLyrics, transitionSpec = {
-            if (initialState.first.id != targetState.first.id)
-                (slideInHorizontally(tween(320)) { direction * it } + fadeIn(tween(240))) togetherWith (slideOutHorizontally(tween(280)) { -direction * it } + fadeOut(tween(200)))
-            else fadeIn(tween(220)) togetherWith fadeOut(tween(180))
+            if (initialState.first.id != targetState.first.id) app.freshtuber.ui.motion.blurSwap(340, 240, 0.9f)
+            else app.freshtuber.ui.motion.blurSwap(260, 200, 0.97f)
         }, label = "cover") { (shown, lyrics) ->
-            if (lyrics) LyricsView(shown, viewModel, Modifier.fillMaxSize())
-            else Cover(shown.artwork, Modifier.fillMaxSize(), corner = 26.dp)
+            Box(Modifier.fillMaxSize().then(blurVisible(24.dp, 340, 240))) {
+                if (lyrics) LyricsView(shown, viewModel, Modifier.fillMaxSize())
+                else Cover(shown.artwork, Modifier.fillMaxSize(), corner = 26.dp)
+            }
         }
     }
 }
@@ -388,7 +391,7 @@ private val SleepChoices = listOf(MusicSleep.Off, MusicSleep.Minutes(15), MusicS
 private fun ModeSheet(state: MusicState, music: app.freshtuber.player.music.MusicPlayer, onDismiss: () -> Unit) {
     val left = LocalLeftHanded.current
     val queue = state.queue
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    app.freshtuber.ui.components.BlurSheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
             Text(stringResource(R.string.music_mode), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
             ModeRow(Icons.Rounded.Shuffle, stringResource(R.string.music_shuffle), queue.shuffle) { music.toggleShuffle() }

@@ -172,7 +172,7 @@ fun SearchScreen(
     }
     val suggestionsVisible = (focused || !hasQuery) && shownSuggestions.isNotEmpty() && (focused || query.isEmpty())
     if (classic) Column(Modifier.fillMaxSize()) {
-        AnimatedVisibility(hide.visible || focused, enter = expandVertically(), exit = shrinkVertically()) {
+        app.freshtuber.ui.motion.BlurVisibility(hide.visible || focused, collapse = true) {
             Column {
                 field()
                 if (!suggestionsVisible && hasQuery && state.filters.size > 1) chips()
@@ -184,7 +184,7 @@ fun SearchScreen(
     } else Column(Modifier.fillMaxSize()) {
         results(Modifier.weight(1f).nestedScroll(hide.connection))
         // Hidden while reading down; typing keeps the field on screen.
-        AnimatedVisibility(hide.visible || focused, enter = expandVertically(), exit = shrinkVertically()) {
+        app.freshtuber.ui.motion.BlurVisibility(hide.visible || focused, collapse = true) {
             BottomBar {
                 if (showSuggestions) suggestionRows()
                 else if (hasQuery && state.filters.size > 1) chips()

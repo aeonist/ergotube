@@ -77,7 +77,6 @@ fun QualityChooser(state: PlayerState, controller: PlayerController, anchor: Rec
             .graphicsLayer {
                 alpha = phase.value
                 scaleX = 0.92f + phase.value * 0.08f; scaleY = scaleX
-                translationY = (1f - phase.value) * 12.dp.toPx()
                 val blur = (1f - phase.value) * 8.dp.toPx()
                 renderEffect = if (android.os.Build.VERSION.SDK_INT >= 31 && blur > 0.5f) androidx.compose.ui.graphics.BlurEffect(blur, blur) else null
             }, shape = RoundedCornerShape(30.dp), color = panel, contentColor = foreground, shadowElevation = 16.dp,

@@ -1,5 +1,6 @@
 package app.freshtuber.ui.player
 
+import app.freshtuber.ui.motion.blurVisible
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.togetherWith
@@ -367,9 +368,9 @@ private fun PadZoneIcon(icon: ImageVector, label: String, modifier: Modifier, bi
             Box(Modifier.size(minOf(46.dp, maxWidth - 2.dp)).background(MaterialTheme.colorScheme.primary, RoundedCornerShape(corner.toInt())),
                 contentAlignment = Alignment.Center) {
                 androidx.compose.animation.AnimatedContent(icon, transitionSpec = {
-                    (androidx.compose.animation.scaleIn(app.freshtuber.ui.motion.Motion.spring(), initialScale = 0.6f) + androidx.compose.animation.fadeIn(tween(120)))
-                        .togetherWith(androidx.compose.animation.scaleOut(tween(120), targetScale = 0.6f) + androidx.compose.animation.fadeOut(tween(90)))
-                }, label = "playIcon") { shown -> Icon(shown, null, Modifier.size(28.dp), tint = MaterialTheme.colorScheme.onPrimary) }
+                    (androidx.compose.animation.scaleIn(app.freshtuber.ui.motion.Motion.spring(), initialScale = 0.6f) + androidx.compose.animation.fadeIn(tween(160)))
+                        .togetherWith(androidx.compose.animation.scaleOut(tween(140), targetScale = 0.6f) + androidx.compose.animation.fadeOut(tween(120)))
+                }, label = "playIcon") { shown -> Icon(shown, null, Modifier.then(blurVisible(6.dp, 160, 140)).size(28.dp), tint = MaterialTheme.colorScheme.onPrimary) }
             }
         }
         else Icon(icon, null, Modifier.size(26.dp), tint = MaterialTheme.colorScheme.onSurface.copy(alpha = if (enabled) 1f else 0.38f))

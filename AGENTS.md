@@ -53,3 +53,6 @@ Tester polish: two-row portrait remote, Back always leaves the player, quiet pla
 
 ## Build 28 (12 Nov 2026)
 One «Музыка» page, ear above the shared dock on Home, single «Любимое» with offline hiding, heart instead of «В библиотеку», 7-button player remote with a three-face scene, queue «Режим», Музыка/Видео switch in Search, «Музыка в приложении» switch. Built and unit-tested only, not run on a device. See docs/DECISIONS.md «Build 28». APK `apk/ErgoTube-build28-music-debug.apk`.
+
+## Build 29 (12 Nov 2026)
+Every appear and hide goes through a blur: sheets (`BlurSheet` replaces `ModalBottomSheet`), dock, ear, mini-player, «Моё» tiles, update banner, chips/search bars hiding on scroll, pad, fan items, Shorts caption and the music-player cover swap come into focus out of a blur with a slight scale and blur away; nothing slides. Helpers in `ui/motion/Motion.kt` (`blurFade`, `blurIn`, `blurOut`, `BlurVisibility`, `blurVisible`, `blurSwap`). AlertDialogs and dropdown menus stay the system ones. 186 JVM tests, not run on a device. APK `apk/ErgoTube-build29-blur-debug.apk`.
