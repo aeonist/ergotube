@@ -6,7 +6,7 @@ import org.junit.Test
 
 /** Full-screen fan buttons never overlap each other or leave the screen. */
 class FanLayoutTest {
-    /** What is drawn: [w]×[h] around the centre; back/forward are bare 34 dp icons. */
+    /** What is drawn: [w]×[h] around the centre; back/forward are bare 32 dp icons. */
     private data class Box(val name: String, val x: Float, val y: Float, val w: Float, val h: Float) {
         private val cx get() = x + w / 2
         private val cy get() = y + h / 2
@@ -19,7 +19,7 @@ class FanLayoutTest {
         val ring = FanGeometry.outerSlots(listOf("speed", "quality", "cc", "next"))
         val widths = mapOf("speed" to 56f, "quality" to 48f, "cc" to 44f, "next" to 44f)
         return listOf(
-            at("back", g.main, 0.14f, 34f, 34f), at("play", g.main, 0.5f, 76f, 76f), at("forward", g.main, 0.86f, 34f, 34f),
+            at("back", g.main, 0.14f, 32f, 32f), at("play", g.main, 0.5f, 68f, 68f), at("forward", g.main, 0.86f, 32f, 32f),
             at("exit", g.inner, 0.5f, 44f, 44f),
         ) + ring.map { (key, u) -> at(key, g.outer, u, widths.getValue(key), 44f) }
     }

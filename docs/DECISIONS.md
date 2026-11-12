@@ -491,3 +491,10 @@ Implements the approved mockup `.impeccable/mocks/music-final-mockup.html`; chec
 - **Not changed:** `AlertDialog`s and dropdown menus stay the system ones. Screen-to-screen navigation transitions in `AppRoot` keep their existing fade/scale (the watch page still drifts slightly as it opens and leaves).
 - Limits: built and unit-tested only, not run on a device. Blur needs Android 12+; on older phones the same transitions are plain fades with the scale.
 - Tests: 186 JVM tests pass. APK `apk/ErgoTube-build29-blur-debug.apk`.
+
+## Build 30 — precise fullscreen seek (12 November 2026)
+- **Slower scrubbing in full screen:** the bar is wide there and a fingertip covered minutes. On touch the timeline now zooms to a fixed stretch of time, 12% of the video, between 45 s and 5 min (`TimelineWindow.zoomAtPrecise`, `Scrub.preciseSeconds`), so the handle runs two to three times slower than before. Clips of a minute or less keep the gentle zoom. Applies to the classic bottom bar in full screen and to the fan's scrub arc and drag-seek.
+- **Finer when the finger is lifted:** dragging on the classic full-screen bar and moving the finger 48 dp above where it started re-zooms around the handle five times finer (`Scrub.FINE_FACTOR`); moving back down restores the normal window. The handle stays under the finger when the window changes.
+- **Smaller fan:** the fullscreen corner fan is about 10% smaller (radius 0.56 of the short side, 200–224 dp; play 68 dp, ±10 s 56 dp) so it covers less of the picture.
+- Limits: built and unit-tested only, not run on a device.
+- Tests: 188 JVM tests pass (2 new in `PlayerGestureMathTest`, `FanLayoutTest` updated). APK `apk/ErgoTube-build30-precise-seek-debug.apk`.

@@ -56,3 +56,6 @@ One «Музыка» page, ear above the shared dock on Home, single «Люби�
 
 ## Build 29 (12 Nov 2026)
 Every appear and hide goes through a blur: sheets (`BlurSheet` replaces `ModalBottomSheet`), dock, ear, mini-player, «Моё» tiles, update banner, chips/search bars hiding on scroll, pad, fan items, Shorts caption and the music-player cover swap come into focus out of a blur with a slight scale and blur away; nothing slides. Helpers in `ui/motion/Motion.kt` (`blurFade`, `blurIn`, `blurOut`, `BlurVisibility`, `blurVisible`, `blurSwap`). AlertDialogs and dropdown menus stay the system ones. 186 JVM tests, not run on a device. APK `apk/ErgoTube-build29-blur-debug.apk`.
+
+## Build 30 (12 Nov 2026)
+Precise fullscreen seek: the fullscreen timeline (classic bar and the fan's scrub arc/drag) zooms to a fixed stretch of time, 12% of the video clamped to 45 s–5 min (`TimelineWindow.zoomAtPrecise`, `Scrub.preciseSeconds`), so the handle runs two to three times slower; lifting the finger 48 dp above the classic bar makes it five times finer. The fullscreen corner fan is about 10% smaller. 188 JVM tests, not run on a device. APK `apk/ErgoTube-build30-precise-seek-debug.apk`.

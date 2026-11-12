@@ -34,6 +34,28 @@ class PlayerGestureMathTest {
         assertEquals(1f, TimelineWindow.zoomAt(1f, 180_000).fractionAt(1f), 0.0001f)
     }
 
+    @Test fun fullscreenTimelineHoldsAFixedStretchOfTimeAndRunsSlower() {
+        assertEquals(45f, Scrub.preciseSeconds(120f), 0.01f)
+        assertEquals(72f, Scrub.preciseSeconds(600f), 0.01f)
+        assertEquals(300f, Scrub.preciseSeconds(36_000f), 0.01f)
+        // A 10 minute video: the full width is 72 s instead of 171 s, a one hour video 5 min instead of 17.
+        assertEquals(0.12f, TimelineWindow.zoomAtPrecise(0.5f, 600_000).spanFraction, 0.0001f)
+        assertEquals(1f / 12f, TimelineWindow.zoomAtPrecise(0.5f, 3_600_000).spanFraction, 0.0001f)
+        assertTrue(TimelineWindow.zoomAtPrecise(0.5f, 600_000).spanFraction < TimelineWindow.zoomAt(0.5f, 600_000).spanFraction)
+        // Short clips keep the gentle zoom, and the touch stays anchored.
+        assertEquals(TimelineWindow.zoomAt(0.3f, 30_000).spanFraction, TimelineWindow.zoomAtPrecise(0.3f, 30_000).spanFraction, 0.0001f)
+        val zoom = TimelineWindow.zoomAtPrecise(0.7f, 600_000)
+        assertEquals(0.7f, zoom.fractionAt(0.7f), 0.0001f)
+        assertEquals(0f, TimelineWindow.zoomAtPrecise(0f, 600_000).fractionAt(0f), 0.0001f)
+        assertEquals(1f, TimelineWindow.zoomAtPrecise(1f, 600_000).fractionAt(1f), 0.0001f)
+    }
+
+    @Test fun reZoomingMidDragKeepsTheHandleUnderTheFinger() {
+        val window = TimelineWindow.around(0.4f, 0.5f, 0.024f)
+        assertEquals(0.4f, window.fractionAt(0.5f), 0.0001f)
+        assertEquals(0.024f, window.spanFraction, 0.0001f)
+    }
+
     @Test fun liftingTheFingerScrubsFiveTimesFiner() {
         val coarse = Scrub.step(100f, 100f, 1000f, 1000f, fine = false)
         val fine = Scrub.step(100f, 100f, 1000f, 1000f, fine = true)
@@ -60,7 +82,7 @@ class PlayerGestureMathTest {
 
     @Test fun fanSitsInTheHandCornerAndRunsClockwise() {
         val right = FanGeometry(800f, 400f, left = false)
-        assertEquals(248f, right.radius, 0.01f)
+        assertEquals(224f, right.radius, 0.01f)
         // Right hand: u = 0 lies along the bottom toward the left, u = 1 straight up.
         assertEquals(800f - 100f, right.position(100f, 0f).x, 0.01f)
         assertEquals(400f - 100f, right.position(100f, 1f).y, 0.01f)

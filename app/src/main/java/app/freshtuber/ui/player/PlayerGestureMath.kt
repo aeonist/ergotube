@@ -25,6 +25,8 @@ class SeekBurst(private val windowMs: Long = 900) {
 
 /** A visible slice of the timeline that keeps the initial touch at the same screen position. */
 data class TimelineWindow private constructor(private val start: Float, private val span: Float) {
+    /** Share of the whole video that the visible slice covers. */
+    val spanFraction: Float get() = span
     fun fractionAt(position: Float): Float = start + position.coerceIn(0f, 1f) * span
     fun positionOf(fraction: Float): Float = (fraction - start) / span
 
@@ -35,6 +37,21 @@ data class TimelineWindow private constructor(private val start: Float, private 
             val span = if (durationMs > 60_000) 1f / 3.5f else 1f / 1.5f
             return TimelineWindow(touch.coerceIn(0f, 1f) * (1f - span), span)
         }
+
+        /**
+         * The same, for full screen where the bar is wide and a fingertip jumps minutes: the window
+         * holds a fixed stretch of time (12% of the video, 45 s to 5 min), so the handle runs
+         * two to three times slower than in [zoomAt]. Short clips keep the gentle zoom.
+         */
+        fun zoomAtPrecise(touch: Float, durationMs: Long): TimelineWindow {
+            if (durationMs <= 60_000) return zoomAt(touch, durationMs)
+            val span = (Scrub.preciseSeconds(durationMs / 1000f) * 1000f / durationMs).coerceAtMost(1f / 1.5f)
+            return TimelineWindow(touch.coerceIn(0f, 1f) * (1f - span), span)
+        }
+
+        /** A window of [span] of the video whose point [touch] sits on [fraction]: re-zooming mid-drag without a jump. */
+        fun around(fraction: Float, touch: Float, span: Float): TimelineWindow =
+            TimelineWindow((fraction - touch.coerceIn(0f, 1f) * span).coerceIn(0f, 1f - span), span)
     }
 }
 
@@ -43,6 +60,9 @@ object Scrub {
     const val FINE_FACTOR = 0.2f
     /** How far the finger must rise above where it started, in dp, to scrub finely. */
     const val FINE_LIFT_DP = 48f
+
+    /** Seconds the full-screen timeline covers when scrubbing: 12% of the video, between 45 s and 5 min. */
+    fun preciseSeconds(durationSeconds: Float): Float = (durationSeconds * 0.12f).coerceIn(45f, 300f)
 
     /** Seconds covered by one full pad width: 30% of the video, between 1.5 and 10 minutes. */
     fun spanSeconds(durationSeconds: Float): Float = (durationSeconds * 0.3f).coerceIn(90f, 600f)

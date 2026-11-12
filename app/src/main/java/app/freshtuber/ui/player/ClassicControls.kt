@@ -152,12 +152,21 @@ fun ClassicVideoControls(
             Box(Modifier.align(Alignment.BottomStart).fillMaxWidth()
                 .then(if (fullscreen) Modifier.windowInsetsPadding(WindowInsets.displayCutout.union(WindowInsets.navigationBars)).padding(horizontal = 16.dp, vertical = 8.dp) else Modifier)
                 .height(if (active) 24.dp else 3.dp)
-                .then(if (active) Modifier.testTag("classic:seek").pointerInput(progress.durationMs) {
+                .then(if (active) Modifier.testTag("classic:seek").pointerInput(progress.durationMs, fullscreen) {
                     fun at(x: Float) = (x / size.width).coerceIn(0f, 1f)
+                    var startY = 0f
+                    var baseSpan = 1f
+                    var fine = false
                     detectHorizontalDragGestures(
                         onDragStart = {
                             val touch = at(it.x)
-                            timeline = TimelineWindow.zoomAt(touch, progress.durationMs)
+                            // Full screen is wide and a fingertip covers minutes, so the handle runs slower
+                            // there, and lifting the finger above the bar slows it five times more.
+                            timeline = if (fullscreen) TimelineWindow.zoomAtPrecise(touch, progress.durationMs)
+                                else TimelineWindow.zoomAt(touch, progress.durationMs)
+                            baseSpan = timeline.spanFraction
+                            startY = it.y
+                            fine = false
                             scrub = touch
                         },
                         onDragEnd = {
@@ -167,7 +176,17 @@ fun ClassicVideoControls(
                             hide.poke()
                         },
                         onDragCancel = { scrub = null; timeline = TimelineWindow.Full },
-                    ) { change, _ -> scrub = timeline.fractionAt(at(change.position.x)) }
+                    ) { change, _ ->
+                        val touch = at(change.position.x)
+                        if (fullscreen) {
+                            val nowFine = Scrub.isFine(startY, change.position.y, Scrub.FINE_LIFT_DP * density)
+                            if (nowFine != fine) {
+                                fine = nowFine
+                                timeline = TimelineWindow.around(scrub ?: timeline.fractionAt(touch), touch, baseSpan * if (fine) Scrub.FINE_FACTOR else 1f)
+                            }
+                        }
+                        scrub = timeline.fractionAt(touch)
+                    }
                 }.pointerInput(progress.durationMs) {
                     detectTapGestures { player.seekTo((it.x / size.width * player.duration.coerceAtLeast(0)).toLong()); hide.poke() }
                 } else Modifier)) {

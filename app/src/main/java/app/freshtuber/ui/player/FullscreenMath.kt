@@ -14,14 +14,14 @@ import kotlin.math.sin
  */
 class FanGeometry(val width: Float, val height: Float, val left: Boolean) {
     /** Outer radius of the touch area; small enough to leave most of the picture to taps. */
-    val radius = (minOf(width, height) * 0.62f).coerceIn(200f, 250f)
+    val radius = (minOf(width, height) * 0.56f).coerceIn(200f, 224f)
     /** Radius of the scrub arc. */
-    val track = radius - 30f
+    val track = radius - 26f
     /** Touches this close inside the arc count as on the arc. */
     val band = 34f
-    val main = radius * 0.53f
+    val main = radius * 0.56f
     val inner = radius * 0.2f
-    val outer = radius + 30f
+    val outer = radius + 26f
 
     /** Point at distance [r] from the corner, at position [u] along the quarter. */
     fun position(r: Float, u: Float): Offset {

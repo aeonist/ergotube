@@ -201,7 +201,7 @@ fun FullscreenPlayer(
                     var lastU = u0
                     var fine = false
                     ui.hush()
-                    if (onArc) ui.timeline = TimelineWindow.zoomAt(FanGeometry.fromArc(u0), durationMs)
+                    if (onArc) ui.timeline = TimelineWindow.zoomAtPrecise(FanGeometry.fromArc(u0), durationMs)
                     while (true) {
                         val event = awaitPointerEvent()
                         if (event.changes.any { it.isConsumed } || event.changes.size > 1) {
@@ -214,7 +214,7 @@ fun FullscreenPlayer(
                         val nowFine = !onArc && r - r0 > FanGeometry.FINE_DISTANCE
                         if (nowFine != fine) { fine = nowFine; haptics.performHapticFeedback(HapticFeedbackType.SegmentTick) }
                         seconds = if (onArc) ui.timeline.fractionAt(FanGeometry.fromArc(u)) * durationSeconds
-                        else (seconds + (u - lastU) * Scrub.spanSeconds(durationSeconds) * (if (fine) Scrub.FINE_FACTOR else 1f))
+                        else (seconds + (u - lastU) * Scrub.preciseSeconds(durationSeconds) * (if (fine) Scrub.FINE_FACTOR else 1f))
                             .coerceIn(0f, durationSeconds)
                         lastU = u
                         ui.fine = if (onArc && !fine) null else fine
@@ -333,15 +333,15 @@ fun FullscreenPlayer(
             fun Modifier.at(p: Offset, size: Float) = offset { IntOffset(((p.x - size / 2).dp).roundToPx(), ((p.y - size / 2).dp).roundToPx()) }
             if (awake || shown > 0f) Box(Modifier.fillMaxSize()) {
                 val playing = progress.isPlaying || (progress.buffering && player.playWhenReady)
-                FanIcon(Icons.Rounded.Replay10, stringResource(R.string.player_back_10), Modifier.at(geo.position(geo.main, 0.14f), 60f).layerIn(stage(90), left), enabled = !live) {
+                FanIcon(Icons.Rounded.Replay10, stringResource(R.string.player_back_10), Modifier.at(geo.position(geo.main, 0.14f), 56f).layerIn(stage(90), left), enabled = !live) {
                     ui.skip(player, -10) { secondsFormat.format(it) } }
                 val playLabel = stringResource(if (playing) R.string.player_pause else R.string.player_play)
-                Box(Modifier.at(geo.position(geo.main, 0.5f), 76f).layerIn(stage(140), left).size(76.dp).background(Color.White.copy(alpha = 0.14f), CircleShape)
+                Box(Modifier.at(geo.position(geo.main, 0.5f), 68f).layerIn(stage(140), left).size(68.dp).background(Color.White.copy(alpha = 0.14f), CircleShape)
                     .semantics { contentDescription = playLabel; role = Role.Button; onClick { toggle(); true } }, contentAlignment = Alignment.Center) {
                     Icon(if (progress.ended) Icons.Rounded.Replay else if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        null, Modifier.size(48.dp), tint = Color.White)
+                        null, Modifier.size(44.dp), tint = Color.White)
                 }
-                FanIcon(Icons.Rounded.Forward10, stringResource(R.string.player_forward_10), Modifier.at(geo.position(geo.main, 0.86f), 60f).layerIn(stage(190), left), enabled = !live) {
+                FanIcon(Icons.Rounded.Forward10, stringResource(R.string.player_forward_10), Modifier.at(geo.position(geo.main, 0.86f), 56f).layerIn(stage(190), left), enabled = !live) {
                     ui.skip(player, 10) { secondsFormat.format(it) } }
                 val chip: @Composable (String, Offset, Float, @Composable () -> Unit, Boolean, Float, () -> Unit) -> Unit = { key, p, width, content, selected, appear, click ->
                     Surface(onClick = { click(); wake() }, enabled = awake, shape = RoundedCornerShape(22.dp),
@@ -432,9 +432,9 @@ private fun Modifier.layerIn(p: Float, left: Boolean): Modifier = graphicsLayer 
 
 @Composable
 private fun FanIcon(icon: ImageVector, label: String, modifier: Modifier, enabled: Boolean, onClick: () -> Unit) {
-    Box(modifier.size(60.dp).semantics { contentDescription = label; role = Role.Button; onClick { if (enabled) onClick(); enabled } },
+    Box(modifier.size(56.dp).semantics { contentDescription = label; role = Role.Button; onClick { if (enabled) onClick(); enabled } },
         contentAlignment = Alignment.Center) {
-        Icon(icon, null, Modifier.size(34.dp), tint = Color.White.copy(alpha = if (enabled) 1f else 0.38f))
+        Icon(icon, null, Modifier.size(32.dp), tint = Color.White.copy(alpha = if (enabled) 1f else 0.38f))
     }
 }
 
