@@ -66,8 +66,7 @@ fun MusicListenScreen(viewModel: MusicViewModel = hiltViewModel()) {
                 trailing = { IconButton(onClick = { viewModel.music.play() }) { Icon(Icons.Rounded.PlayArrow, stringResource(R.string.player_play)) } })
         }
         // «Мой джем» stands apart: one wide card first, the other mixes of the Home page in a row below.
-        val mine = home.jams.firstOrNull(app.freshtuber.data.music.MusicJams::isMine)
-        val others = home.jams.filterNot(app.freshtuber.data.music.MusicJams::isMine)
+        val mine = home.jams.mine
         if (mine != null) item(key = "myJam") {
             val title = stringResource(R.string.music_my_jam)
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp).padding(top = 14.dp).clip(RoundedCornerShape(22.dp))
@@ -88,15 +87,21 @@ fun MusicListenScreen(viewModel: MusicViewModel = hiltViewModel()) {
                 }
             }
         }
-        if (others.isNotEmpty()) item(key = "jams") {
-            Label(stringResource(if (home.signedIn) R.string.music_jams else R.string.music_jams_anon))
-            LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                items(others, key = { it.id }) { jam ->
-                    Column(Modifier.width(150.dp).clip(RoundedCornerShape(16.dp)).clickable { viewModel.playJam(jam); navigation?.openPlayer() }.padding(4.dp)) {
-                        Cover(jam.thumbnailUrl, Modifier.size(142.dp).lightSource(jam.thumbnailUrl), corner = 14.dp)
-                        Text(jam.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
-                        (jam.channelName ?: jam.videoCountText)?.let {
-                            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        // Two shelves, each saying where YouTube showed its mixes.
+        listOf(
+            Triple("jamsHome", home.jams.home, if (home.signedIn) R.string.music_jams else R.string.music_jams_anon),
+            Triple("jamsMusic", home.jams.music, R.string.music_jams_music),
+        ).forEach { (key, jams, label) ->
+            if (jams.isNotEmpty()) item(key = key) {
+                Label(stringResource(label))
+                LazyRow(contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(jams, key = { it.id }) { jam ->
+                        Column(Modifier.width(150.dp).clip(RoundedCornerShape(16.dp)).clickable { viewModel.playJam(jam); navigation?.openPlayer() }.padding(4.dp)) {
+                            Cover(jam.thumbnailUrl, Modifier.size(142.dp).lightSource(jam.thumbnailUrl), corner = 14.dp)
+                            Text(jam.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
+                            (jam.channelName ?: jam.videoCountText)?.let {
+                                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
                         }
                     }
                 }

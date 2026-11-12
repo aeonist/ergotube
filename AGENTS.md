@@ -47,3 +47,6 @@ User fixes on variant A: no on-screen Back buttons anywhere, Subscriptions sourc
 
 ## Optional future work
 Takeout/NewPipe subscription import is outside the completed eight-stage plan. Do not start it without a new request. Continue committing validated changes; never publish or push without authorization.
+
+## Build 27 (12 Nov 2026)
+Tester polish: two-row portrait remote, Back always leaves the player, quiet playback recovery, Music/ErgoTube export with tags and marker, labelled jam shelves, update banner from GitHub releases (needs a public repo; `UPDATE_REPO` in app/build.gradle.kts). Release tags must name `buildN`. 181 JVM tests. The user asked to stop emulator testing after it crashed; do not run long emulator sessions unasked. APKs `apk/ErgoTube-build27-*.apk`.

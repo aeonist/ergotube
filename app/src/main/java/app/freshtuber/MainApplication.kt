@@ -23,6 +23,7 @@ class MainApplication : Application(), SingletonImageLoader.Factory {
     @Inject lateinit var okHttpClient: OkHttpClient
     @Inject lateinit var musicOffline: app.freshtuber.data.music.MusicOffline
     @Inject lateinit var musicFolder: app.freshtuber.data.music.MusicFolder
+    @Inject lateinit var updates: app.freshtuber.data.update.AppUpdates
 
     override fun onCreate() {
         super.onCreate()
@@ -31,6 +32,7 @@ class MainApplication : Application(), SingletonImageLoader.Factory {
         downloads.start()
         musicOffline.start()
         musicFolder.start()
+        updates.start()
     }
 
     override fun onConfigurationChanged(newConfig: Configuration) {

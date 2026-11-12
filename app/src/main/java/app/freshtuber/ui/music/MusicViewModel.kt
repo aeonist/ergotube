@@ -56,7 +56,7 @@ sealed interface LyricsState {
 data class HomeMusic(
     val daily: DailyMusicMix? = null,
     val dailyLoading: Boolean = true,
-    val jams: List<PlaylistSummary> = emptyList(),
+    val jams: app.freshtuber.data.music.MusicJamShelves = app.freshtuber.data.music.MusicJamShelves(),
     val signedIn: Boolean = false,
 )
 
@@ -103,8 +103,8 @@ class MusicViewModel @Inject constructor(
                 _home.value = _home.value.copy(daily = daily ?: _home.value.daily, dailyLoading = false)
             }
             launch {
-                val jams = try { discovery.discover(account) } catch (e: CancellationException) { throw e } catch (_: Exception) { emptyList() }
-                if (jams.isNotEmpty()) _home.value = _home.value.copy(jams = jams.take(12))
+                val jams = try { discovery.discover(account) } catch (e: CancellationException) { throw e } catch (_: Exception) { null }
+                if (jams != null && !jams.isEmpty) _home.value = _home.value.copy(jams = jams)
             }
         }
     }

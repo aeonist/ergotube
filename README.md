@@ -1,5 +1,7 @@
 # ErgoTube
 
+**Build 27 — polish.** Two-row portrait remote that fits folded phones, no clock over the picture, captions in More, Back always leaves the player, quiet reconnect after network drops, faster Shorts start, a soft video light without stripes, a springier card fan. Music: «Мой джем» first and jams labelled by where they come from, downloads saved as tagged files in Music/ErgoTube, «Show songs from Music», «Remove duplicates», «Open music on launch», and an update banner for new GitHub releases. [Debug APK](apk/ErgoTube-build27-debug.apk) · [Release APK](apk/ErgoTube-build27-release.apk)
+
 **Build 26.** Fullscreen player: the fan's buttons no longer overlap (Next moved to the outer ring), and the elapsed time hides together with the other controls. [Debug APK](apk/ErgoTube-build26-debug.apk) · [Release APK](apk/ErgoTube-build26-release.apk)
 
 **Build 25 — ErgoTube Music v2.** A new music mode in the same liquid light: «Слушать», a player lit by the cover, lyrics, a three-layer queue, one library for phone files and YouTube songs, and the song line inside the dock. [Debug APK](apk/ErgoTube-music2-debug.apk) · [Release APK](apk/ErgoTube-music2-release.apk)

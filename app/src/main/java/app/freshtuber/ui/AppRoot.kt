@@ -347,6 +347,16 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
             .onSizeChanged { bannerHeight = with(density) { it.height.toDp() } }) {
             StatusBanner(online, expired, onDownloads = { openSection(DownloadsRoute) }, onSignIn = signIn)
         } else if (bannerHeight != 0.dp) SideEffect { bannerHeight = 0.dp }
+        // A newer build on GitHub: a banner above the dock, or its corner chip after «Позже».
+        val update by viewModel.updates.available.collectAsStateWithLifecycle()
+        val updateCollapsed by viewModel.updates.collapsed.collectAsStateWithLifecycle()
+        val uriHandler = androidx.compose.ui.platform.LocalUriHandler.current
+        update?.takeIf { dockVisible }?.let { available ->
+            app.freshtuber.ui.components.UpdateBanner(available, updateCollapsed, leftHanded,
+                onUpdate = { runCatching { uriHandler.openUri(available.url) } }, onCollapse = viewModel.updates::collapse,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = bannerHeight + if (fullDock) dockSpace else compactDockSpace)
+                    .padding(bottom = if (updateCollapsed) 72.dp else 0.dp))
+        }
         val belowContent = bannerHeight + if (fullDock) dockSpace else 0.dp
         val nowPlaying = playerState.nowPlaying
         // Closing the floating video fades it out; it keeps its last picture meanwhile.

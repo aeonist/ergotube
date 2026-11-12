@@ -453,4 +453,8 @@
     <string name="settings_music_folder_hint">Downloaded songs live in Music/ErgoTube with title and cover, where other players find them</string>
     <string name="settings_start_music">Open music on launch</string>
     <string name="settings_start_music_hint">The app opens on Listen instead of the video Home</string>
+    <string name="music_jams_music">Jams from the Music filter on Home</string>
+    <string name="update_available">Update available: build %d</string>
+    <string name="update_later">Later</string>
+    <string name="update_install">Update</string>
 </resources>

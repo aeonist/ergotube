@@ -66,6 +66,12 @@ object MusicJams {
      * Signed in, the listener's own mix leads even when the Home page did not show it this time
      * (YouTube answers its id directly); the other mixes follow in the page's order.
      */
+    /** «Мой джем» first wherever it was found, then each source's own mixes without it. */
+    fun shelves(home: List<app.freshtuber.domain.model.PlaylistSummary>, music: List<app.freshtuber.domain.model.PlaylistSummary>, signedIn: Boolean): MusicJamShelves {
+        val mine = order(home + music, signedIn).firstOrNull(::isMine)
+        return MusicJamShelves(mine, home.filterNot(::isMine).take(12), music.filterNot(::isMine).filterNot { m -> home.any { it.id == m.id } }.take(12))
+    }
+
     fun order(jams: List<app.freshtuber.domain.model.PlaylistSummary>, signedIn: Boolean, myTitle: String = "Мой джем"): List<app.freshtuber.domain.model.PlaylistSummary> {
         val mine = jams.firstOrNull(::isMine) ?: if (signedIn) app.freshtuber.domain.model.PlaylistSummary(MY_MIX, myTitle, null) else null
         return listOfNotNull(mine) + jams.filterNot(::isMine)
@@ -82,4 +88,13 @@ object MusicFolderNames {
         val name = listOfNotNull(artist?.let(::clean)?.takeIf(String::isNotEmpty), clean(title).ifEmpty { "ErgoTube" }).joinToString(" - ")
         return name.take(120).trim() + "." + extension
     }
+}
+
+/** The jams of the Listen screen, each shelf labelled by where YouTube showed it. */
+data class MusicJamShelves(
+    val mine: app.freshtuber.domain.model.PlaylistSummary? = null,
+    val home: List<app.freshtuber.domain.model.PlaylistSummary> = emptyList(),
+    val music: List<app.freshtuber.domain.model.PlaylistSummary> = emptyList(),
+) {
+    val isEmpty get() = mine == null && home.isEmpty() && music.isEmpty()
 }

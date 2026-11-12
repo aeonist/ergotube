@@ -27,6 +27,7 @@ class MainViewModel @Inject constructor(
     network: app.freshtuber.core.connectivity.NetworkMonitor,
     health: app.freshtuber.data.account.SessionHealth,
     downloads: app.freshtuber.data.downloads.Downloads,
+    val updates: app.freshtuber.data.update.AppUpdates,
 ) : ViewModel() {
 
     val online = network.online

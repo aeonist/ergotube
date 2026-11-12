@@ -46,11 +46,15 @@ class MusicDiscovery @Inject constructor(
 
     fun currentCursor(mix: PlaylistSummary) = MusicJamCursor(mix, MusicAccount.from(accountState.value))
 
-    /** Mix cards of the ordinary YouTube Home: the profile's own when signed in. */
-    suspend fun discover(account: MusicAccount?): List<PlaylistSummary> {
-        if (MusicAccount.from(accountState.value) != account) return emptyList()
+    /**
+     * Mix cards of the ordinary YouTube Home, the profile's own when signed in: «Мой джем»
+     * alone, then the Home page's mixes and the «Музыка» filter's mixes as two shelves.
+     */
+    suspend fun discover(account: MusicAccount?): MusicJamShelves {
+        if (MusicAccount.from(accountState.value) != account) return MusicJamShelves()
         val result = feeds.musicMixCards(account?.let { CallAs.Profile(it.id) } ?: CallAs.Anonymous)
-        return MusicJams.order(result.takeIf { MusicAccount.from(accountState.value) == account }.orEmpty(), signedIn = account != null)
+        if (MusicAccount.from(accountState.value) != account) return MusicJamShelves()
+        return MusicJams.shelves(result.home, result.music, signedIn = account != null)
     }
 
     suspend fun load(cursor: MusicJamCursor): MusicJamPage {

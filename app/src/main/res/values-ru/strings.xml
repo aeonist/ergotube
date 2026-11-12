@@ -459,4 +459,8 @@
     <string name="settings_music_folder_hint">Скачанные песни лежат в Music/ErgoTube с названием и обложкой, их видят другие плееры</string>
     <string name="settings_start_music">Открывать музыку при запуске</string>
     <string name="settings_start_music_hint">Приложение открывается на «Слушать», а не на Главной с видео</string>
+    <string name="music_jams_music">Джемы из раздела «Музыка» на Главной</string>
+    <string name="update_available">Доступно обновление, сборка %d</string>
+    <string name="update_later">Позже</string>
+    <string name="update_install">Обновить</string>
 </resources>

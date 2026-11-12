@@ -85,19 +85,24 @@ class FeedRepository @Inject constructor(
         innerTube.post("player", buildJsonObject { put("videoId", videoId) }, CallAs.Anonymous),
     )
 
-    suspend fun musicMixCards(callAs: CallAs): List<PlaylistSummary> {
+    /**
+     * Mix cards of the ordinary YouTube Home, kept apart by where they were found: the Home
+     * page itself and its «Музыка» filter. A mix shown in both is listed under Home only.
+     */
+    suspend fun musicMixCards(callAs: CallAs): MusicMixCards {
         val home = innerTube.post("browse", buildJsonObject { put("browseId", HOME) }, callAs)
         val direct = FeedParser.parseMusicMixes(home)
         val music = FeedParser.parseHome(home).filters.firstOrNull {
             it.title.equals("Music", true) || it.title.equals("Музыка", true)
-        }?.token ?: return direct
+        }?.token ?: return MusicMixCards(direct, emptyList())
         return try {
-            (FeedParser.parseMusicMixes(innerTube.post("browse", continuation(music), callAs)) + direct)
-                .distinctBy(PlaylistSummary::id)
+            val fromMusic = FeedParser.parseMusicMixes(innerTube.post("browse", continuation(music), callAs))
+            MusicMixCards(direct, fromMusic.filter { m -> direct.none { it.id == m.id } })
         } catch (e: kotlinx.coroutines.CancellationException) {
             throw e
         } catch (e: Exception) {
-            direct.ifEmpty { throw e }
+            if (direct.isEmpty()) throw e
+            MusicMixCards(direct, emptyList())
         }
     }
 
@@ -163,3 +168,6 @@ class FeedRepository @Inject constructor(
 /** Drops Shorts from regular feeds when the user keeps them in their own tab. */
 fun FeedPage.withoutShorts(): FeedPage =
     copy(items = items.filterNot { it is FeedItem.Video && it.video.isShort })
+
+/** Mixes found on the Home page itself and those under its «Музыка» filter. */
+data class MusicMixCards(val home: List<PlaylistSummary>, val music: List<PlaylistSummary>)
