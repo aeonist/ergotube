@@ -26,6 +26,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -112,9 +113,11 @@ fun MusicLibraryScreen(collection: String?, viewModel: MusicViewModel = hiltView
         android.text.format.Formatter.formatShortFileSize(context, bytes)) else songsAndMinutes(shown.size, shown.sumOf { it.durationMs })
 
     val list = rememberLazyListState()
+    // The four big buttons step aside while the list is read and come back on the way back.
+    val hide = app.freshtuber.ui.components.rememberScrollHide(inverted = fromBottom)
     Column(Modifier.fillMaxSize()) {
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            LazyColumn(Modifier.fillMaxSize(), state = list, reverseLayout = fromBottom, contentPadding = PaddingValues(vertical = 8.dp)) {
+            LazyColumn(Modifier.fillMaxSize().nestedScroll(hide.connection), state = list, reverseLayout = fromBottom, contentPadding = PaddingValues(vertical = 8.dp)) {
                 // In a bottom-up list the first item sits lowest, by the thumb.
                 if (!online && visible.hidden > 0) item(key = "offline") {
                     Text(stringResource(R.string.music_offline_hidden, visible.hidden), Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
@@ -141,7 +144,7 @@ fun MusicLibraryScreen(collection: String?, viewModel: MusicViewModel = hiltView
             if (playlistId == null) add(ContextAction(Icons.Rounded.Sort, stringResource(R.string.music_sort)) { sortOpen = true })
             add(ContextAction(Icons.Rounded.MoreHoriz, stringResource(R.string.music_more)) { moreOpen = true })
         }
-        ContextBar(actions, left)
+        app.freshtuber.ui.motion.BlurVisibility(hide.visible, collapse = true) { ContextBar(actions, left) }
     }
     if (sortOpen) app.freshtuber.ui.components.BlurSheet(onDismissRequest = { sortOpen = false }) {
         Column(Modifier.padding(bottom = 16.dp)) {

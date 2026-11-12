@@ -522,8 +522,8 @@ private fun ModeRow(icon: ImageVector, label: String, on: Boolean, onClick: () -
 }
 
 /**
- * The queue as the third face of the scene: the playing song lowest, by the thumb, the next ones
- * above it. First what the listener added, then the collection, then pale «Похожее». Drag a
+ * The queue as the third face of the scene, read top to bottom: the played songs above, the
+ * playing one, then what comes next. First what the listener added, then the collection, then pale «Похожее». Drag a
  * handle to reorder within a layer; swipe a song to the edge to remove it (with «Вернуть»).
  * One «Режим» button at the bottom opens shuffle, repeat, the sleep timer and «Бесконечно».
  */
@@ -545,25 +545,26 @@ private fun QueueFace(state: MusicState, viewModel: MusicViewModel, left: Boolea
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         val upcoming = queue.upcoming
-        // Opens on the current song, with the played ones below it out of sight.
-        val list = rememberLazyListState(initialFirstVisibleItemIndex = queue.history.size + if (queue.history.isNotEmpty()) 1 else 0)
-        // Played songs stay under the current one (scroll down to them); a tap plays one again.
+        // Read top to bottom: the played songs above (scroll up to them, a tap plays one again),
+        // then the current song, then what comes next, layer by layer.
         val played = queue.history
-        // The current song's place: under it the played songs and their label.
         val currentIndex = if (played.isEmpty()) 0 else played.size + 1
-        LaunchedEffect(current.id) { list.animateScrollToItem(currentIndex) }
-        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list, reverseLayout = true) {
+        // Opens with the last played song peeking above the current one.
+        val anchor = (currentIndex - 1).coerceAtLeast(0)
+        val list = rememberLazyListState(initialFirstVisibleItemIndex = anchor)
+        LaunchedEffect(current.id) { list.animateScrollToItem(anchor) }
+        val labelModifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp)
+        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list) {
             if (played.isNotEmpty()) {
-                // Reversed list: the first items sit lowest, so the oldest song is at the very bottom.
+                item(key = "label:played") {
+                    Text(stringResource(R.string.music_layer_played), style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = labelModifier)
+                }
                 played.forEachIndexed { index, entry ->
                     item(key = "played:$index:${entry.track.id}") {
                         QueueRow(entry.track, originOf(entry.track, downloaded), current = false, playing = false, layer = null,
                             dimmed = true, onClick = { music.replay(index) })
                     }
-                }
-                item(key = "label:played") {
-                    Text(stringResource(R.string.music_layer_played), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp))
                 }
             }
             item(key = "current") {
@@ -572,6 +573,14 @@ private fun QueueFace(state: MusicState, viewModel: MusicViewModel, left: Boolea
             for (layer in QueueLayer.entries) {
                 val group = upcoming.withIndex().filter { it.value.layer == layer }
                 if (group.isEmpty()) continue
+                item(key = "label:${layer.name}") {
+                    val label = when (layer) {
+                        QueueLayer.Added -> stringResource(R.string.music_layer_added)
+                        QueueLayer.Collection -> queue.title?.let { stringResource(R.string.music_layer_collection, it) } ?: stringResource(R.string.music_layer_collection_plain)
+                        QueueLayer.Radio -> stringResource(R.string.music_layer_radio)
+                    }
+                    Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = labelModifier)
+                }
                 group.forEachIndexed { withinLayer, (index, entry) ->
                     item(key = "${layer.name}:${entry.track.id}:$withinLayer") {
                         QueueRow(entry.track, originOf(entry.track, downloaded), current = false, playing = false, layer = layer,
@@ -586,15 +595,6 @@ private fun QueueFace(state: MusicState, viewModel: MusicViewModel, left: Boolea
                                 }
                             })
                     }
-                }
-                item(key = "label:${layer.name}") {
-                    val label = when (layer) {
-                        QueueLayer.Added -> stringResource(R.string.music_layer_added)
-                        QueueLayer.Collection -> queue.title?.let { stringResource(R.string.music_layer_collection, it) } ?: stringResource(R.string.music_layer_collection_plain)
-                        QueueLayer.Radio -> stringResource(R.string.music_layer_radio)
-                    }
-                    Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp))
                 }
             }
             if (state.radioLoading) item(key = "radioLoading") {
@@ -640,8 +640,8 @@ private fun QueueRow(track: MusicTrack, origin: SongOrigin, current: Boolean, pl
                     val dragLabel = stringResource(R.string.music_drag)
                     Box(Modifier.size(44.dp).semantics { contentDescription = dragLabel }.pointerInput(track.id, indexInLayer, layerSize) {
                         detectVerticalDragGestures(onDragStart = { haptics.performHapticFeedback(HapticFeedbackType.LongPress) }, onDragEnd = {
-                            // Reversed list: moving up goes later in the queue.
-                            val steps = (-dragY / rowHeight).let { if (it > 0) (it + 0.5f).toInt() else (it - 0.5f).toInt() }
+                            // Top-down list: moving down goes later in the queue.
+                            val steps = (dragY / rowHeight).let { if (it > 0) (it + 0.5f).toInt() else (it - 0.5f).toInt() }
                             val target = (indexInLayer + steps).coerceIn(0, layerSize - 1)
                             dragY = 0f
                             if (target != indexInLayer) onMove(indexInLayer, target)
