@@ -21,6 +21,12 @@ float sdR(float2 p,float4 R,float r){return sdBox(p-(R.xy+R.zw*.5),R.zw*.5,r);}
             "return mix(mix($c.eval(b).rgb,$c.eval(b+float2(1.,0.)).rgb,f.x),mix($c.eval(b+float2(0.,1.)).rgb,$c.eval(b+float2(1.,1.)).rgb,f.x),f.y);}"
     }
 
+    /** Mean colour of each smallest (3×2) level: the far end of the light, where no shape is left. */
+    private val MEAN = listOf("a2", "b2", "c2", "d2").joinToString("\n") { c ->
+        "float3 mn_$c(){return ($c.eval(float2(.5,.5)).rgb+$c.eval(float2(1.5,.5)).rgb+$c.eval(float2(2.5,.5)).rgb+" +
+            "$c.eval(float2(.5,1.5)).rgb+$c.eval(float2(1.5,1.5)).rgb+$c.eval(float2(2.5,1.5)).rgb)/6.;}"
+    }
+
     /** Uniforms and functions shared by the field and the drops; [octaves] of the warp noise. */
     private fun core(octaves: Int) = """
 uniform float2 uRes;
@@ -51,6 +57,7 @@ uniform shader d0; uniform shader d1; uniform shader d2;
 uniform shader uNoise;
 ${COMMON}
 ${BILINEAR}
+${MEAN}
 // Value noise from a random texture, read at texel centres. A float hash breaks on mobile GPUs:
 // neighbouring cells hash the same corner slightly differently and the warp tears into tiles.
 float nz(float2 i){return uNoise.eval(i+.5).r;}
@@ -74,30 +81,36 @@ float3 lv1(float2 uv){float2 q=uv*uS1;float3 s=float3(0.);
 float3 lv2(float2 uv){float2 q=uv*uS2;float3 s=float3(0.);
  if(uW.x>.0005)s+=uW.x*bl_a2(q); if(uW.y>.0005)s+=uW.y*bl_b2(q);
  if(uW.z>.0005)s+=uW.z*bl_c2(q); if(uW.w>.0005)s+=uW.w*bl_d2(q); return s;}
-// LOD 4.5 is the first level; each further level is two LOD steps blurrier.
-float3 frame(float2 uv,float lod){float t=clamp((lod-4.5)*.5,0.,2.);float3 c;
- if(t<1.){c=mix(lv0(uv),lv1(uv),t);}else{c=mix(lv1(uv),lv2(uv),t-1.);}
+float3 lv3(){float3 s=float3(0.);
+ if(uW.x>.0005)s+=uW.x*mn_a2(); if(uW.y>.0005)s+=uW.y*mn_b2();
+ if(uW.z>.0005)s+=uW.z*mn_c2(); if(uW.w>.0005)s+=uW.w*mn_d2(); return s;}
+// LOD 4.5 is the first level; each further level is two LOD steps blurrier, and the last two
+// steps (8.5 to 10.5) melt the smallest level into the picture's mean colour.
+float3 frame(float2 uv,float lod){float t=clamp((lod-4.5)*.5,0.,3.);float3 c;
+ if(t<1.){c=mix(lv0(uv),lv1(uv),t);}else if(t<2.){c=mix(lv1(uv),lv2(uv),t-1.);}else{c=mix(lv2(uv),lv3(),t-2.);}
  return lin(c);}
+// The light a picture throws at p. Outside the picture p sees the picture mirrored across its
+// nearest edge, so no edge row is ever stretched across the screen (a clamped edge row showed
+// as stripes that never blurred away). The blur grows smoothly with the distance from the
+// picture, counted in the picture's own heights: sharpest at the edge, the coarse level about
+// half a height away, only the mean colour a couple of heights away. [extra] adds blur for
+// light that is changing pictures.
+float3 glow(float2 p,float4 R,float r,float extra){
+ float n=max(sdR(p,R,r),0.)/max(R.w,1.);
+ float2 q=(p-R.xy)/max(R.zw,float2(1.));
+ float2 m=1.-abs(1.-mod(q,2.));
+ float b=1.-exp(-n*1.8);
+ return frame(clamp(m,.02,.98),4.5+6.*b+extra);
+}
 float3 throwLight(float2 p,out float k){
  if(uMode<.5){
-  float2 c=uRect.xy+uRect.zw*.5;float2 q=(p-c)/uRect.zw+.5;
   float d=max(sdR(p,uRect,20.*uPx),0.)/uRes.y; d*=mix(1.,mix(1.9,3.6,uDark),smoothstep(0.,uRes.y*.12,uRect.y-p.y));
-  float lod=4.5+3.*clamp(d*3.,0.,1.)+uBlur; float2 uv=clamp(.5+(q-.5)/(1.+d*1.6),.03,.97);
-  k=exp(-d*3.4); return frame(uv,lod);
+  k=exp(-d*3.4); return glow(p,uRect,20.*uPx,uBlur);
  }
- // The video lights the space below it and, for a square Short, above it as well. The light is a
- // soft reflection, not the edge row pulled down the screen (that left solid vertical stripes):
- // each step away from the picture looks one step deeper into the frame, from a blurrier level
- // and closer to the frame's middle, so the far end is one calm wash of its colours. Still a
- // single sample: this shader is at the size software renderers can take.
- float below=max(p.y-(uVid.y+uVid.w),0.);float above=max(uVid.y-p.y,0.);
- float dist=max(below,above);float d=dist/uRes.y;float t=clamp(d*2.4,0.,1.);
- float span=below>0.?max(uRes.y-(uVid.y+uVid.w),1.):max(uVid.y,1.);
- float into=.04+.72*clamp(dist/span,0.,1.);
- float vy=below>0.?1.-into:into;
- float cx=mix((p.x-uVid.x)/max(uVid.z,1.),.5,t*.72);
+ // The player: the video (a Short, the music cover) lights every side of itself the same way.
+ float d=max(sdR(p,uVid,0.),0.)/uRes.y;
  k=exp(-d*2.4);
- return frame(clamp(float2(cx,vy),.03,.97),5.+2.5*smoothstep(0.,.45,t));
+ return glow(p,uVid,0.,0.);
 }
 float3 scene(float2 p){
  float2 w=float2(fbm(p/(uRes.y*.32)+float2(uFlow*.035,0.)),fbm(p/(uRes.y*.32)+float2(7.3,-uFlow*.03)))-.5;

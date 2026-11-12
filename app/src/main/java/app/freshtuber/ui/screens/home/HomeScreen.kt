@@ -108,6 +108,7 @@ fun HomeScreen(
     onSignIn: () -> Unit,
     scrollToTop: Boolean = false,
     onScrolledToTop: () -> Unit = {},
+    ear: (@Composable () -> Unit)? = null,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.feed.state.collectAsStateWithLifecycle()
@@ -147,9 +148,12 @@ fun HomeScreen(
                 }
             }),
         )
-        // Filters live at the bottom, starting at the working-hand edge.
-        if (!classic && state.filters.size > 1) app.freshtuber.ui.motion.BlurVisibility(hide.visible, collapse = true) {
-            BottomBar {
+        // Filters live at the bottom, starting at the working-hand edge; the «Музыка» ear stands
+        // on top of them.
+        val showChips = !classic && state.filters.size > 1
+        if (showChips || ear != null) BottomBar {
+            ear?.invoke()
+            if (showChips) app.freshtuber.ui.motion.BlurVisibility(hide.visible, collapse = true) {
                 HandChips(chips, left, Modifier.padding(vertical = 4.dp))
             }
         }

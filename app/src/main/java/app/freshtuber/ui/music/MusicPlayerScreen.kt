@@ -131,16 +131,18 @@ fun MusicPlayerScreen(onCollapse: () -> Unit, viewModel: MusicViewModel = hiltVi
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                 if (left) collapse()
             }
-            BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 28.dp, vertical = 14.dp), contentAlignment = Alignment.Center) {
-                if (face == Face.Queue) QueueFace(state, viewModel, left, Modifier.fillMaxSize())
-                else {
+            // The queue takes the whole screen above the remote; the cover and the lyrics share
+            // their square with the title below.
+            if (face == Face.Queue) QueueFace(state, viewModel, left, Modifier.weight(1f).fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp))
+            else {
+                BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 28.dp, vertical = 14.dp), contentAlignment = Alignment.Center) {
                     val side = minOf(maxWidth, maxHeight)
                     CoverArea(track, face == Face.Lyrics, direction, long, state, viewModel, Modifier.size(side),
                         onTap = { face = if (face == Face.Lyrics) Face.Cover else Face.Lyrics }, onNext = next, onPrevious = previous,
                         onSeek = { seconds -> music.seekBy(seconds * 1000L); haptics.performHapticFeedback(HapticFeedbackType.SegmentTick) })
                 }
+                TitleRow(track)
             }
-            TitleRow(track)
         }
         MusicPad(state, music.player, left, hearted = hearted, lyricsOn = face == Face.Lyrics, queueOn = face == Face.Queue,
             onHeart = { viewModel.toggleHeart(track); haptics.performHapticFeedback(HapticFeedbackType.Confirm) },
@@ -429,7 +431,7 @@ private fun ModeRow(icon: ImageVector, label: String, on: Boolean, onClick: () -
  * The queue as the third face of the scene: the playing song lowest, by the thumb, the next ones
  * above it. First what the listener added, then the collection, then pale «Похожее». Drag a
  * handle to reorder within a layer; swipe a song to the edge to remove it (with «Вернуть»).
- * One «Режим» button opens shuffle, repeat, the sleep timer and «Бесконечно».
+ * One «Режим» button at the bottom opens shuffle, repeat, the sleep timer and «Бесконечно».
  */
 @Composable
 private fun QueueFace(state: MusicState, viewModel: MusicViewModel, left: Boolean, modifier: Modifier) {
@@ -442,22 +444,11 @@ private fun QueueFace(state: MusicState, viewModel: MusicViewModel, left: Boolea
     var modeOpen by remember { mutableStateOf(false) }
     if (modeOpen) ModeSheet(state, music) { modeOpen = false }
     Column(modifier.clip(RoundedCornerShape(26.dp)).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.55f))) {
-        Row(Modifier.fillMaxWidth().padding(start = 18.dp, end = 10.dp, top = 6.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            val mode: @Composable () -> Unit = {
-                FilledTonalButton(onClick = { modeOpen = true }, contentPadding = PaddingValues(horizontal = 14.dp)) {
-                    Icon(Icons.Rounded.Tune, null, Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.music_mode))
-                }
-            }
-            val heading: @Composable () -> Unit = {
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.music_queue), style = MaterialTheme.typography.titleLarge)
-                    Text(songsAndMinutes(queue.upcoming.size, queue.upcomingDurationMs), style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            if (left) { mode(); Spacer(Modifier.width(8.dp)); heading() } else { heading(); mode() }
+        Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp),
+            horizontalAlignment = if (left) Alignment.End else Alignment.Start) {
+            Text(stringResource(R.string.music_queue), style = MaterialTheme.typography.titleLarge)
+            Text(songsAndMinutes(queue.upcoming.size, queue.upcomingDurationMs), style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         val upcoming = queue.upcoming
         val list = rememberLazyListState()
@@ -495,6 +486,15 @@ private fun QueueFace(state: MusicState, viewModel: MusicViewModel, left: Boolea
             }
             if (state.radioLoading) item(key = "radioLoading") {
                 Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp) }
+            }
+        }
+        // «Режим» at the bottom, under the thumb, on the hand's side.
+        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+            horizontalArrangement = if (left) Arrangement.Start else Arrangement.End) {
+            FilledTonalButton(onClick = { modeOpen = true }, contentPadding = PaddingValues(horizontal = 14.dp)) {
+                Icon(Icons.Rounded.Tune, null, Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.music_mode))
             }
         }
     }

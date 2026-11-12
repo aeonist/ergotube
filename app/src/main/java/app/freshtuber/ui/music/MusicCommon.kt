@@ -325,7 +325,6 @@ fun TrackMenu(track: MusicTrack, viewModel: MusicViewModel, onDismiss: () -> Uni
                 if (track.isYouTube) add(TileItem(Icons.Rounded.SmartDisplay, stringResource(R.string.music_watch_video)) { onDismiss(); navigation?.watchVideo(track) })
                 if (track.isYouTube) add(TileItem(Icons.Rounded.Share, shareTitle) { shareTrack(context, track, shareTitle); onDismiss() })
                 if (playlistId != null) add(TileItem(Icons.Rounded.RemoveCircleOutline, stringResource(R.string.music_remove_from_playlist)) { viewModel.removeFromPlaylist(playlistId, track); onDismiss() })
-                if (track.isYouTube) add(TileItem(Icons.Rounded.ThumbUp, stringResource(R.string.music_like_youtube)) { viewModel.likeOnYouTube(track); onDismiss() })
             }
             TileGrid(tiles, columns = 4, left = left)
         }

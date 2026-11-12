@@ -59,3 +59,6 @@ Every appear and hide goes through a blur: sheets (`BlurSheet` replaces `ModalBo
 
 ## Build 30 (12 Nov 2026)
 Precise fullscreen seek: the fullscreen timeline (classic bar and the fan's scrub arc/drag) zooms to a fixed stretch of time, 12% of the video clamped to 45 s–5 min (`TimelineWindow.zoomAtPrecise`, `Scrub.preciseSeconds`), so the handle runs two to three times slower; lifting the finger 48 dp above the classic bar makes it five times finer. The fullscreen corner fan is about 10% smaller. 188 JVM tests, not run on a device. APK `apk/ErgoTube-build30-precise-seek-debug.apk`.
+
+## Build 31 (12 Nov 2026)
+Background light: pictures are mirrored across their nearest edge and blur smoothly with distance down to the mean colour (`glow` in `LiquidShaders`), no edge stripes. Feed focus measures across as well, holds until another card is clearly nearer, waits for pictures, and follows the row last swiped sideways (middle card). «Музыка» ear sits on top of Home's chip row (in Home's BottomBar). Music: full-screen queue with «Режим» at the bottom, no «Лайк на YouTube» in the song sheet. Not run on a device. APK `apk/ErgoTube-build31-soft-light-debug.apk`.

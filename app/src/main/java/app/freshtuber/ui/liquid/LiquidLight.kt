@@ -170,6 +170,7 @@ class LiquidLight(context: Context, private val scope: CoroutineScope) {
     private var videoHueSet = false
     private var videoHueAt = -100f
     private var focusTop = 0f
+    private var focusLeft = 0f
     private var videoCurrent: LightFrame? = null
     private var videoPrevious: LightFrame? = null
     private var videoFade = 1f
@@ -258,11 +259,23 @@ class LiquidLight(context: Context, private val scope: CoroutineScope) {
         val card = cards[key]
         if (card == null) cards[key] = Card(url, rect)
         else if (card.rect == rect && card.url == url) return
-        else { card.url = url; card.rect = rect }
+        else {
+            // A card that moved sideways while staying at the same height belongs to a row the
+            // person is swiping: the light moves to that row.
+            if (card.url == url && abs(card.rect.top - rect.top) < 0.5f && abs(card.rect.left - rect.left) > 0.5f) {
+                rowKey = key
+                rowAnchor = rect.top
+            }
+            card.url = url; card.rect = rect
+        }
         if (!playerMode) poke()
     }
 
     fun removeCard(key: Any) { cards.remove(key) }
+
+    /** The card of the row swiped last, and that row's height when it was swiped. */
+    private var rowKey: Any? = null
+    private var rowAnchor = 0f
 
     // Player.
 
@@ -454,22 +467,57 @@ class LiquidLight(context: Context, private val scope: CoroutineScope) {
         return fading
     }
 
-    private fun stepFeed(dt: Float): Boolean {
+    /**
+     * The card that lights the page. Normally the one nearest the focus point (the middle of the
+     * screen across, [FocusLine] down). After a row was swiped sideways, the middle card of that
+     * row, until the page scrolls well away from it. A card whose picture is still loading never
+     * takes the focus from the current one, so the light does not skip ahead to a farther card
+     * whose picture happened to be ready, and a card only takes over once it is clearly nearer.
+     */
+    private fun pickFocus(): Card? {
+        val cx = viewWidth / 2f
         val line = viewHeight * FocusLine
-        var best: Card? = null
-        var bestKey: Any? = null
-        var bestDistance = Float.MAX_VALUE
+        // Prefetch the cards a screen above and below, so focus never waits for a picture.
+        for (card in cards.values) {
+            val url = card.url ?: continue
+            val r = card.rect
+            if (r.width >= 1f && cache.get(url) == null && r.bottom > -viewHeight && r.top < 2f * viewHeight) load(url)
+        }
+        fun visible(r: Rect) = r.width >= 1f && r.bottom > 0f && r.top < viewHeight && r.right > 0f && r.left < viewWidth
+        val row = rowKey?.let { cards[it] }
+        val rowTop = row?.rect?.top
+        if (row == null || rowTop == null || !visible(row.rect) || abs(rowTop - rowAnchor) > viewHeight * 0.18f) rowKey = null
+        val inRow = rowKey != null && rowTop != null
+        fun distance(r: Rect): Float =
+            if (inRow) abs(r.center.x - cx) else abs(r.center.y - line) + 0.35f * abs(r.center.x - cx)
+        var nearest: Card? = null
+        var nearestDistance = Float.MAX_VALUE
+        var nearestReady: Card? = null
+        var nearestReadyDistance = Float.MAX_VALUE
+        var current: Card? = null
         for ((key, card) in cards) {
             val url = card.url ?: continue
             val r = card.rect
-            if (r.width < 1f) continue
-            val cached = cache.get(url)
-            // Prefetch the cards a screen above and below, so focus never waits for a picture.
-            if (cached == null) { if (r.bottom > -viewHeight && r.top < 2f * viewHeight) load(url); continue }
-            if (r.bottom < 0f || r.top > viewHeight) continue
-            val d = abs(r.center.y - line)
-            if (d < bestDistance) { bestDistance = d; best = card; bestKey = key }
+            if (!visible(r)) continue
+            if (inRow && abs(r.top - rowTop!!) > 2f) continue
+            val d = distance(r)
+            val ready = cache.get(url) != null
+            if (key == focusKey && ready) current = card
+            if (d < nearestDistance) { nearestDistance = d; nearest = card }
+            if (ready && d < nearestReadyDistance) { nearestReadyDistance = d; nearestReady = card }
         }
+        if (current == null) return nearestReady
+        val pick = nearest ?: return current
+        if (pick === current) return current
+        // The nearest card is still loading its picture: hold the light where it is.
+        if (cache.get(pick.url!!) == null) return current
+        val margin = if (inRow) viewWidth * 0.05f else viewHeight * 0.025f
+        return if (distance(pick.rect) + margin < distance(current.rect)) pick else current
+    }
+
+    private fun stepFeed(dt: Float): Boolean {
+        val best = pickFocus()
+        val bestKey = best?.let { b -> cards.entries.firstOrNull { it.value === b }?.key }
         // Screens without thumbnails (settings, account) keep the last light, spread wider.
         val calmTarget = if (best == null) 2.5f else 0f
         val calmBefore = calm
@@ -478,7 +526,7 @@ class LiquidLight(context: Context, private val scope: CoroutineScope) {
         var scrolled = calm != calmBefore
         if (best != null) {
             if (bestKey == focusKey) {
-                val dy = abs(best.rect.top - focusTop)
+                val dy = abs(best.rect.top - focusTop) + abs(best.rect.left - focusLeft)
                 if (dy > 0.5f) {
                     scrolled = true
                     if (motion != BackgroundMotion.Off) wob = (wob + dy * 0.02f).coerceAtMost(1f)
@@ -486,6 +534,7 @@ class LiquidLight(context: Context, private val scope: CoroutineScope) {
             }
             focusKey = bestKey
             focusTop = best.rect.top
+            focusLeft = best.rect.left
             val url = best.url!!
             if (sources.none { it.url == url }) sources.add(Source(url, cache.get(url)!!))
             for (s in sources) {
