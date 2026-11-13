@@ -37,6 +37,8 @@ uniform float uMode;
 uniform float uBlur;
 uniform float uSurge;
 uniform float uWob;
+uniform float uPulse;
+uniform float uBeat;
 uniform float uPx;
 uniform float uRefr;
 uniform float uScale;
@@ -108,21 +110,22 @@ float3 throwLight(float2 p,out float k){
   k=exp(-d*3.4); return glow(p,uRect,20.*uPx,uBlur);
  }
  // The player: the video (a Short, the music cover) lights every side of itself the same way.
+ // Music pushes the light farther out on loud passages and flashes it on a beat.
  float d=max(sdR(p,uVid,0.),0.)/uRes.y;
- k=exp(-d*2.4);
- return glow(p,uVid,0.,0.);
+ k=exp(-d*2.4/(1.+uPulse*.85+uBeat*.55));
+ return glow(p,uVid,0.,0.)*(1.+uPulse*.18+uBeat*.4);
 }
 float3 scene(float2 p){
  float2 w=float2(fbm(p/(uRes.y*.32)+float2(uFlow*.035,0.)),fbm(p/(uRes.y*.32)+float2(7.3,-uFlow*.03)))-.5;
- float2 pw=p+w*uRes.y*(.22+uSurge*.35+uBlur*.05);
+ float2 pw=p+w*uRes.y*(.22+uSurge*.35+uBlur*.05+uPulse*.07);
  float k;float3 L=throwLight(pw,k);float kd=k*k;
  float lum=dot(L,float3(.2126,.7152,.0722));float3 hue=clamp(L/max(lum,1e-3),0.,3.);
  float3 warm=mix(clamp(hue*.75+.25,0.,1.6),float3(1.,.74,.44),.35);
  float cs=caus(p/uRes.y*1.25+float2(0.,uFlow*.01),uFlow*.22);
  float3 base=float3(.72,.69,.65);
- float3 lt=base*mix(float3(1.),mix(float3(1.),warm*1.1,.62),k)+L*k*.14+warm*cs*.085*(.4+k);
+ float3 lt=base*mix(float3(1.),mix(float3(1.),warm*1.1,.62),k)+L*k*.14+warm*cs*.085*(.4+k)*(1.+uBeat*1.2);
  float kb=exp(-(uRes.y-p.y)/uRes.y*2.6);
- float3 dk=(float3(.004,.003,.0025)+L*(kd*.42+kb*.3)+warm*L*cs*.35*(kd+kb))*.8;
+ float3 dk=(float3(.004,.003,.0025)+L*(kd*.42+kb*.3)+warm*L*cs*.35*(kd+kb)*(1.+uBeat*1.2))*.8;
  return mix(lt,dk,smoothstep(0.,1.,uDark));
 }
 """

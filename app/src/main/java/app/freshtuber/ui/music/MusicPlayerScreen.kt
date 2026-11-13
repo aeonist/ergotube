@@ -105,6 +105,11 @@ fun MusicPlayerScreen(onCollapse: () -> Unit, viewModel: MusicViewModel = hiltVi
         onDispose { light?.exitPlayer(); light?.musicMode = false }
     }
     LaunchedEffect(track?.artwork) { light?.setVideoThumbnail(track?.artwork) }
+    // The light around the cover breathes with the song.
+    DisposableEffect(light) {
+        light?.pulseSource = music.pulse.reader(music.player)
+        onDispose { light?.pulseSource = null }
+    }
     LaunchedEffect(track == null) { if (track == null) onCollapse() }
     BackHandler(face != Face.Cover) { face = Face.Cover }
     if (track == null) return

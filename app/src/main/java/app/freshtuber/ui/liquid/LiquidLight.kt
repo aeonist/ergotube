@@ -138,6 +138,9 @@ class LiquidLight(context: Context, private val scope: CoroutineScope) {
     var surge = 0f; private set
     var wob = 0f; private set
     var blur = 0f; private set
+    /** The music player's light follows the sound: 0..1 loudness and a short flash on a beat. */
+    var pulse = 0f; private set
+    var beat = 0f; private set
 
     private var playerDepth = 0
     /** Player pages asked for; the light follows at the bottom of a short dip ([dip]). */
@@ -179,7 +182,25 @@ class LiquidLight(context: Context, private val scope: CoroutineScope) {
     private var animatorsOn = true
     private val wake = Channel<Unit>(Channel.CONFLATED)
 
-    fun configure(motion: BackgroundMotion, refraction: Boolean, grain: Boolean, powerSave: Boolean, followPowerSave: Boolean, flat: Boolean = false) {
+    /** «Фон в такт музыке». */
+    private var pulseOn = true
+    /** Set by the music player screen while it shows. */
+    var pulseSource: LightPulse? = null
+        set(value) {
+            if (field === value) return
+            field?.stop()
+            field = value
+            if (pulseOn) value?.start()
+            poke()
+        }
+
+    fun configure(motion: BackgroundMotion, refraction: Boolean, grain: Boolean, powerSave: Boolean, followPowerSave: Boolean, flat: Boolean = false,
+        pulse: Boolean = true) {
+        if (pulse != pulseOn) {
+            pulseOn = pulse
+            if (pulse) pulseSource?.start() else pulseSource?.stop()
+            poke()
+        }
         val nextFlat = flat || (powerSave && followPowerSave)
         val nextMotion = when {
             !animatorsOn || nextFlat -> BackgroundMotion.Off
@@ -431,13 +452,14 @@ class LiquidLight(context: Context, private val scope: CoroutineScope) {
         wob = if (off) 0f else (wob * 0.2f.pow(dt)).let { if (it < 0.003f) 0f else it }
 
         if (stepMode(dt)) busy = true
+        if (stepPulse(dt, off)) busy = true
         val transitioning = if (playerMode) stepPlayer(dt) else stepFeed(dt)
         if (transitioning) busy = true
         val speed = when (motion) {
             BackgroundMotion.Always -> 1f
             BackgroundMotion.OnTransition -> if (transitioning || wob > 0.01f || surge > 0.01f) 2.2f else 0f
             BackgroundMotion.Off -> 0f
-        } * (1f + 3f * surge)
+        } * (1f + 3f * surge + 0.8f * pulse)
         flow += speed * dt
         if (surge > 0f || wob > 0.01f) busy = true
         return when {
@@ -445,6 +467,25 @@ class LiquidLight(context: Context, private val scope: CoroutineScope) {
             speed > 0f || pendingHue != null -> LightActivity.Idle
             else -> LightActivity.Static
         }
+    }
+
+    /**
+     * Music: the light breathes with the sound. Off with the motion setting off (or the flat
+     * background), and it settles to rest when the music pauses or the screen closes.
+     */
+    private fun stepPulse(dt: Float, off: Boolean): Boolean {
+        val source = pulseSource
+        if (source != null && pulseOn && !off && playerMode) {
+            source.read(dt)
+            pulse = source.level
+            beat = source.beat
+            return source.active
+        }
+        if (pulse == 0f && beat == 0f) return false
+        val fade = exp(-dt / 0.25f)
+        pulse = (pulse * fade).let { if (it < 0.003f) 0f else it }
+        beat = (beat * fade).let { if (it < 0.003f) 0f else it }
+        return true
     }
 
     private fun stepPlayer(dt: Float): Boolean {

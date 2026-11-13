@@ -256,6 +256,8 @@
     <string name="settings_energy">Energy saving</string>
     <string name="settings_flat">Battery-friendly background</string>
     <string name="settings_flat_hint">One calm color averaged from the video instead of the moving light. Uses almost no battery.</string>
+    <string name="settings_pulse">Background to the music</string>
+    <string name="settings_pulse_hint">In the music player the light behind the cover pulses with the song. Uses no microphone.</string>
     <string name="settings_motion">Background motion</string>
     <string name="settings_motion_always">Always</string>
     <string name="settings_motion_transition">While flowing between videos</string>

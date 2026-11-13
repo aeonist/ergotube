@@ -57,7 +57,8 @@ fun LiquidBackground(light: LiquidLight, modifier: Modifier = Modifier) {
     val powerSave = rememberPowerSave()
     SideEffect {
         light.configure(preferences.motion, preferences.enabled(AppFeature.LiquidRefraction), preferences.enabled(AppFeature.LiquidGrain),
-            powerSave, preferences.enabled(AppFeature.LiquidPowerSaver), preferences.enabled(AppFeature.LiquidFlat))
+            powerSave, preferences.enabled(AppFeature.LiquidPowerSaver), preferences.enabled(AppFeature.LiquidFlat),
+            preferences.enabled(AppFeature.LiquidPulse))
     }
     if (light.covered) return
     LaunchedEffect(light) { light.run() }
@@ -159,6 +160,8 @@ private fun RuntimeShader.bind(light: LiquidLight, px: Float, scale: Float, empt
     setFloatUniform("uBlur", light.blur)
     setFloatUniform("uSurge", light.surge)
     setFloatUniform("uWob", light.wob)
+    setFloatUniform("uPulse", light.pulse)
+    setFloatUniform("uBeat", light.beat)
     setFloatUniform("uPx", px)
     setFloatUniform("uRefr", if (light.refraction) 1f else 0f)
     setFloatUniform("uScale", scale)
@@ -220,7 +223,7 @@ private fun FallbackLight(light: LiquidLight) {
     val drop = androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainerHigh
     Canvas(Modifier.fillMaxSize().then(blurModifier)) {
         light.redraw
-        val strength = if (light.dark > 0.5f) 0.26f else 0.34f
+        val strength = (if (light.dark > 0.5f) 0.26f else 0.34f) * (1f + light.pulse * 0.5f + light.beat * 0.6f)
         val level = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) 0 else 1
         for (i in 0 until 4) {
             val frame = light.slotFrames[i] ?: continue

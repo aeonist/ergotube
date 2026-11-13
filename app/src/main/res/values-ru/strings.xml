@@ -254,6 +254,8 @@
     <string name="settings_energy">Энергосбережение</string>
     <string name="settings_flat">Экономный фон</string>
     <string name="settings_flat_hint">Один спокойный цвет, усреднённый из видео, вместо живого света. Почти не тратит батарею.</string>
+    <string name="settings_pulse">Фон в такт музыке</string>
+    <string name="settings_pulse_hint">В музыкальном плеере свет вокруг обложки пульсирует под песню. Микрофон не нужен.</string>
     <string name="settings_motion">Движение фона</string>
     <string name="settings_motion_always">Всегда</string>
     <string name="settings_motion_transition">При перетекании</string>

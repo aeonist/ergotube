@@ -210,6 +210,7 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
                         Triple(AppFeature.LiquidGrain, R.string.settings_grain, R.string.settings_grain_hint),
                         Triple(AppFeature.LiquidPowerSaver, R.string.settings_power_saver, R.string.settings_power_saver_hint),
                         Triple(AppFeature.LiquidFlat, R.string.settings_flat, R.string.settings_flat_hint),
+                        Triple(AppFeature.LiquidPulse, R.string.settings_pulse, R.string.settings_pulse_hint),
                     ).forEach { (feature, label, hint) -> SettingsToggle(stringResource(label), stringResource(hint), preferences.enabled(feature)) { viewModel.feature(feature, it) } }
                 }
                 SettingsGroup.Player -> {

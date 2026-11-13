@@ -18,6 +18,8 @@ enum class AppFeature(val key: String, val default: Boolean) {
     LiquidPowerSaver("liquid_power_saver", true),
     /** Energy saving: one flat color averaged from the video instead of the liquid light. */
     LiquidFlat("liquid_flat", false),
+    /** The music player's background light pulses with the sound (read from the player itself, no microphone). */
+    LiquidPulse("liquid_pulse", true),
     /** «Музыка» in the main dock instead of Shorts (Shorts move to «Моё»). */
     MusicTab("music_tab", false),
     /** Song lyrics from LRCLIB; only artist, title, album and length are sent. */

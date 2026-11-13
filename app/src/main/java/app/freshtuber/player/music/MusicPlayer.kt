@@ -108,6 +108,8 @@ class MusicPlayer @Inject constructor(
     private val settings: AppSettings,
     private val network: NetworkMonitor,
     private val video: PlayerController,
+    /** The song's loudness for the light behind the music player. */
+    val pulse: AudioPulse,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
@@ -122,7 +124,8 @@ class MusicPlayer @Inject constructor(
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
         val sources = DefaultMediaSourceFactory(DefaultDataSource.Factory(context, ChunkedDataSource.Factory(OkHttpDataSource.Factory(playbackClient))))
-        ExoPlayer.Builder(context)
+        // The pulse tap sits in the audio chain: it reads the sound on its way out, unchanged.
+        ExoPlayer.Builder(context, pulse.renderers(context))
             .setMediaSourceFactory(sources)
             .setLoadControl(load)
             .setAudioAttributes(AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MUSIC).build(), true)
