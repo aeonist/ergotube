@@ -22,6 +22,10 @@ class FanGeometry(val width: Float, val height: Float, val left: Boolean) {
     val main = radius * 0.56f
     val inner = radius * 0.2f
     val outer = radius + 26f
+    /** Length of the whole quarter at the scrub arc. */
+    val quarter get() = track * PI.toFloat() / 2f
+    /** Length of the arc that stands for the whole video (from [U0] to [U1]). */
+    val videoArc get() = quarter * (U1 - U0)
 
     /** Point at distance [r] from the corner, at position [u] along the quarter. */
     fun position(r: Float, u: Float): Offset {

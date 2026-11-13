@@ -159,6 +159,7 @@ fun MusicPlayerScreen(onCollapse: () -> Unit, viewModel: MusicViewModel = hiltVi
                 }
             }
             MusicPad(state, music.player, left, download = download, youTube = track.isYouTube,
+                onDevice = viewModel.onDevice(track), onDelete = { viewModel.askDelete(track) },
                 onShuffle = { music.toggleShuffle(); haptics.performHapticFeedback(HapticFeedbackType.SegmentTick) },
                 onRepeat = { music.cycleRepeat(); haptics.performHapticFeedback(HapticFeedbackType.SegmentTick) },
                 onDownload = { viewModel.download(track) },
@@ -298,7 +299,7 @@ private fun TitleRow(track: MusicTrack, left: Boolean, hearted: Boolean, onHeart
  */
 @Composable
 private fun MusicPad(state: MusicState, player: androidx.media3.common.Player, left: Boolean,
-    download: app.freshtuber.data.downloads.Download?, youTube: Boolean,
+    download: app.freshtuber.data.downloads.Download?, youTube: Boolean, onDevice: Boolean, onDelete: () -> Unit,
     onShuffle: () -> Unit, onRepeat: () -> Unit, onDownload: () -> Unit, onLyrics: () -> Unit, onQueue: () -> Unit, onMore: () -> Unit,
     onPrevious: () -> Unit, onNext: () -> Unit, onToggle: () -> Unit,
     onScan: (Boolean) -> Unit, onSeekTo: (Long) -> Unit) {
@@ -328,9 +329,9 @@ private fun MusicPad(state: MusicState, player: androidx.media3.common.Player, l
             val tools: List<@Composable RowScope.() -> Unit> = listOf(
                 {
                     when {
-                        !youTube -> LabeledButton(Icons.Rounded.PhoneAndroid, stringResource(R.string.music_on_phone_short), enabled = false) {}
-                        status == app.freshtuber.data.downloads.DownloadStatus.Complete ->
-                            LabeledButton(Icons.Rounded.DownloadDone, stringResource(R.string.music_downloaded), selected = true, enabled = false) {}
+                        // On the phone (downloaded, or a file from the phone itself): the button deletes it from the device.
+                        onDevice || !youTube -> LabeledButton(Icons.Rounded.DeleteOutline, stringResource(R.string.music_delete_short),
+                            description = stringResource(R.string.music_delete_from_device), onClick = onDelete)
                         status != null && status != app.freshtuber.data.downloads.DownloadStatus.Failed ->
                             LabeledButton(Icons.Rounded.Downloading, stringResource(R.string.music_downloading_short), selected = true, enabled = false) {}
                         else -> LabeledButton(Icons.Rounded.Download, stringResource(R.string.music_download), onClick = onDownload)
@@ -523,7 +524,8 @@ private fun ModeRow(icon: ImageVector, label: String, on: Boolean, onClick: () -
 
 /**
  * The queue as the third face of the scene, read top to bottom: the played songs above, the
- * playing one, then what comes next. First what the listener added, then the collection, then pale «Похожее». Drag a
+ * playing one, then what comes next. With «Ленты сверху вниз» off it is mirrored: it grows up
+ * from the thumb, the played songs under the playing one. First what the listener added, then the collection, then pale «Похожее». Drag a
  * handle to reorder within a layer; swipe a song to the edge to remove it (with «Вернуть»).
  * One «Режим» button at the bottom opens shuffle, repeat, the sleep timer and «Бесконечно».
  */
@@ -535,6 +537,7 @@ private fun QueueFace(state: MusicState, viewModel: MusicViewModel, left: Boolea
     val messages = app.freshtuber.ui.components.LocalAppMessages.current
     val resources = androidx.compose.ui.platform.LocalResources.current
     val downloaded by viewModel.downloaded.collectAsStateWithLifecycle()
+    val fromBottom = !app.freshtuber.ui.theme.LocalAppPreferences.current.enabled(app.freshtuber.data.settings.AppFeature.TraditionalScroll)
     var modeOpen by remember { mutableStateOf(false) }
     if (modeOpen) ModeSheet(state, music) { modeOpen = false }
     Column(modifier.clip(RoundedCornerShape(26.dp)).background(MaterialTheme.colorScheme.surface.copy(alpha = 0.55f))) {
@@ -548,24 +551,29 @@ private fun QueueFace(state: MusicState, viewModel: MusicViewModel, left: Boolea
         // Read top to bottom: the played songs above (scroll up to them, a tap plays one again),
         // then the current song, then what comes next, layer by layer.
         val played = queue.history
-        val currentIndex = if (played.isEmpty()) 0 else played.size + 1
-        // Opens with the last played song peeking above the current one.
-        val anchor = (currentIndex - 1).coerceAtLeast(0)
+        // Opens with the last played song peeking next to the current one. Mirrored, each label
+        // comes after its group in the list, so it still stands above it on screen.
+        val anchor = when { played.isEmpty() -> 0; fromBottom -> played.size - 1; else -> played.size }
         val list = rememberLazyListState(initialFirstVisibleItemIndex = anchor)
         LaunchedEffect(current.id) { list.animateScrollToItem(anchor) }
         val labelModifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 4.dp)
-        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list) {
+        LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list, reverseLayout = fromBottom) {
             if (played.isNotEmpty()) {
-                item(key = "label:played") {
-                    Text(stringResource(R.string.music_layer_played), style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = labelModifier)
+                val playedLabel: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
+                    item(key = "label:played") {
+                        Text(stringResource(R.string.music_layer_played), style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = labelModifier)
+                    }
                 }
+                if (!fromBottom) playedLabel()
+                // Mirrored, the list starts at the bottom: the oldest lowest, the latest right under the playing one.
                 played.forEachIndexed { index, entry ->
                     item(key = "played:$index:${entry.track.id}") {
                         QueueRow(entry.track, originOf(entry.track, downloaded), current = false, playing = false, layer = null,
                             dimmed = true, onClick = { music.replay(index) })
                     }
                 }
+                if (fromBottom) playedLabel()
             }
             item(key = "current") {
                 QueueRow(current, originOf(current, downloaded), current = true, playing = state.playing, layer = null)
@@ -573,19 +581,22 @@ private fun QueueFace(state: MusicState, viewModel: MusicViewModel, left: Boolea
             for (layer in QueueLayer.entries) {
                 val group = upcoming.withIndex().filter { it.value.layer == layer }
                 if (group.isEmpty()) continue
-                item(key = "label:${layer.name}") {
-                    val label = when (layer) {
-                        QueueLayer.Added -> stringResource(R.string.music_layer_added)
-                        QueueLayer.Collection -> queue.title?.let { stringResource(R.string.music_layer_collection, it) } ?: stringResource(R.string.music_layer_collection_plain)
-                        QueueLayer.Radio -> stringResource(R.string.music_layer_radio)
+                val groupLabel: androidx.compose.foundation.lazy.LazyListScope.() -> Unit = {
+                    item(key = "label:${layer.name}") {
+                        val label = when (layer) {
+                            QueueLayer.Added -> stringResource(R.string.music_layer_added)
+                            QueueLayer.Collection -> queue.title?.let { stringResource(R.string.music_layer_collection, it) } ?: stringResource(R.string.music_layer_collection_plain)
+                            QueueLayer.Radio -> stringResource(R.string.music_layer_radio)
+                        }
+                        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = labelModifier)
                     }
-                    Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = labelModifier)
                 }
+                if (!fromBottom) groupLabel()
                 group.forEachIndexed { withinLayer, (index, entry) ->
                     item(key = "${layer.name}:${entry.track.id}:$withinLayer") {
                         QueueRow(entry.track, originOf(entry.track, downloaded), current = false, playing = false, layer = layer,
                             dimmed = layer == QueueLayer.Radio || entry.track.id in state.unavailable,
-                            indexInLayer = withinLayer, layerSize = group.size,
+                            indexInLayer = withinLayer, layerSize = group.size, upward = fromBottom,
                             onClick = { music.jump(index) },
                             onMove = { from, to -> music.move(layer, from, to) },
                             onRemove = {
@@ -596,6 +607,7 @@ private fun QueueFace(state: MusicState, viewModel: MusicViewModel, left: Boolea
                             })
                     }
                 }
+                if (fromBottom) groupLabel()
             }
             if (state.radioLoading) item(key = "radioLoading") {
                 Box(Modifier.fillMaxWidth().padding(12.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp) }
@@ -615,7 +627,7 @@ private fun QueueFace(state: MusicState, viewModel: MusicViewModel, left: Boolea
 
 @Composable
 private fun QueueRow(track: MusicTrack, origin: SongOrigin, current: Boolean, playing: Boolean, layer: QueueLayer?, dimmed: Boolean = false,
-    indexInLayer: Int = 0, layerSize: Int = 1, onClick: () -> Unit = {}, onMove: (Int, Int) -> Unit = { _, _ -> }, onRemove: () -> Unit = {}) {
+    indexInLayer: Int = 0, layerSize: Int = 1, upward: Boolean = false, onClick: () -> Unit = {}, onMove: (Int, Int) -> Unit = { _, _ -> }, onRemove: () -> Unit = {}) {
     val density = LocalDensity.current
     val rowHeight = with(density) { 64.dp.toPx() }
     var dragY by remember(track.id, indexInLayer) { mutableFloatStateOf(0f) }
@@ -640,8 +652,8 @@ private fun QueueRow(track: MusicTrack, origin: SongOrigin, current: Boolean, pl
                     val dragLabel = stringResource(R.string.music_drag)
                     Box(Modifier.size(44.dp).semantics { contentDescription = dragLabel }.pointerInput(track.id, indexInLayer, layerSize) {
                         detectVerticalDragGestures(onDragStart = { haptics.performHapticFeedback(HapticFeedbackType.LongPress) }, onDragEnd = {
-                            // Top-down list: moving down goes later in the queue.
-                            val steps = (dragY / rowHeight).let { if (it > 0) (it + 0.5f).toInt() else (it - 0.5f).toInt() }
+                            // Top-down list: moving down goes later in the queue; a mirrored one, moving up.
+                            val steps = ((if (upward) -dragY else dragY) / rowHeight).let { if (it > 0) (it + 0.5f).toInt() else (it - 0.5f).toInt() }
                             val target = (indexInLayer + steps).coerceIn(0, layerSize - 1)
                             dragY = 0f
                             if (target != indexInLayer) onMove(indexInLayer, target)

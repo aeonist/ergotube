@@ -3,10 +3,17 @@ package app.freshtuber.data.settings
 /** Stable preference keys shared by settings and feature consumers. */
 enum class AppFeature(val key: String, val default: Boolean) {
     SwapHomeMine("swap_home_mine", false),
-    TraditionalScroll("traditional_scroll", false),
+    /**
+     * Feeds, lists and the music queue read top to bottom, as in YouTube (on by default since
+     * build 32, under a new key so everyone gets it once). Off: lists grow up from the thumb.
+     */
+    TraditionalScroll("scroll_top_down", true),
     DeArrow("dearrow", true), Dislikes("return_dislikes", true), SponsorBlock("sponsor_block", true),
     Gestures("gesture_controls", true), Autoplay("autoplay_next", true), PictureInPicture("pip_on_leave", true),
-    BackgroundPlayback("background_playback", true), MiniPlayerTapOpens("mini_player_tap_opens", true), ShortsTab("shorts_tab", true), ShortsInFeeds("shorts_in_feeds", false),
+    BackgroundPlayback("background_playback", true), MiniPlayerTapOpens("mini_player_tap_opens", true),
+    /** A tap on the video in the portrait player shows YouTube's own controls over it. */
+    YouTubeTapControls("youtube_tap_controls", false),
+    ShortsTab("shorts_tab", true), ShortsInFeeds("shorts_in_feeds", false),
     Notifications("new_video_notifications", true), DownloadsWifi("downloads_wifi", true), DynamicColor("dynamic_color", false),
     /** Source Serif 4 everywhere; off switches to the system sans. */
     SerifFont("font_serif", true),

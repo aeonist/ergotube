@@ -67,7 +67,8 @@ fun MusicSearchScreen(sourceSwitch: (@Composable () -> Unit)? = null, viewModel:
         Box(Modifier.weight(1f).fillMaxWidth()) {
             if (results.query.isEmpty()) MessageState(stringResource(R.string.music_search_idle))
             else LazyColumn(Modifier.fillMaxSize(), reverseLayout = fromBottom, contentPadding = PaddingValues(vertical = 8.dp)) {
-                // Bottom-up: phone results sit nearest the field.
+                // Bottom-up: phone results sit nearest the field. The title always stands on top.
+                if (!fromBottom) item(key = "header") { ScreenHeader("«${results.query}»") }
                 if (results.phone.isNotEmpty()) {
                     if (!fromBottom) item(key = "phoneLabel") { SectionLabel(stringResource(R.string.music_search_phone)) }
                     items(results.phone.size, key = { "p" + results.phone[it].id }) { index ->
@@ -99,7 +100,7 @@ fun MusicSearchScreen(sourceSwitch: (@Composable () -> Unit)? = null, viewModel:
                 if (!results.loading && results.phone.isEmpty() && results.youtube.isEmpty()) item(key = "empty") {
                     Box(Modifier.height(200.dp)) { MessageState(stringResource(if (!online) R.string.music_offline_library else R.string.music_search_empty)) }
                 }
-                item(key = "header") { ScreenHeader("«${results.query}»") }
+                if (fromBottom) item(key = "header") { ScreenHeader("«${results.query}»") }
             }
         }
         BottomBar {

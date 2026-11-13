@@ -16,7 +16,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
+import app.freshtuber.ui.motion.blurFade
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -258,6 +262,72 @@ class ScrollHide(private val inverted: Boolean = false) {
 
 @Composable
 fun rememberScrollHide(inverted: Boolean = false): ScrollHide = remember(inverted) { ScrollHide(inverted) }
+
+/**
+ * A softer [ScrollHide]: the bar folds away bit by bit with the scroll, following the finger,
+ * instead of jumping out of sight at once, and opens the same way on the way back. When the
+ * finger lets go it settles open or folded. [value] runs 0 (open) .. 1 (folded). Attach
+ * [connection] to the list and [foldAway] to the bar.
+ */
+@Stable
+class ScrollFold(private val inverted: Boolean, private val scope: kotlinx.coroutines.CoroutineScope) {
+    var value by mutableFloatStateOf(0f)
+        private set
+    /** The bar's own height in px; the fold takes [STRETCH] times that much scrolling. */
+    internal var heightPx = 0f
+    private var settling: kotlinx.coroutines.Job? = null
+
+    val connection = object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+        override fun onPreScroll(available: androidx.compose.ui.geometry.Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): androidx.compose.ui.geometry.Offset {
+            val delta = if (inverted) -available.y else available.y
+            if (delta != 0f && heightPx > 0f) {
+                settling?.cancel()
+                value = (value - delta / (heightPx * STRETCH)).coerceIn(0f, 1f)
+            }
+            return androidx.compose.ui.geometry.Offset.Zero
+        }
+
+        override suspend fun onPostFling(consumed: androidx.compose.ui.unit.Velocity, available: androidx.compose.ui.unit.Velocity): androidx.compose.ui.unit.Velocity {
+            settleTo(if (value > 0.5f) 1f else 0f)
+            return androidx.compose.ui.unit.Velocity.Zero
+        }
+    }
+
+    /** Opens the bar again (a new search, the field focused). */
+    fun open() = settleTo(0f)
+
+    private fun settleTo(target: Float) {
+        if (value == target) return
+        settling?.cancel()
+        settling = scope.launch {
+            androidx.compose.animation.core.animate(value, target, animationSpec = androidx.compose.animation.core.tween(SETTLE_MS, easing = app.freshtuber.ui.motion.Motion.Emphasized)) { v, _ -> value = v }
+        }
+    }
+
+    companion object {
+        const val STRETCH = 1.6f
+        const val SETTLE_MS = 320
+    }
+}
+
+@Composable
+fun rememberScrollFold(inverted: Boolean = false): ScrollFold {
+    val scope = rememberCoroutineScope()
+    return remember(inverted, scope) { ScrollFold(inverted, scope) }
+}
+
+/**
+ * The bar's height shrinks with the fold while it softly blurs and fades in place, centred in
+ * the space that is left; nothing slides or gets cut.
+ */
+fun Modifier.foldAway(fold: ScrollFold): Modifier = this
+    .layout { measurable, constraints ->
+        val placeable = measurable.measure(constraints)
+        fold.heightPx = placeable.height.toFloat()
+        val height = (placeable.height * (1f - fold.value)).roundToInt()
+        layout(placeable.width, height) { placeable.placeRelative(0, (height - placeable.height) / 2) }
+    }
+    .blurFade({ 1f - fold.value }, max = 8.dp, fromScale = 0.98f)
 
 /**
  * A section tile, as on the Settings page and in «Моё»: icon, title and one line on what is

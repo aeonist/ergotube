@@ -37,7 +37,7 @@ import kotlin.math.roundToInt
 @Composable
 fun UpdateBanner(update: AppUpdate, collapsed: Boolean, left: Boolean, onUpdate: () -> Unit, onCollapse: (Boolean) -> Unit, modifier: Modifier = Modifier) {
     val fold by animateFloatAsState(if (collapsed) 1f else 0f, tween(if (collapsed) 420 else 380, easing = Motion.Emphasized), label = "updateFold")
-    val label = stringResource(R.string.update_available, update.build)
+    val label = if (update.build > 0) stringResource(R.string.update_available, update.build) else stringResource(R.string.update_available_plain)
     Box(modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)) {
         // The chip sits a little above the banner's place, at the edge under the hand.
         if (fold > 0.01f) Box(Modifier.align(if (left) Alignment.BottomStart else Alignment.BottomEnd).offset { IntOffset(0, (-100).dp.roundToPx()) }

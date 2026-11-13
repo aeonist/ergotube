@@ -284,6 +284,44 @@ fun MusicNotes(viewModel: MusicViewModel) {
             messages?.show(text)
         }
     }
+    DeleteFromDevice(viewModel)
+}
+
+/**
+ * «Удалить с устройства»: the app's own question for a download, then Android's own dialog (or,
+ * on Android 9 and older, its storage permission) for a file from the phone.
+ */
+@Composable
+private fun DeleteFromDevice(viewModel: MusicViewModel) {
+    var retry by remember { mutableStateOf(false) }
+    val consent = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartIntentSenderForResult()) {
+        viewModel.deleteAnswered(it.resultCode == android.app.Activity.RESULT_OK, retry)
+    }
+    val permission = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) {
+        viewModel.deletePermission(it)
+    }
+    LaunchedEffect(viewModel) {
+        viewModel.deleteSteps.collect { step ->
+            when (step) {
+                is app.freshtuber.data.music.FileDeletion.Consent -> {
+                    retry = step.retry
+                    runCatching { consent.launch(androidx.activity.result.IntentSenderRequest.Builder(step.sender).build()) }
+                        .onFailure { viewModel.deleteAnswered(false, false) }
+                }
+                app.freshtuber.data.music.FileDeletion.Permission ->
+                    runCatching { permission.launch(android.Manifest.permission.WRITE_EXTERNAL_STORAGE) }.onFailure { viewModel.deletePermission(false) }
+                else -> Unit
+            }
+        }
+    }
+    val ask by viewModel.deleteAsk.collectAsState()
+    ask?.let { track ->
+        AlertDialog(onDismissRequest = viewModel::dismissDelete,
+            title = { Text(stringResource(R.string.music_delete_confirm_title)) },
+            text = { Text(stringResource(if (track.isYouTube) R.string.music_delete_confirm_download else R.string.music_delete_confirm_phone, track.title)) },
+            confirmButton = { TextButton(onClick = { viewModel.deleteFromDevice(track) }) { Text(stringResource(R.string.music_delete_short)) } },
+            dismissButton = { TextButton(onClick = viewModel::dismissDelete) { Text(stringResource(R.string.action_cancel)) } })
+    }
 }
 
 /**
@@ -318,10 +356,11 @@ fun TrackMenu(track: MusicTrack, viewModel: MusicViewModel, onDismiss: () -> Uni
                 add(TileItem(if (favorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                     stringResource(if (favorite) R.string.music_unfavorite else R.string.music_favorite), selected = favorite) { viewModel.toggleHeart(track); onDismiss() })
                 add(TileItem(Icons.AutoMirrored.Rounded.PlaylistAdd, stringResource(R.string.music_play_last)) { viewModel.music.playLast(track); onDismiss() })
-                if (track.isYouTube) {
-                    if (download == null) add(TileItem(Icons.Rounded.Download, stringResource(R.string.music_download)) { viewModel.download(track); onDismiss() })
-                    else add(TileItem(Icons.Rounded.DeleteOutline, stringResource(R.string.music_remove_download)) { viewModel.removeDownload(track); onDismiss() })
-                }
+                // On the phone (downloaded, or a file from the phone itself): «Удалить с устройства».
+                if (viewModel.onDevice(track)) add(TileItem(Icons.Rounded.DeleteOutline, stringResource(R.string.music_delete_from_device)) {
+                    viewModel.askDelete(track); onDismiss() })
+                else if (download != null) add(TileItem(Icons.Rounded.DeleteOutline, stringResource(R.string.music_remove_download)) { viewModel.removeDownload(track); onDismiss() })
+                else if (track.isYouTube) add(TileItem(Icons.Rounded.Download, stringResource(R.string.music_download)) { viewModel.download(track); onDismiss() })
                 add(TileItem(Icons.Rounded.PlaylistAdd, stringResource(R.string.music_add_to_playlist)) { picker = true })
                 if (track.isYouTube) add(TileItem(Icons.Rounded.Radio, stringResource(R.string.music_radio)) { viewModel.music.playRadio(track); navigation?.openPlayer(); onDismiss() })
                 if (track.isYouTube) add(TileItem(Icons.Rounded.SmartDisplay, stringResource(R.string.music_watch_video)) { onDismiss(); navigation?.watchVideo(track) })

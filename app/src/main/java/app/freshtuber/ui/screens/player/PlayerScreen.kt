@@ -83,6 +83,8 @@ fun PlayerScreen(
     val gestures by viewModel.gesturesEnabled.collectAsStateWithLifecycle()
     val pinnedSetting by viewModel.videoPinned.collectAsStateWithLifecycle()
     val classic = LocalClassic.current
+    // «Управление как в YouTube»: a tap on the portrait video shows YouTube's own controls over it.
+    val tapControls = classic || app.freshtuber.ui.theme.LocalAppPreferences.current.enabled(app.freshtuber.data.settings.AppFeature.YouTubeTapControls)
     // YouTube keeps the video on top; the classic layout has no pin.
     val pinned = pinnedSetting || classic
     val listState = rememberLazyListState()
@@ -339,7 +341,7 @@ fun PlayerScreen(
             // Hidden while its picture is still flying in, or once it has flown off to the floating window.
             .graphicsLayer { alpha = if (handoff != null && (handoff.awaiting(videoId, FlightTarget.Page) || handoff.departed(videoId, FlightTarget.Mini))) 0f else 1f }
             .clipToBounds().videoZoom(zoom, enabled = !inPip && !tabletop, aspect = videoAspect, panAllowed = { point, viewport ->
-                if (classic) point.y < viewport.y - with(density) { 72.dp.toPx() } else !fullscreen || !FanGeometry(viewport.x / density.density, viewport.y / density.density, left)
+                if (classic || (tapControls && !fullscreen)) point.y < viewport.y - with(density) { 72.dp.toPx() } else !fullscreen || !FanGeometry(viewport.x / density.density, viewport.y / density.density, left)
                     .inFan(point.x / density.density, point.y / density.density)
             })
             .background(if (inPip || tabletop) Color.Black else Color.Transparent)
@@ -359,7 +361,7 @@ fun PlayerScreen(
                 inPip -> Unit
                 tabletop -> Unit
                 fullscreen -> fullControls(Modifier.fillMaxSize(), false)
-                classic -> ClassicVideoControls(viewModel.player, playerState, fullscreen = false, segments = pageSegments,
+                tapControls -> ClassicVideoControls(viewModel.player, playerState, fullscreen = false, segments = pageSegments,
                     hasPrevious = playerState.history.isNotEmpty(), hasNext = playerState.queue.isNotEmpty(),
                     captionsOn = captionsOn, captionsAvailable = !now?.subtitles.isNullOrEmpty(),
                     onPrevious = onPrevious, onNext = onNext, onFullscreen = enterFullscreen,

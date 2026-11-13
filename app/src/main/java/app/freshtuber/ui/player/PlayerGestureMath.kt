@@ -38,17 +38,6 @@ data class TimelineWindow private constructor(private val start: Float, private 
             return TimelineWindow(touch.coerceIn(0f, 1f) * (1f - span), span)
         }
 
-        /**
-         * The same, for full screen where the bar is wide and a fingertip jumps minutes: the window
-         * holds a fixed stretch of time (12% of the video, 45 s to 5 min), so the handle runs
-         * two to three times slower than in [zoomAt]. Short clips keep the gentle zoom.
-         */
-        fun zoomAtPrecise(touch: Float, durationMs: Long): TimelineWindow {
-            if (durationMs <= 60_000) return zoomAt(touch, durationMs)
-            val span = (Scrub.preciseSeconds(durationMs / 1000f) * 1000f / durationMs).coerceAtMost(1f / 1.5f)
-            return TimelineWindow(touch.coerceIn(0f, 1f) * (1f - span), span)
-        }
-
         /** A window of [span] of the video whose point [touch] sits on [fraction]: re-zooming mid-drag without a jump. */
         fun around(fraction: Float, touch: Float, span: Float): TimelineWindow =
             TimelineWindow((fraction - touch.coerceIn(0f, 1f) * span).coerceIn(0f, 1f - span), span)
@@ -61,9 +50,6 @@ object Scrub {
     /** How far the finger must rise above where it started, in dp, to scrub finely. */
     const val FINE_LIFT_DP = 48f
 
-    /** Seconds the full-screen timeline covers when scrubbing: 12% of the video, between 45 s and 5 min. */
-    fun preciseSeconds(durationSeconds: Float): Float = (durationSeconds * 0.12f).coerceIn(45f, 300f)
-
     /** Seconds covered by one full pad width: 30% of the video, between 1.5 and 10 minutes. */
     fun spanSeconds(durationSeconds: Float): Float = (durationSeconds * 0.3f).coerceIn(90f, 600f)
 
@@ -74,6 +60,51 @@ object Scrub {
         if (widthPx <= 0f || durationSeconds <= 0f) return positionSeconds
         val span = spanSeconds(durationSeconds) * if (fine) FINE_FACTOR else 1f
         return (positionSeconds + dxPx / widthPx * span).coerceIn(0f, durationSeconds)
+    }
+}
+
+/**
+ * Full-screen scrubbing that slows the handle down the way a mouse pointer does: it starts where
+ * it is (nothing jumps to the finger) and moves slower than the finger. A slow, careful finger
+ * moves it about a fifth as far, so a frame is easy to hit; a quick sweep moves it the whole way,
+ * so the whole video stays within one stroke. In between the speed eases from one to the other.
+ */
+class GlideScrub(start: Float) {
+    /** Position in the video, 0..1. */
+    var fraction = start.coerceIn(0f, 1f)
+        private set
+    /** Finger speed in dp per second, smoothed over a few events. */
+    private var speed = 0f
+    private var lastMs = Long.MIN_VALUE
+
+    /**
+     * The finger moved [deltaDp] along a track [trackDp] long (the whole video) at [timeMs].
+     * [factor] slows it further (fine mode). Returns the new position.
+     */
+    fun move(deltaDp: Float, trackDp: Float, timeMs: Long, factor: Float = 1f): Float {
+        if (trackDp <= 0f || deltaDp == 0f) return fraction
+        // The first move has no time to measure against: it counts as slow.
+        if (lastMs != Long.MIN_VALUE) speed += (abs(deltaDp) * 1000f / (timeMs - lastMs).coerceIn(1L, 120L) - speed) * SMOOTHING
+        lastMs = timeMs
+        fraction = (fraction + deltaDp / trackDp * gain(speed) * factor).coerceIn(0f, 1f)
+        return fraction
+    }
+
+    companion object {
+        /** Share of the finger's travel the handle makes when the finger is slow. */
+        const val SLOW_GAIN = 0.2f
+        const val FAST_GAIN = 1f
+        /** At or below this speed (dp/s) the handle runs at [SLOW_GAIN]. */
+        const val SLOW_DPS = 60f
+        /** At or above this speed (dp/s) the handle keeps up with the finger. */
+        const val FAST_DPS = 900f
+        private const val SMOOTHING = 0.35f
+
+        /** Handle travel per finger travel at [dps] dp per second. */
+        fun gain(dps: Float): Float {
+            val t = ((dps - SLOW_DPS) / (FAST_DPS - SLOW_DPS)).coerceIn(0f, 1f)
+            return SLOW_GAIN + (FAST_GAIN - SLOW_GAIN) * t * t * (3f - 2f * t)
+        }
     }
 }
 

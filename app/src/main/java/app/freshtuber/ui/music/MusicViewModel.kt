@@ -152,6 +152,72 @@ class MusicViewModel @Inject constructor(
 
     fun removeDownload(track: MusicTrack) { if (track.isYouTube) downloads.delete(track.videoId, DownloadKind.Audio) }
 
+    /** True when the song has a file on this phone: a download, a file from the phone, or a found ErgoTube file. */
+    fun onDevice(track: MusicTrack): Boolean =
+        !track.isYouTube || track.uri != null || downloaded.value[track.videoId]?.state == DownloadStatus.Complete
+
+    /** «Удалить с устройства?» waiting for the listener's answer in the app's own dialog. */
+    private val _deleteAsk = MutableStateFlow<MusicTrack?>(null)
+    val deleteAsk: StateFlow<MusicTrack?> = _deleteAsk.asStateFlow()
+    /** Android's own «Удалить файл?» or the storage permission, to be asked by the screen. */
+    private val _deleteSteps = MutableSharedFlow<app.freshtuber.data.music.FileDeletion>(extraBufferCapacity = 1)
+    val deleteSteps: SharedFlow<app.freshtuber.data.music.FileDeletion> = _deleteSteps.asSharedFlow()
+    private var pendingDelete: MusicTrack? = null
+
+    /**
+     * «Удалить с устройства». A download (with its copy in Music) only needs the app's own
+     * question; a file from the phone, on Android 11 and newer, gets Android's own dialog instead.
+     */
+    fun askDelete(track: MusicTrack) {
+        if (track.isYouTube || android.os.Build.VERSION.SDK_INT < 30) _deleteAsk.value = track else deleteFromDevice(track)
+    }
+
+    fun dismissDelete() { _deleteAsk.value = null }
+
+    fun deleteFromDevice(track: MusicTrack) {
+        _deleteAsk.value = null
+        viewModelScope.launch {
+            val download = if (track.isYouTube) downloads.audioItems.first().firstOrNull { it.videoId == track.videoId && it.state != DownloadStatus.Deleting } else null
+            if (download != null) {
+                // The download goes with its copy in the Music folder; the song still plays online.
+                downloads.delete(track.videoId, DownloadKind.Audio)
+                _notes.tryEmit(MusicNote(R.string.music_deleted_from_device))
+                return@launch
+            }
+            val uri = track.uri ?: run { _notes.tryEmit(MusicNote(R.string.music_delete_failed)); return@launch }
+            when (val step = folder.deleteFile(uri)) {
+                app.freshtuber.data.music.FileDeletion.Done -> finishDelete(track)
+                app.freshtuber.data.music.FileDeletion.Failed -> _notes.tryEmit(MusicNote(R.string.music_delete_failed))
+                else -> { pendingDelete = track; _deleteSteps.tryEmit(step) }
+            }
+        }
+    }
+
+    /** Android's answer to its own dialog; on Android 10 the file goes only when asked again. */
+    fun deleteAnswered(confirmed: Boolean, retry: Boolean) {
+        val track = pendingDelete ?: return
+        pendingDelete = null
+        if (!confirmed) return
+        if (retry) deleteFromDevice(track) else viewModelScope.launch { finishDelete(track) }
+    }
+
+    /** Android 9 and older: with the storage permission the delete runs again. */
+    fun deletePermission(granted: Boolean) {
+        val track = pendingDelete ?: return
+        pendingDelete = null
+        if (granted) deleteFromDevice(track) else _notes.tryEmit(MusicNote(R.string.music_delete_failed))
+    }
+
+    private suspend fun finishDelete(track: MusicTrack) {
+        if (track.isYouTube) library.dropFile(track) else {
+            library.remove(track)
+            // The deleted file cannot play on: the queue moves on to the next song.
+            val queue = music.state.value.queue
+            if (queue.track?.id == track.id) { if (queue.upcoming.isNotEmpty()) music.next() else music.stop() }
+        }
+        _notes.tryEmit(MusicNote(R.string.music_deleted_from_device))
+    }
+
     fun createPlaylist(name: String, add: MusicTrack? = null) {
         if (name.isBlank()) return
         viewModelScope.launch {

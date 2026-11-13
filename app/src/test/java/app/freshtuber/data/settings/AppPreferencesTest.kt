@@ -8,7 +8,10 @@ class AppPreferencesTest {
         val settings = AppPreferences()
         assertTrue(settings.enabled(AppFeature.DownloadsWifi))
         assertFalse(settings.enabled(AppFeature.ShortsInFeeds))
-        assertFalse(settings.enabled(AppFeature.TraditionalScroll))
+        // Since build 32 lists read top to bottom unless switched off; YouTube's tap controls are opt-in.
+        assertTrue(settings.enabled(AppFeature.TraditionalScroll))
+        assertEquals("scroll_top_down", AppFeature.TraditionalScroll.key)
+        assertFalse(settings.enabled(AppFeature.YouTubeTapControls))
         assertTrue(settings.enabled(AppFeature.ShortsTab))
         assertEquals(720, settings.downloadQuality)
         assertEquals(ThemeMode.System, settings.theme)

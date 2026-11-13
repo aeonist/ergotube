@@ -219,6 +219,7 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
                         Triple(AppFeature.Autoplay, R.string.settings_autoplay, R.string.settings_autoplay_hint),
                         Triple(AppFeature.PictureInPicture, R.string.settings_pip, R.string.settings_pip_hint),
                         Triple(AppFeature.MiniPlayerTapOpens, R.string.settings_mini_tap, R.string.settings_mini_tap_hint),
+                        Triple(AppFeature.YouTubeTapControls, R.string.settings_youtube_controls, R.string.settings_youtube_controls_hint),
                         Triple(AppFeature.BackgroundPlayback, R.string.settings_background, R.string.settings_background_hint),
                     ).forEach { (feature, label, hint) -> SettingsToggle(stringResource(label), stringResource(hint), preferences.enabled(feature)) { viewModel.feature(feature, it) } }
                     val streamingOptions = listOf(0) + qualityOptions

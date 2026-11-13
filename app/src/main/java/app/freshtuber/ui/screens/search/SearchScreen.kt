@@ -62,8 +62,11 @@ fun SearchScreen(
     var focused by remember { mutableStateOf(false) }
     val preferences = app.freshtuber.ui.theme.LocalAppPreferences.current
     val fromBottom = !preferences.enabled(app.freshtuber.data.settings.AppFeature.TraditionalScroll)
-    // Categories and the field slide away while results are read downward, and return on the way up.
-    val hide = rememberScrollHide(inverted = fromBottom)
+    // The category chips (and «Музыка / Видео») fold away bit by bit while results are read
+    // downward and open again on the way up; the field itself stays.
+    val fold = rememberScrollFold(inverted = fromBottom)
+    LaunchedEffect(submitted) { fold.open() }
+    LaunchedEffect(focused) { if (focused) fold.open() }
     val keyboard = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
     val run: (String) -> Unit = { text ->
@@ -172,25 +175,22 @@ fun SearchScreen(
     }
     val suggestionsVisible = (focused || !hasQuery) && shownSuggestions.isNotEmpty() && (focused || query.isEmpty())
     if (classic) Column(Modifier.fillMaxSize()) {
-        app.freshtuber.ui.motion.BlurVisibility(hide.visible || focused, collapse = true) {
-            Column {
-                field()
-                if (!suggestionsVisible && hasQuery && state.filters.size > 1) chips()
-                sourceSwitch?.invoke()
-            }
+        field()
+        Column(Modifier.foldAway(fold)) {
+            if (!suggestionsVisible && hasQuery && state.filters.size > 1) chips()
+            sourceSwitch?.invoke()
         }
         if (suggestionsVisible) Box(Modifier.weight(1f)) { suggestionRows() }
-        else results(Modifier.weight(1f).nestedScroll(hide.connection))
+        else results(Modifier.weight(1f).nestedScroll(fold.connection))
     } else Column(Modifier.fillMaxSize()) {
-        results(Modifier.weight(1f).nestedScroll(hide.connection))
-        // Hidden while reading down; typing keeps the field on screen.
-        app.freshtuber.ui.motion.BlurVisibility(hide.visible || focused, collapse = true) {
-            BottomBar {
-                if (showSuggestions) suggestionRows()
-                else if (hasQuery && state.filters.size > 1) chips()
+        results(Modifier.weight(1f).nestedScroll(fold.connection))
+        BottomBar {
+            if (showSuggestions) suggestionRows()
+            Column(Modifier.foldAway(fold)) {
+                if (!showSuggestions && hasQuery && state.filters.size > 1) chips()
                 sourceSwitch?.invoke()
-                field()
             }
+            field()
         }
     }
 }

@@ -34,20 +34,32 @@ class PlayerGestureMathTest {
         assertEquals(1f, TimelineWindow.zoomAt(1f, 180_000).fractionAt(1f), 0.0001f)
     }
 
-    @Test fun fullscreenTimelineHoldsAFixedStretchOfTimeAndRunsSlower() {
-        assertEquals(45f, Scrub.preciseSeconds(120f), 0.01f)
-        assertEquals(72f, Scrub.preciseSeconds(600f), 0.01f)
-        assertEquals(300f, Scrub.preciseSeconds(36_000f), 0.01f)
-        // A 10 minute video: the full width is 72 s instead of 171 s, a one hour video 5 min instead of 17.
-        assertEquals(0.12f, TimelineWindow.zoomAtPrecise(0.5f, 600_000).spanFraction, 0.0001f)
-        assertEquals(1f / 12f, TimelineWindow.zoomAtPrecise(0.5f, 3_600_000).spanFraction, 0.0001f)
-        assertTrue(TimelineWindow.zoomAtPrecise(0.5f, 600_000).spanFraction < TimelineWindow.zoomAt(0.5f, 600_000).spanFraction)
-        // Short clips keep the gentle zoom, and the touch stays anchored.
-        assertEquals(TimelineWindow.zoomAt(0.3f, 30_000).spanFraction, TimelineWindow.zoomAtPrecise(0.3f, 30_000).spanFraction, 0.0001f)
-        val zoom = TimelineWindow.zoomAtPrecise(0.7f, 600_000)
-        assertEquals(0.7f, zoom.fractionAt(0.7f), 0.0001f)
-        assertEquals(0f, TimelineWindow.zoomAtPrecise(0f, 600_000).fractionAt(0f), 0.0001f)
-        assertEquals(1f, TimelineWindow.zoomAtPrecise(1f, 600_000).fractionAt(1f), 0.0001f)
+    @Test fun fullScreenScrubStartsInPlaceAndRunsSlowerThanASlowFinger() {
+        val glide = GlideScrub(0.4f)
+        // Touching does not move it; a slow 100 dp drag along a 300 dp track moves it a fifth as far.
+        assertEquals(0.4f, glide.fraction, 0.0001f)
+        var t = 0L
+        repeat(25) { t += 100; glide.move(4f, 300f, t) }
+        assertEquals(0.4f + 100f / 300f * GlideScrub.SLOW_GAIN, glide.fraction, 0.002f)
+    }
+
+    @Test fun aQuickSweepKeepsUpWithTheFinger() {
+        val glide = GlideScrub(0f)
+        var t = 0L
+        repeat(10) { t += 16; glide.move(30f, 300f, t) }
+        // About 1900 dp/s: once the speed is picked up the handle follows the finger.
+        assertTrue(glide.fraction > 0.75f)
+        assertEquals(1f, GlideScrub.gain(2_000f), 0.0001f)
+        assertEquals(GlideScrub.SLOW_GAIN, GlideScrub.gain(10f), 0.0001f)
+        assertTrue(GlideScrub.gain(300f) in GlideScrub.SLOW_GAIN..1f)
+    }
+
+    @Test fun fineScrubIsFinerStillAndStaysInTheVideo() {
+        val coarse = GlideScrub(0.5f).apply { move(-5f, 300f, 100) }.fraction
+        val fine = GlideScrub(0.5f).apply { move(-5f, 300f, 100, factor = Scrub.FINE_FACTOR) }.fraction
+        assertTrue(0.5f - fine < 0.5f - coarse)
+        assertEquals(0f, GlideScrub(0.01f).apply { move(-300f, 300f, 16) }.fraction, 0.0001f)
+        assertEquals(1f, GlideScrub(0.99f).apply { move(300f, 300f, 16) }.fraction, 0.0001f)
     }
 
     @Test fun reZoomingMidDragKeepsTheHandleUnderTheFinger() {
