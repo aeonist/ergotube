@@ -265,6 +265,7 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
                         limits.indexOf(preferences.musicLimitGb).coerceAtLeast(0), left) { viewModel.musicLimit(limits[it]) }
                     listOf(
                         Triple(AppFeature.MusicInApp, R.string.settings_music_in_app, R.string.settings_music_in_app_hint),
+                        Triple(AppFeature.MusicEar, R.string.settings_music_ear, R.string.settings_music_ear_hint),
                         Triple(AppFeature.MusicResumeOnConnect, R.string.settings_music_resume, R.string.settings_music_resume_hint),
                         Triple(AppFeature.MusicToFolder, R.string.settings_music_folder, R.string.settings_music_folder_hint),
                         Triple(AppFeature.MusicAutoFavorites, R.string.settings_music_auto_fav, R.string.settings_music_auto_fav_hint),

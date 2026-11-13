@@ -40,6 +40,9 @@ class MainViewModel @Inject constructor(
     /** «Музыка в приложении»: off removes the ear, the song line and music search. */
     val musicInApp = settings.preferences.map { it.enabled(app.freshtuber.data.settings.AppFeature.MusicInApp) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    /** The «Музыка» ear on Home; off hides it, the rest of music stays. */
+    val musicEar = settings.preferences.map { it.enabled(app.freshtuber.data.settings.AppFeature.MusicEar) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, true)
     /** Finished downloads, shown next to «Скачанное». */
     val completedDownloads = downloads.items.map { list -> list.count { it.state == app.freshtuber.data.downloads.DownloadStatus.Complete } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)

@@ -105,6 +105,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     val musicState by music.state.collectAsStateWithLifecycle()
     val musicTabSetting by viewModel.musicTab.collectAsStateWithLifecycle()
     val musicInApp by viewModel.musicInApp.collectAsStateWithLifecycle()
+    val musicEarSetting by viewModel.musicEar.collectAsStateWithLifecycle()
     val musicTab = musicTabSetting && musicInApp
     LaunchedEffect(openMusic) {
         if (openMusic && musicInApp) {
@@ -272,7 +273,8 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     // the dock. The classic layout keeps it in the dock column.
     // While a song plays its line is already in the dock, and with «Музыка» in the dock instead of
     // Shorts the dock has its own button, so the ear is not needed then.
-    val homeEar: (@Composable () -> Unit)? = if (!musicInApp || classic || musicState.active || musicTab) null else ({
+    // The ear's own switch in the music settings hides it everywhere.
+    val homeEar: (@Composable () -> Unit)? = if (!musicInApp || !musicEarSetting || classic || musicState.active || musicTab) null else ({
         app.freshtuber.ui.motion.BlurVisibility(earHide.visible && !mineOpen, collapse = true) {
             app.freshtuber.ui.music.MusicEar(true, leftHanded, onClick = { openSection(MusicListenRoute) })
         }
@@ -427,7 +429,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
                     onNext = music::next, onPrevious = music::previous, onStop = music::stop)
             })
             // The ear belongs to Home alone; outside the classic layout Home draws it above its chips.
-            val ear: (@Composable () -> Unit)? = if (!musicInApp || !classic || musicState.active || musicTab || destination?.hasRoute<HomeRoute>() != true) null else ({
+            val ear: (@Composable () -> Unit)? = if (!musicInApp || !musicEarSetting || !classic || musicState.active || musicTab || destination?.hasRoute<HomeRoute>() != true) null else ({
                 app.freshtuber.ui.music.MusicEar(earHide.visible && !mineOpen, leftHanded, onClick = { openSection(MusicListenRoute) })
             })
             if (classic) Column {

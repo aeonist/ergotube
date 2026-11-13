@@ -474,6 +474,8 @@
     <string name="update_later">Позже</string>
     <string name="update_install">Обновить</string>
     <!-- Сборка 28: одна страница «Музыка» -->
+    <string name="settings_music_ear">Ушко «Музыка» на Главной</string>
+    <string name="settings_music_ear_hint">Кнопка-ушко над чипсами Главной. Выключи, чтобы убрать её; музыка остаётся в приложении</string>
     <string name="settings_music_in_app">Музыка в приложении</string>
     <string name="settings_music_in_app_hint">Выключи, чтобы убрать ушко «Музыка», строку песни и музыкальный поиск</string>
     <string name="music_mine">Моё</string>

@@ -468,6 +468,8 @@
     <string name="update_later">Later</string>
     <string name="update_install">Update</string>
     <!-- Build 28: one Music page -->
+    <string name="settings_music_ear">«Music» tab on Home</string>
+    <string name="settings_music_ear_hint">The small tab above Home\'s chips. Turn off to hide it; music stays in the app</string>
     <string name="settings_music_in_app">Music in the app</string>
     <string name="settings_music_in_app_hint">Turn off to remove the Music tab, the song line and music search</string>
     <string name="music_mine">Mine</string>
