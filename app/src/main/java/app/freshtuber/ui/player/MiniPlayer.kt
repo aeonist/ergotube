@@ -304,10 +304,11 @@ fun FloatingMiniPlayer(
                     }
                 }
                 if (!controls) {
-                    // Without the overlay the essentials stay on the picture: play/pause and close.
+                    // Without the overlay play/pause stays on the picture, in the top left corner
+                    // (the user's choice), clear of the timeline and the screen edge.
                     MiniButton(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         stringResource(if (playing) R.string.player_pause else R.string.player_play), small = true,
-                        modifier = Modifier.align(if (left) Alignment.BottomStart else Alignment.BottomEnd)) {
+                        modifier = Modifier.align(Alignment.TopStart)) {
                         if (player.isPlaying) player.pause() else player.play()
                     }
                 }

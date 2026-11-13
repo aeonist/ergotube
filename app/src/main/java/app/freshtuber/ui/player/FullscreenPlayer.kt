@@ -63,10 +63,10 @@ private val Shade = TextStyle(shadow = Shadow(Color.Black.copy(alpha = 0.6f), bl
 
 /**
  * Fullscreen: the phone is turned and the controls gather in an arc in the bottom corner under
- * the holding hand. Tap: middle pauses, ends skip 10 s and add up. Hold: 2×. Drag along the
- * outer arc: jump; drag elsewhere: scrub, moving away from the corner scrubs finely. Small chips
- * for speed, captions, exit and next. After a few idle seconds the fan disappears and a plain
- * timeline runs along the bottom edge; a tap brings the fan back. Outside the arc the video keeps YouTube's gestures.
+ * the holding hand. Tap: middle pauses, ends skip 10 s and add up. Hold: 2×. Tap on the
+ * outer arc: jump there; drag: scrub slower than the finger, moving away from the corner finer still. Small chips
+ * for speed, captions, exit and next. After a few idle seconds the fan disappears and the picture
+ * stays clean, with no timeline; a tap brings the fan back. Outside the arc the video keeps YouTube's gestures.
  */
 @Composable
 fun FullscreenPlayer(
@@ -119,15 +119,6 @@ fun FullscreenPlayer(
 
     val spans = androidx.compose.runtime.remember(state.segments, progress.durationMs) { SegmentMarks.spans(state.segments, progress.durationMs) }
     Box(Modifier.fillMaxSize()) {
-    // While the video just plays, a plain straight timeline along the very bottom edge.
-    if (shown < 1f) {
-        val fraction = if (progress.durationMs > 0) (ui.scrubMs ?: progress.positionMs).toFloat() / progress.durationMs else 0f
-        Canvas(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(3.dp).alpha(1f - shown)) {
-            drawRect(Color.White.copy(alpha = 0.3f))
-            if (!live) drawRect(BrandColors.Red, size = Size(size.width * fraction.coerceIn(0f, 1f), size.height))
-            spans.forEach { (a, b, color) -> drawRect(color, Offset(size.width * a, 0f), Size(size.width * (b - a), size.height)) }
-        }
-    }
     BoxWithConstraints(Modifier.fillMaxSize()
         .windowInsetsPadding(WindowInsets.displayCutout.union(WindowInsets.mandatorySystemGestures.only(WindowInsetsSides.Bottom)))) {
         val geo = remember(maxWidth, maxHeight, left) { FanGeometry(maxWidth.value, maxHeight.value, left) }
@@ -194,36 +185,38 @@ fun FullscreenPlayer(
                         }
                         return@awaitEachGesture
                     }
-                    // Scrub along the fan.
+                    // Scrub along the fan: the dot starts where it is and runs slower than the finger,
+                    // fully only on a quick sweep (GlideScrub); moving away from the corner is finer still.
+                    if (durationMs <= 0) { touching = false; return@awaitEachGesture }
                     val durationSeconds = durationMs / 1000f
-                    var seconds = player.currentPosition / 1000f
-                    val startSeconds = seconds
+                    val glide = GlideScrub(player.currentPosition.toFloat() / durationMs)
+                    val startSeconds = glide.fraction * durationSeconds
                     var lastU = u0
                     var fine = false
                     ui.hush()
-                    if (onArc) ui.timeline = TimelineWindow.zoomAtPrecise(FanGeometry.fromArc(u0), durationMs)
+                    ui.fine = false
+                    ui.scrubMs = (glide.fraction * durationMs).toLong()
                     while (true) {
                         val event = awaitPointerEvent()
                         if (event.changes.any { it.isConsumed } || event.changes.size > 1) {
-                            ui.scrubMs = null; ui.fine = null; ui.timeline = TimelineWindow.Full; touching = false
+                            ui.scrubMs = null; ui.fine = null; touching = false
                             return@awaitEachGesture
                         }
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
                         change.consume()
                         val (r, u) = geo.polar(change.position.x / density, change.position.y / density)
-                        val nowFine = !onArc && r - r0 > FanGeometry.FINE_DISTANCE
+                        val nowFine = r - r0 > FanGeometry.FINE_DISTANCE
                         if (nowFine != fine) { fine = nowFine; haptics.performHapticFeedback(HapticFeedbackType.SegmentTick) }
-                        seconds = if (onArc) ui.timeline.fractionAt(FanGeometry.fromArc(u)) * durationSeconds
-                        else (seconds + (u - lastU) * Scrub.preciseSeconds(durationSeconds) * (if (fine) Scrub.FINE_FACTOR else 1f))
-                            .coerceIn(0f, durationSeconds)
+                        glide.move((u - lastU) * geo.quarter, geo.videoArc, change.uptimeMillis, if (fine) Scrub.FINE_FACTOR else 1f)
                         lastU = u
-                        ui.fine = if (onArc && !fine) null else fine
-                        ui.scrubMs = (seconds * 1000).toLong()
+                        ui.fine = fine
+                        ui.scrubMs = (glide.fraction * durationMs).toLong()
                         if (!change.pressed) break
                     }
+                    val seconds = glide.fraction * durationSeconds
                     val target = (seconds * 1000).toLong()
                     player.seekTo(target)
-                    ui.scrubMs = null; ui.fine = null; ui.timeline = TimelineWindow.Full
+                    ui.scrubMs = null; ui.fine = null
                     ui.say("${signedSeek((seconds - startSeconds).toLong())}  →  ${formatDuration(target / 1000)}")
                     touching = false
                     wake()

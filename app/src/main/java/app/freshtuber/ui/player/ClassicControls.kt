@@ -155,37 +155,37 @@ fun ClassicVideoControls(
                 .then(if (active) Modifier.testTag("classic:seek").pointerInput(progress.durationMs, fullscreen) {
                     fun at(x: Float) = (x / size.width).coerceIn(0f, 1f)
                     var startY = 0f
-                    var baseSpan = 1f
                     var fine = false
+                    // Full screen: the handle stays where it is and runs slower than the finger
+                    // (fully only on a quick sweep); lifting the finger above the bar slows it five times more.
+                    var glide: GlideScrub? = null
                     detectHorizontalDragGestures(
                         onDragStart = {
-                            val touch = at(it.x)
-                            // Full screen is wide and a fingertip covers minutes, so the handle runs slower
-                            // there, and lifting the finger above the bar slows it five times more.
-                            timeline = if (fullscreen) TimelineWindow.zoomAtPrecise(touch, progress.durationMs)
-                                else TimelineWindow.zoomAt(touch, progress.durationMs)
-                            baseSpan = timeline.spanFraction
                             startY = it.y
                             fine = false
-                            scrub = touch
+                            if (fullscreen) {
+                                glide = GlideScrub(player.currentPosition.toFloat() / progress.durationMs)
+                                scrub = glide?.fraction
+                            } else {
+                                val touch = at(it.x)
+                                timeline = TimelineWindow.zoomAt(touch, progress.durationMs)
+                                scrub = touch
+                            }
                         },
                         onDragEnd = {
                             scrub?.let { player.seekTo((it * progress.durationMs).toLong()) }
                             scrub = null
+                            glide = null
                             timeline = TimelineWindow.Full
                             hide.poke()
                         },
-                        onDragCancel = { scrub = null; timeline = TimelineWindow.Full },
-                    ) { change, _ ->
-                        val touch = at(change.position.x)
-                        if (fullscreen) {
-                            val nowFine = Scrub.isFine(startY, change.position.y, Scrub.FINE_LIFT_DP * density)
-                            if (nowFine != fine) {
-                                fine = nowFine
-                                timeline = TimelineWindow.around(scrub ?: timeline.fractionAt(touch), touch, baseSpan * if (fine) Scrub.FINE_FACTOR else 1f)
-                            }
-                        }
-                        scrub = timeline.fractionAt(touch)
+                        onDragCancel = { scrub = null; glide = null; timeline = TimelineWindow.Full },
+                    ) { change, amount ->
+                        val slow = glide
+                        if (slow != null) {
+                            fine = Scrub.isFine(startY, change.position.y, Scrub.FINE_LIFT_DP * density)
+                            scrub = slow.move(amount / density, size.width / density, change.uptimeMillis, if (fine) Scrub.FINE_FACTOR else 1f)
+                        } else scrub = timeline.fractionAt(at(change.position.x))
                     }
                 }.pointerInput(progress.durationMs) {
                     detectTapGestures { player.seekTo((it.x / size.width * player.duration.coerceAtLeast(0)).toLong()); hide.poke() }

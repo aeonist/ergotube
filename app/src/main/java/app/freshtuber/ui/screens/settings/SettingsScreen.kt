@@ -220,6 +220,7 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
                         Triple(AppFeature.Autoplay, R.string.settings_autoplay, R.string.settings_autoplay_hint),
                         Triple(AppFeature.PictureInPicture, R.string.settings_pip, R.string.settings_pip_hint),
                         Triple(AppFeature.MiniPlayerTapOpens, R.string.settings_mini_tap, R.string.settings_mini_tap_hint),
+                        Triple(AppFeature.YouTubeTapControls, R.string.settings_youtube_controls, R.string.settings_youtube_controls_hint),
                         Triple(AppFeature.BackgroundPlayback, R.string.settings_background, R.string.settings_background_hint),
                     ).forEach { (feature, label, hint) -> SettingsToggle(stringResource(label), stringResource(hint), preferences.enabled(feature)) { viewModel.feature(feature, it) } }
                     val streamingOptions = listOf(0) + qualityOptions
@@ -265,6 +266,7 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
                         limits.indexOf(preferences.musicLimitGb).coerceAtLeast(0), left) { viewModel.musicLimit(limits[it]) }
                     listOf(
                         Triple(AppFeature.MusicInApp, R.string.settings_music_in_app, R.string.settings_music_in_app_hint),
+                        Triple(AppFeature.MusicEar, R.string.settings_music_ear, R.string.settings_music_ear_hint),
                         Triple(AppFeature.MusicResumeOnConnect, R.string.settings_music_resume, R.string.settings_music_resume_hint),
                         Triple(AppFeature.MusicToFolder, R.string.settings_music_folder, R.string.settings_music_folder_hint),
                         Triple(AppFeature.MusicAutoFavorites, R.string.settings_music_auto_fav, R.string.settings_music_auto_fav_hint),

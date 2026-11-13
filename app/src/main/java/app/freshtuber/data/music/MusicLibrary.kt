@@ -207,6 +207,9 @@ class MusicLibrary @Inject constructor(
         }
     }
 
+    /** A YouTube song whose file left the phone: it streams again. */
+    suspend fun dropFile(track: MusicTrack) { dao.track(track.id)?.let { dao.putTrack(it.copy(uri = null)) } }
+
     /** True when the file behind [uri] can be opened now. */
     fun readable(uri: String?): Boolean = uri != null && try {
         resolver.openAssetFileDescriptor(Uri.parse(uri), "r")?.use { true } ?: false

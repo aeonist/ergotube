@@ -38,6 +38,7 @@ class MainActivity : ComponentActivity() {
 
     @Inject lateinit var playerController: PlayerController
     @Inject lateinit var settings: AppSettings
+    @Inject lateinit var updates: app.freshtuber.data.update.AppUpdates
 
     private var externalVideoId by mutableStateOf<String?>(null)
     private var openMusicRequest by mutableStateOf(false)
@@ -237,6 +238,8 @@ class MainActivity : ComponentActivity() {
         leftPictureInPicture = false
         if (!isInPictureInPictureMode) wasInPictureInPicture = false
         if (audioOnlyRequested && !isInPictureInPictureMode) resumeVideo()
+        // Back in the app after a while: look for a newer release on GitHub again.
+        updates.refresh()
     }
 
     /** Closing the floating window stops the video, as YouTube does. */

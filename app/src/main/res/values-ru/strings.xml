@@ -278,6 +278,8 @@
     <string name="settings_dock_width">Ширина нижнего меню</string>
     <string name="settings_dock_compact">Компактное</string>
     <string name="settings_dock_full">Во всю ширину</string>
+    <string name="settings_youtube_controls">Управление как в YouTube</string>
+    <string name="settings_youtube_controls_hint">Нажатие на видео в вертикальном плеере показывает кнопки поверх него: пауза, следующее, полоса перемотки</string>
     <string name="settings_mini_tap">Разворачивать мини-плеер нажатием</string>
     <string name="settings_mini_tap_hint">Включено: открывает вертикальный плеер. Выключено: показывает кнопки мини-плеера.</string>
     <string name="settings_quality_networks">Wi-Fi и мобильная сеть</string>
@@ -286,8 +288,8 @@
     <string name="settings_quality_hint">Авто подбирает качество по скорости сети. Выбранное разрешение задаёт верхний предел.</string>
     <string name="settings_swap_home_mine">Поменять «Моё» и «Главная» местами</string>
     <string name="settings_swap_home_mine_hint">Отразить нижнее меню вокруг кнопки «Поиск».</string>
-    <string name="settings_traditional_scroll">Традиционное направление пролистывания</string>
-    <string name="settings_traditional_scroll_hint">Сверху вниз. «Главная» всегда листается сверху вниз.</string>
+    <string name="settings_traditional_scroll">Ленты сверху вниз</string>
+    <string name="settings_traditional_scroll_hint">Все ленты, списки и очередь музыки листаются сверху вниз, как в YouTube. Если выключить, списки растут снизу, у пальца (кроме «Главной»).</string>
     <string name="player_audio_only">Слушать в фоне</string>
     <string name="player_background_short">В фон</string>
 
@@ -405,6 +407,13 @@
     <string name="music_play_last">В конец очереди</string>
     <string name="music_download">Скачать</string>
     <string name="music_download_started">Песня скачивается</string>
+    <string name="music_delete_from_device">Удалить с устройства</string>
+    <string name="music_delete_short">Удалить</string>
+    <string name="music_delete_confirm_title">Удалить с устройства?</string>
+    <string name="music_delete_confirm_download">Скачанная песня «%1$s» удалится с телефона. Слушать её онлайн можно и дальше.</string>
+    <string name="music_delete_confirm_phone">Файл «%1$s» удалится с телефона насовсем.</string>
+    <string name="music_deleted_from_device">Удалено с устройства</string>
+    <string name="music_delete_failed">Не удалось удалить файл</string>
     <string name="music_remove_download">Удалить загрузку</string>
     <string name="music_share">Поделиться</string>
     <string name="music_add_to_playlist">В плейлист</string>
@@ -463,9 +472,12 @@
     <string name="settings_start_music_hint">Приложение открывается на «Слушать», а не на Главной с видео</string>
     <string name="music_jams_music">Джемы из раздела «Музыка» на Главной</string>
     <string name="update_available">Доступно обновление, сборка %d</string>
+    <string name="update_available_plain">Доступно обновление</string>
     <string name="update_later">Позже</string>
     <string name="update_install">Обновить</string>
     <!-- Сборка 28: одна страница «Музыка» -->
+    <string name="settings_music_ear">Ушко «Музыка» на Главной</string>
+    <string name="settings_music_ear_hint">Кнопка-ушко над чипсами Главной. Выключи, чтобы убрать её; музыка остаётся в приложении</string>
     <string name="settings_music_in_app">Музыка в приложении</string>
     <string name="settings_music_in_app_hint">Выключи, чтобы убрать ушко «Музыка», строку песни и музыкальный поиск</string>
     <string name="music_mine">Моё</string>

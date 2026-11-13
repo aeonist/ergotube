@@ -280,6 +280,8 @@
     <string name="settings_dock_width">Bottom menu width</string>
     <string name="settings_dock_compact">Compact</string>
     <string name="settings_dock_full">Full width</string>
+    <string name="settings_youtube_controls">YouTube-style controls</string>
+    <string name="settings_youtube_controls_hint">A tap on the video in the portrait player shows buttons over it: pause, next, the seek bar</string>
     <string name="settings_mini_tap">Open video on a mini-player tap</string>
     <string name="settings_mini_tap_hint">On: opens the portrait player. Off: shows mini-player controls.</string>
     <string name="settings_quality_networks">Wi-Fi and mobile data</string>
@@ -288,8 +290,8 @@
     <string name="settings_quality_hint">Auto follows your connection speed. A resolution sets the maximum quality.</string>
     <string name="settings_swap_home_mine">Swap Mine and Home</string>
     <string name="settings_swap_home_mine_hint">Mirror the navigation row around Search.</string>
-    <string name="settings_traditional_scroll">Traditional scroll direction</string>
-    <string name="settings_traditional_scroll_hint">Top-to-bottom. Home always scrolls top-to-bottom.</string>
+    <string name="settings_traditional_scroll">Lists top to bottom</string>
+    <string name="settings_traditional_scroll_hint">Every feed, list and the music queue reads top to bottom, as in YouTube. Off: lists grow up from the bottom, by the thumb (Home stays top to bottom).</string>
     <string name="player_audio_only">Continue with audio only</string>
     <string name="player_background_short">Audio</string>
 
@@ -401,6 +403,13 @@
     <string name="music_play_last">Add to the end</string>
     <string name="music_download">Download</string>
     <string name="music_download_started">Downloading the song</string>
+    <string name="music_delete_from_device">Delete from device</string>
+    <string name="music_delete_short">Delete</string>
+    <string name="music_delete_confirm_title">Delete from the device?</string>
+    <string name="music_delete_confirm_download">The downloaded song «%1$s» is removed from the phone. It still plays online.</string>
+    <string name="music_delete_confirm_phone">The file «%1$s» is deleted from the phone for good.</string>
+    <string name="music_deleted_from_device">Deleted from the device</string>
+    <string name="music_delete_failed">Couldn\'t delete the file</string>
     <string name="music_remove_download">Delete the download</string>
     <string name="music_share">Share</string>
     <string name="music_add_to_playlist">Add to a playlist</string>
@@ -457,9 +466,12 @@
     <string name="settings_start_music_hint">The app opens on Listen instead of the video Home</string>
     <string name="music_jams_music">Jams from the Music filter on Home</string>
     <string name="update_available">Update available: build %d</string>
+    <string name="update_available_plain">Update available</string>
     <string name="update_later">Later</string>
     <string name="update_install">Update</string>
     <!-- Build 28: one Music page -->
+    <string name="settings_music_ear">«Music» tab on Home</string>
+    <string name="settings_music_ear_hint">The small tab above Home\'s chips. Turn off to hide it; music stays in the app</string>
     <string name="settings_music_in_app">Music in the app</string>
     <string name="settings_music_in_app_hint">Turn off to remove the Music tab, the song line and music search</string>
     <string name="music_mine">Mine</string>

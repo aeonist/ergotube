@@ -91,6 +91,19 @@ object AudioRemux {
     }
 }
 
+/** What deleting a song's file from the phone needs next. */
+sealed interface FileDeletion {
+    data object Done : FileDeletion
+    /**
+     * Android asks the listener first, in its own dialog (a file the app did not make). With
+     * [retry] (Android 10) the file is deleted only by asking again after the yes.
+     */
+    data class Consent(val sender: android.content.IntentSender, val retry: Boolean) : FileDeletion
+    /** Android 9 and older: the storage permission comes first. */
+    data object Permission : FileDeletion
+    data object Failed : FileDeletion
+}
+
 /** Phone files the listener cleared away as duplicates; a new look through the folder leaves them out. */
 @Serializable
 data class HiddenFolderSongs(val uris: Set<String> = emptySet())
@@ -229,6 +242,33 @@ class MusicFolder @Inject constructor(
             library.scanned().filter { it.id !in seen }.forEach { library.forget(it.id) }
             added
         }
+    }
+
+    /**
+     * Deletes the song file behind [address] from the phone: a Music folder file through
+     * MediaStore (Android asks the listener first), a picked file through its own provider.
+     */
+    suspend fun deleteFile(address: String): FileDeletion = withContext(Dispatchers.IO) {
+        val uri = Uri.parse(address)
+        if (android.provider.DocumentsContract.isDocumentUri(context, uri)) {
+            if (runCatching { android.provider.DocumentsContract.deleteDocument(resolver, uri) }.getOrDefault(false)) return@withContext FileDeletion.Done
+            // A file picked from the phone's storage is a media file too: MediaStore can delete it.
+            val media = if (Build.VERSION.SDK_INT >= 29) runCatching { MediaStore.getMediaUri(context, uri) }.getOrNull() else null
+            return@withContext media?.let(::deleteMedia) ?: FileDeletion.Failed
+        }
+        deleteMedia(uri)
+    }
+
+    private fun deleteMedia(uri: Uri): FileDeletion = when {
+        Build.VERSION.SDK_INT >= 30 -> runCatching { FileDeletion.Consent(MediaStore.createDeleteRequest(resolver, listOf(uri)).intentSender, retry = false) }
+            .getOrDefault(FileDeletion.Failed)
+        Build.VERSION.SDK_INT == 29 -> try {
+            if (resolver.delete(uri, null, null) > 0) FileDeletion.Done else FileDeletion.Failed
+        } catch (e: android.app.RecoverableSecurityException) {
+            FileDeletion.Consent(e.userAction.actionIntent.intentSender, retry = true)
+        } catch (_: Exception) { FileDeletion.Failed }
+        context.checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED -> FileDeletion.Permission
+        else -> try { if (resolver.delete(uri, null, null) > 0) FileDeletion.Done else FileDeletion.Failed } catch (_: Exception) { FileDeletion.Failed }
     }
 
     /** Takes duplicates out of the library (files stay on the phone). Returns how many were removed. */
