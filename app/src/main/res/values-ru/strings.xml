@@ -507,7 +507,8 @@
     <string name="support_sheet_text">Если ErgoTube вам полезен, можно угостить автора кофе.</string>
     <string name="support_russia">Из России — карта Мир, СБП</string>
     <string name="support_abroad">Из-за рубежа — карта, PayPal</string>
-    <string name="support_crypto">Криптовалюта — USDT (%1$s)</string>
+    <string name="support_usdt_ton">USDT (TON) — дешёвая комиссия</string>
+    <string name="support_usdt_trc20">USDT (TRC20)</string>
     <string name="support_network_trc20">Сеть TRON (TRC20). Отправляйте только USDT в этой сети.</string>
     <string name="support_network_ton">Сеть TON. Отправляйте только USDT в этой сети.</string>
     <string name="support_copy">Скопировать адрес</string>

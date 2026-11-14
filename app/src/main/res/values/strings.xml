@@ -501,7 +501,8 @@
     <string name="support_sheet_text">If ErgoTube is useful to you, you can buy the author a coffee.</string>
     <string name="support_russia">From Russia — Mir card, SBP</string>
     <string name="support_abroad">From abroad — card, PayPal</string>
-    <string name="support_crypto">Crypto — USDT (%1$s)</string>
+    <string name="support_usdt_ton">USDT (TON) — low fee</string>
+    <string name="support_usdt_trc20">USDT (TRC20)</string>
     <string name="support_network_trc20">TRON network (TRC20). Send only USDT on this network.</string>
     <string name="support_network_ton">TON network. Send only USDT on this network.</string>
     <string name="support_copy">Copy address</string>
