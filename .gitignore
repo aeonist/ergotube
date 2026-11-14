@@ -15,3 +15,9 @@
 .impeccable/mocks/
 .impeccable/review/
 /apk/
+
+# Signing and packages never go to the repo
+keystore.properties
+*.jks
+*.apk
+*.aab
