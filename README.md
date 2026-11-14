@@ -75,8 +75,6 @@ Menus appear through a soft blur. The background glows in the colors of the vide
 
 **Saves data.** Uses VP9 when your phone supports it: about a third less traffic for the same picture. Sorry, carriers.
 
-**Tested.** Over 230 automated tests. We sleep fine.
-
 ## Features
 
 <table>
