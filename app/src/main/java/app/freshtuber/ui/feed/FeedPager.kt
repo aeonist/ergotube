@@ -73,6 +73,9 @@ class FeedPager(
         start(token, keepFilters = token != null, keepItems = true)
     }
 
+    /** Loads [first] again from an empty list, for a list whose source has changed (a channel tab). */
+    fun reload() = start(null, keepFilters = false, keepItems = false)
+
     fun selectFilter(filter: FeedFilter) {
         if (filter.selected) return
         val filters = _state.value.filters.map { it.copy(selected = it.title == filter.title) }

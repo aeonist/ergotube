@@ -508,4 +508,13 @@
     <string name="support_copy">Copy address</string>
     <string name="support_copied">Address copied</string>
     <string name="support_open_failed">Could not open the link</string>
+    <!-- Channel sections -->
+    <string name="channel_tab_home">Home</string>
+    <string name="channel_tab_videos">Videos</string>
+    <string name="channel_tab_shorts">Shorts</string>
+    <string name="channel_tab_live">Live</string>
+    <string name="channel_tab_releases">Releases</string>
+    <string name="channel_tab_podcasts">Podcasts</string>
+    <string name="channel_tab_playlists">Playlists</string>
+    <string name="channel_tab_courses">Courses</string>
 </resources>

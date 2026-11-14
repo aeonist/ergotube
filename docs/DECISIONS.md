@@ -555,3 +555,11 @@ Build 32 plus the music pulse, in one build.
 - «Support the author» now lists card/PayPal (lava.top) first, then USDT, and the Russian CloudTips page last; with a Russian interface the CloudTips page stays on top (`availableOptions(..., russianFirst)`, chosen from the current locale in `SettingsScreen`). English labels: «Card or PayPal», «From Russia (Mir card, SBP)».
 - The repository is English-first: README images use only English screenshots, issue templates and release notes are English only; `README.ru.md` stays as a translation.
 - Unit-tested (`DonateLinksTest`), not run on a device.
+
+## After build 35 — channel tabs (14 November 2026)
+
+- The channel page switches between its sections like YouTube: Home, Videos, Shorts, Live, Releases, Podcasts, Playlists, Courses. The list of tabs comes from the channel's own `browse` response (`ChannelTabsParser`), so each channel shows only the sections it has, in YouTube's order. The kind is read from the tab's web URL (`/@name/shorts`), not the localized title, and the label comes from the app's strings (EN/RU). Posts, Store, Shows and Search are left out: the feed list cannot show them.
+- Tab params are percent-decoded by hand (`%3D` → `=`); `URLDecoder` would turn a base64 `+` into a space.
+- The page still opens on Videos (the list people come for); Home is one tap away. Home is a fixed set of shelves flattened into the list and does not page, because its continuations belong to single shelves.
+- Ergonomics: the tabs are a `HandChips` row in the `BottomBar`, in reading order pressed to the working-hand edge, hiding while reading like Home's chips. In classic (YouTube-like) mode they sit under the top bar. A tab switch keeps the channel header and any subscription change just made.
+- Fixtures `channel_featured`, `channel_shorts`, `channel_playlists` (MKBHD, anonymous, hl=en). Unit tests, debug build and lint pass; not run on a device.

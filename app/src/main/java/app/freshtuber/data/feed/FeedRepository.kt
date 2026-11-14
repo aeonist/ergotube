@@ -13,6 +13,9 @@ import app.freshtuber.innertube.bestThumbnailUrl
 import app.freshtuber.innertube.bool
 import app.freshtuber.innertube.findAll
 import app.freshtuber.innertube.obj
+import app.freshtuber.innertube.parse.ChannelTab
+import app.freshtuber.innertube.parse.ChannelTabKind
+import app.freshtuber.innertube.parse.ChannelTabsParser
 import app.freshtuber.innertube.parse.FeedParser
 import app.freshtuber.innertube.parse.PlayerResponseParser
 import app.freshtuber.innertube.str
@@ -33,6 +36,9 @@ sealed interface FeedSource {
 }
 
 data class ChannelHeader(val channel: ChannelSummary, val subscribed: Boolean?)
+
+/** One section of a channel: its header, the sections it offers and this section's first page. */
+data class ChannelPage(val header: ChannelHeader?, val tabs: List<ChannelTab>, val page: FeedPage)
 
 /**
  * Lists from YouTube. Signed in, they come from InnerTube as the account; signed out, from
@@ -120,13 +126,18 @@ class FeedRepository @Inject constructor(
         if (source is FeedSource.Browse && source.browseId == HOME) FeedParser.parseHome(root)
         else FeedParser.parse(root)
 
-    /** Channel page: header plus the "Videos" tab. */
-    suspend fun channel(channelId: String): Pair<ChannelHeader?, FeedPage> = withContext(Dispatchers.IO) {
+    /** Channel page: header, the section tabs and one section ([params]; "Videos" by default). */
+    suspend fun channel(channelId: String, params: String = CHANNEL_VIDEOS_TAB): ChannelPage = withContext(Dispatchers.IO) {
         val root = innerTube.post("browse", buildJsonObject {
             put("browseId", channelId)
-            put("params", CHANNEL_VIDEOS_TAB)
+            put("params", params)
         })
-        parseChannelHeader(channelId, root) to FeedParser.parse(root)
+        val tabs = ChannelTabsParser.parse(root)
+        val page = FeedParser.parse(root)
+        // The channel's Home is a fixed set of shelves; its continuations belong to single shelves
+        // and would append them to the end of the page, so it does not page.
+        val home = tabs.firstOrNull { it.selected }?.kind == ChannelTabKind.Home
+        ChannelPage(parseChannelHeader(channelId, root), tabs, if (home) page.copy(continuation = null) else page)
     }
 
     private fun parseChannelHeader(channelId: String, root: JsonObject): ChannelHeader? {

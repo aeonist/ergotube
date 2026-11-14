@@ -514,4 +514,13 @@
     <string name="support_copy">Скопировать адрес</string>
     <string name="support_copied">Адрес скопирован</string>
     <string name="support_open_failed">Не удалось открыть ссылку</string>
+    <!-- Channel sections -->
+    <string name="channel_tab_home">Главная</string>
+    <string name="channel_tab_videos">Видео</string>
+    <string name="channel_tab_shorts">Shorts</string>
+    <string name="channel_tab_live">Трансляции</string>
+    <string name="channel_tab_releases">Релизы</string>
+    <string name="channel_tab_podcasts">Подкасты</string>
+    <string name="channel_tab_playlists">Плейлисты</string>
+    <string name="channel_tab_courses">Курсы</string>
 </resources>

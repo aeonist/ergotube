@@ -51,6 +51,8 @@ import app.freshtuber.data.settings.AppSettings
 import app.freshtuber.data.video.VideoRepository
 import app.freshtuber.domain.model.FeedPage
 import app.freshtuber.innertube.InnerTubeCommand
+import app.freshtuber.innertube.parse.ChannelTab
+import app.freshtuber.innertube.parse.ChannelTabKind
 import app.freshtuber.ui.feed.FeedList
 import app.freshtuber.ui.feed.FeedNavigation
 import app.freshtuber.ui.feed.FeedPager
@@ -91,6 +93,11 @@ class ListViewModel @Inject constructor(
     private val _header = MutableStateFlow<ChannelHeader?>(null)
     val channelHeader: StateFlow<ChannelHeader?> = _header.asStateFlow()
 
+    private val _tabs = MutableStateFlow<List<ChannelTab>>(emptyList())
+    /** The channel's sections, in YouTube's order; the open one is selected. */
+    val channelTabs: StateFlow<List<ChannelTab>> = _tabs.asStateFlow()
+    private var channelParams: String = FeedRepository.CHANNEL_VIDEOS_TAB
+
     private val _actionError = MutableStateFlow<LoadError?>(null)
     val actionError: StateFlow<LoadError?> = _actionError.asStateFlow()
 
@@ -124,10 +131,23 @@ class ListViewModel @Inject constructor(
 
     private suspend fun loadFirst(): FeedPage {
         val id = channelId ?: return feeds.load(source)
-        val (header, page) = feeds.channel(id)
-        _header.value = if (header != null && accounts.state.value !is AccountState.SignedIn)
-            header.copy(subscribed = localSubscriptions.channel(id).first() != null) else header
-        return page
+        val channel = feeds.channel(id, channelParams)
+        // A tab switch keeps the header already shown, with any subscription change just made.
+        if (_header.value == null) {
+            val header = channel.header
+            _header.value = if (header != null && accounts.state.value !is AccountState.SignedIn)
+                header.copy(subscribed = localSubscriptions.channel(id).first() != null) else header
+        }
+        if (channel.tabs.isNotEmpty()) _tabs.value = channel.tabs
+        return channel.page
+    }
+
+    /** Opens another section of the channel. */
+    fun selectTab(tab: ChannelTab) {
+        if (tab.selected || channelId == null) return
+        channelParams = tab.params
+        _tabs.value = _tabs.value.map { it.copy(selected = it.kind == tab.kind) }
+        pager.reload()
     }
 
     /** Subscribe or unsubscribe, optimistic; rolls back if YouTube refuses. */
@@ -173,6 +193,7 @@ fun ListScreen(
     val state by viewModel.pager.state.collectAsStateWithLifecycle()
     val header by viewModel.channelHeader.collectAsStateWithLifecycle()
     val actionError by viewModel.actionError.collectAsStateWithLifecycle()
+    val tabs by viewModel.channelTabs.collectAsStateWithLifecycle()
     val needsAccount by viewModel.needsAccount.collectAsStateWithLifecycle()
     val left = LocalLeftHanded.current
     val title = viewModel.titleText
@@ -184,6 +205,12 @@ fun ListScreen(
         val preferences = app.freshtuber.ui.theme.LocalAppPreferences.current
         val fromBottom = !preferences.enabled(app.freshtuber.data.settings.AppFeature.TraditionalScroll)
         val hide = rememberScrollHide(inverted = fromBottom)
+        val classic = LocalClassic.current
+        val tabChips = tabs.map { tab -> ChipItem(tab.label(), tab.selected) { hide.visible = true; viewModel.selectTab(tab) } }
+        // Classic: the channel's tabs right under the top bar, as on YouTube.
+        if (classic && tabChips.size > 1) app.freshtuber.ui.motion.BlurVisibility(hide.visible, collapse = true) {
+            app.freshtuber.ui.classic.ClassicChips(tabChips)
+        }
         Box(Modifier.weight(1f)) {
             if (needsAccount) Column(Modifier.fillMaxSize()) {
                 if (!fromBottom) ScreenHeader(title)
@@ -223,8 +250,25 @@ fun ListScreen(
             app.freshtuber.ui.motion.BlurVisibility(hide.visible, collapse = true) {
                 ContextBar(actions, left)
             }
+        } else if (!classic && tabChips.size > 1) BottomBar {
+            // The channel's sections sit under the thumb, in YouTube's reading order from the hand edge.
+            app.freshtuber.ui.motion.BlurVisibility(hide.visible, collapse = true) {
+                HandChips(tabChips, left, Modifier.padding(vertical = 4.dp), natural = true)
+            }
         }
     }
+}
+
+@Composable
+private fun ChannelTab.label(): String = when (kind) {
+    ChannelTabKind.Home -> stringResource(R.string.channel_tab_home)
+    ChannelTabKind.Videos -> stringResource(R.string.channel_tab_videos)
+    ChannelTabKind.Shorts -> stringResource(R.string.channel_tab_shorts)
+    ChannelTabKind.Live -> stringResource(R.string.channel_tab_live)
+    ChannelTabKind.Releases -> stringResource(R.string.channel_tab_releases)
+    ChannelTabKind.Podcasts -> stringResource(R.string.channel_tab_podcasts)
+    ChannelTabKind.Playlists -> stringResource(R.string.channel_tab_playlists)
+    ChannelTabKind.Courses -> stringResource(R.string.channel_tab_courses)
 }
 
 @Composable

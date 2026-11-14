@@ -6,6 +6,7 @@ Builds are numbered by `versionCode`. A release tag or APK name that contains `b
 
 ## Unreleased
 
+- Channel pages switch between **Home, Videos, Shorts, Live, Playlists** (and Podcasts, Releases, Courses where a channel has them). The switch sits at the bottom, under the thumb.
 - English first: «Support the author» lists card and PayPal first and the Russian payment page last; a Russian interface keeps the Russian page on top.
 
 ## Build 35 · 14 Nov 2026
