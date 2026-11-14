@@ -1,5 +1,7 @@
 # ErgoTube
 
+**Build 35.** Everything from build 34, now installed as `app.ergotube` and signed with ErgoTube's own release key. Android treats it as a new app: it installs next to the old ErgoTube (`app.freshtuber`) instead of over it, so sign in again and uninstall the old one by hand. Later builds update over this one. [Release APK](apk/ErgoTube-build35-release.apk)
+
 **Build 34.** Everything from build 33, plus «Support the author» in Settings: a card above the account opens a sheet with four ways to donate: from Russia (Mir card, SBP, via CloudTips), from abroad (card, PayPal, via lava.top), and USDT on TON or TRC20 (tap to copy the address; on TON a wallet app opens). [Release APK](apk/ErgoTube-build34-donate-release.apk)
 
 **Build 33.** Everything from build 32, and in the music player the light around the cover now breathes with the song: brighter and wider on loud passages, a short flash on a bass kick. It reads the sound inside the app's own player, so no microphone permission is asked. One switch, «Background to the music», in Settings → Energy. [Release APK](apk/ErgoTube-build33-release.apk)

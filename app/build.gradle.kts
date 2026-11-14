@@ -1,3 +1,4 @@
+import java.util.Properties
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -14,6 +15,11 @@ fun gitShortHash(): String = runCatching {
     providers.exec { commandLine("git", "rev-parse", "--short", "HEAD") }.standardOutput.asText.get().trim()
 }.getOrDefault("local")
 
+/** Release signing key, kept outside the repo; see keystore.properties (gitignored). */
+val keystoreProps = Properties().apply {
+    rootProject.file("keystore.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+
 android {
     namespace = "app.freshtuber"
     compileSdk {
@@ -22,12 +28,23 @@ android {
         }
     }
 
+    signingConfigs {
+        if (keystoreProps.getProperty("storeFile") != null) {
+            create("release") {
+                storeFile = file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
     defaultConfig {
-        applicationId = "app.freshtuber"
+        applicationId = "app.ergotube"
         minSdk = 26
         targetSdk = 37
         // Test build number: bump with every build handed to the user (file name and Settings show it).
-        versionCode = 34
+        versionCode = 35
         versionName = "1.2 · " + gitShortHash()
         // Public GitHub repository whose releases the app checks for updates ("owner/name").
         buildConfigField("String", "UPDATE_REPO", "\"aeonist/ergotube\"")
@@ -40,8 +57,8 @@ android {
             applicationIdSuffix = ".debug"
         }
         release {
-            // Signed with the local debug key so the user can sideload the fast build.
-            signingConfig = signingConfigs.getByName("debug")
+            // Own release key from keystore.properties; the debug key only when that file is missing.
+            signingConfig = signingConfigs.findByName("release") ?: signingConfigs.getByName("debug")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

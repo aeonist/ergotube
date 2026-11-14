@@ -541,3 +541,10 @@ Build 32 plus the music pulse, in one build.
 - USDT is a list of wallets (network + address) so either can be blank. TON comes first as the low-fee option; a tap opens a wallet app on `ton://transfer/<address>?jetton=<USDT master>` and copies the address when no wallet is installed. TRC20 has no shared wallet link, so a tap and the copy button copy. Each row names its network and warns to send only USDT on it, because coins sent on another network are lost. Both addresses were checksum-checked.
 - Android 13+ confirms a clipboard copy itself; older versions get «Адрес скопирован».
 - versionCode 34. Unit-tested (`DonateLinksTest`), not run on a device.
+
+## Build 35 — app.ergotube and own signing key (14 November 2026)
+
+- The user asked to rename the Android application id from the old `app.freshtuber` to `app.ergotube`. Only `applicationId` changes; the Kotlin namespace, packages and internal intent action strings stay `app.freshtuber` (they are private to the app and do not depend on the id). The manifest has no providers, authorities or deep links tied to the id. Debug builds are `app.ergotube.debug`.
+- Android treats it as a different app. It installs next to `app.freshtuber`; login, subscriptions, favourites, downloads and settings do not move over, and the old app must be uninstalled by hand. Music files exported by the old app belong to it in MediaStore; deleting them from the new app goes through the existing consent prompt.
+- Since every phone installs it fresh anyway, release builds switch from the shared debug key to ErgoTube's own key (RSA 4096, alias `ergotube`, CN=ErgoTube, 10000 days). The keystore and its password stay outside the repo in `/Users/roma/ergotube-signing/` with a Russian README on keeping a backup; Gradle reads them from the gitignored `keystore.properties` and falls back to the debug key when that file is missing. Losing the key means no update can be installed over Build 35.
+- versionCode 35. Release build, unit tests and lint pass; package and signature checked with aapt2 and apksigner. Not run on a device.
