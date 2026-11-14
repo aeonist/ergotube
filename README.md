@@ -25,9 +25,9 @@
 
 ---
 
-Most YouTube apps, the official one and the open-source ones, keep search, tabs and menus at the top of the screen. On a tall phone held in one hand, your thumb can't reach them.
+YouTube apps keep search, tabs and menus at the top of the screen, where your thumb can't reach. ErgoTube moves them to the bottom.
 
-ErgoTube puts them at the bottom. Tabs, search, filters, the player controls and the actions for each video sit in the lower half of the screen, on the side of the hand that holds the phone. You can sign in with a Google account without Google Play Services or microG, or skip the account entirely. There are no ads, and you get background play, downloads, a music mode, and a soft glow around the video that takes its colors from the picture.
+No ads. Background play. Downloads. Music mode. Sign in with Google (no microG needed) or use it without an account.
 
 <img src="docs/media/carousel.jpg" alt="Five ErgoTube screens side by side: sign-in, Home, the action fan, the player and Search" width="100%">
 
@@ -37,21 +37,21 @@ ErgoTube puts them at the bottom. Tabs, search, filters, the player controls and
 
 ### The action fan
 
-Press and hold a video card and six actions open around your finger: Later, Download, Save, Share, Not interested and Listen. Slide toward one and let go. You never have to find a small three-dot button.
+Hold a video and six actions open around your finger. Slide to one and let go.
 
 </td>
 <td valign="top" width="33%">
 
 ### The player
 
-In portrait the video stays on top and the controls sit under your thumb: play, ±10 s (taps add up), hold for 2× speed, and a timeline that gets more precise as you move your finger up. Turn the phone sideways and the controls move into a fan in the corner.
+All controls are under your thumb. Turn the phone sideways and they move into the corner.
 
 </td>
 <td valign="top" width="33%">
 
 ### Motion
 
-Menus and panels fade in and out of a blur instead of sliding. The background picks up light from the video you are watching, and in music mode it pulses with the song.
+Menus appear through a soft blur. The background glows in the colors of the video.
 
 </td>
 </tr>
@@ -63,29 +63,19 @@ Menus and panels fade in and out of a blur instead of sliding. The background pi
 
 ## Why it's good
 
-**Extremely flexible.**
-Right hand or left hand, and the whole layout mirrors. Lists read top to bottom or bottom to top. Five themes, two languages, and a classic YouTube layout for anyone who misses the old ways. If ErgoTube were any more flexible it would need a yoga mat.
+**Extremely flexible.** Works for the left or right hand, five themes, and a classic YouTube layout if you want it. Yoga mat not included.
 
-**Fast.**
-Clients built on NewPipeExtractor make seven requests to YouTube, one after another, before a video can start. ErgoTube makes one short one, which takes about 0.3 seconds. The lookup begins the moment your finger touches a card, and the next Short starts loading while you are still swiping, so it plays 0.2 seconds after you let go. We haven't measured it against the speed of light yet, but we're optimistic.
+**Fast.** ErgoTube asks YouTube for a video once instead of seven times, so the stream is ready in about 0.3 seconds. Possibly faster than light (not verified).
 
-**The best design known to mankind.**
-The background takes its light from the video. Menus come into focus out of a blur instead of sliding in. Every button you use often is in the bottom half of the screen, and a test fails the build if one drifts up. Several historians are said to be reconsidering the Renaissance.
+**The best design known to mankind.** Every button you need is in the bottom half of the screen, and the background glows in the colors of the video. Historians are reconsidering the Renaissance.
 
-**Made for the thumb you actually have.**
-Search, tabs, filters, the player controls and the action fan are all where your thumb already is. You can watch an entire evening of videos without ever doing the two-handed phone shuffle. Doctors hate this one trick (citation needed).
+**Private.** No servers, no analytics, no tracking. We don't know who you are.
 
-**Private.**
-ErgoTube has no servers, no analytics and no account of its own. Your cookies go to YouTube and nowhere else. We don't know who you are, and we'd like to keep it that way.
+**Free.** No ads, no subscription, open source.
 
-**Free, with no ads.**
-No ads, no subscription, no trial. The code is GPL, so it stays open. The only thing ErgoTube costs you is the habit of reaching for the top of the screen.
+**Saves data.** Uses the VP9 format when your phone supports it, which needs about a third less traffic. Your carrier will be upset.
 
-**Light on data.**
-On phones with a hardware VP9 decoder ErgoTube picks VP9 first, which uses about a third less data than H.264 at the same quality. Your mobile plan will send a thank-you card.
-
-**Tested.**
-More than 230 automated tests check the YouTube parsers, the player maths, the layout and the reach rule for both hands. That is more tests than most people have had hot dinners this week.
+**Tested.** Over 230 automated tests. More than some airplanes. Probably.
 
 ## Features
 
@@ -93,39 +83,30 @@ More than 230 automated tests check the YouTube parsers, the player maths, the l
 <tr>
 <td valign="top" width="50%">
 
-**One-handed use**
-- Hand-side dock: You, Subscriptions, Search, Shorts, Home. Mirror it for the left hand.
-- Every fixed control in the bottom half of the screen, checked by `ReachRuleTest` for both hands.
-- No on-screen Back buttons; use the system Back gesture or the dock.
-- Search, chips and channel strips at the bottom edge; lists can read bottom-up.
-- Optional classic layout that places buttons the way YouTube does.
+**One hand**
+- Buttons on the side of your hand, mirrored for the left hand
+- Everything you tap is in the bottom half of the screen
+- Optional classic YouTube layout
 
 **Watching**
-- Background playback, picture-in-picture and a floating mini-player you drag to any corner.
-- Precise seeking in fullscreen: the timeline zooms in on a short part of the video and moves slower than your finger.
-- Quality palettes with separate Wi-Fi and mobile limits, speed, captions, loop, sleep timer.
-- Pinch to zoom in portrait and fullscreen; tabletop and unfolded layouts on foldables.
-- SponsorBlock with segments on the timeline, DeArrow titles and thumbnails, Return YouTube Dislike.
+- Background play, picture-in-picture, a mini-player you can drag
+- Precise seeking in fullscreen
+- Quality, speed, captions, sleep timer
+- SponsorBlock, DeArrow, Return YouTube Dislike
 
 </td>
 <td valign="top" width="50%">
 
-**With or without an account**
-- Google sign-in in the app: recommendations, subscriptions, history, playlists, comments, likes.
-- No account: local subscriptions with background RSS checks and new-video notifications.
-- Careful mode asks before actions on your main account, so a stray tap doesn't like or subscribe.
+**Account**
+- Sign in with Google to get your feed, subscriptions, history and playlists
+- Or no account: subscriptions are kept on the phone and you still get new-video notifications
 
 **Music**
-- A Listen page with your mixes, a player that takes its colors from the cover, synced lyrics and a queue.
-- One library for YouTube songs and the music files on your phone.
-- Downloaded songs are saved with tags in `Music/ErgoTube`. The background pulses to the beat without asking for microphone access.
+- Mixes, synced lyrics, a queue
+- YouTube songs and the music files on your phone in one library
 
 **Downloads**
-- Download any video, Short or song. The queue survives restarts and supports pause, resume and retry.
-- Thumbnails, captions and descriptions are saved too, so downloads play offline.
-
-**Appearance**
-- Light, dark, system and AMOLED themes, a classic YouTube dark theme, English and Russian.
+- Videos, Shorts and songs, playable offline
 
 </td>
 </tr>
