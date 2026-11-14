@@ -21,4 +21,4 @@ A map of the written history and design of the project.
 
 ## Media
 
-[`media/`](media/) holds the README images. `hero.jpg`, `tour.gif` and `reach.jpg` are composed from real screenshots of the app; `social-preview.jpg` (1280×640) is meant for the repository's social preview in GitHub settings; `logo.svg` is the brand mark generated from `app/src/main/res/drawable/ic_brand.xml`.
+[`media/`](media/) holds the README images. `hero.jpg`, `carousel.jpg` and `reach.jpg` are composed from real screenshots of the app (rendered from HTML in headless Chrome); `social-preview.jpg` (1280×640) is meant for the repository's social preview in GitHub settings; `logo.svg` is the brand mark generated from `app/src/main/res/drawable/ic_brand.xml`.

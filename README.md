@@ -29,18 +29,25 @@ Phones got taller. Thumbs did not. Every YouTube app, official or open source, s
 
 **ErgoTube moves all of it down.** Tabs, search, filters, the player remote and every card action sit in the lower half of the screen, on the side of the hand that holds the phone. You can sign in with your Google account without Google Play Services or microG, or use it with no account at all. No ads, background play, downloads, a full music mode, and a soft light that the video throws onto the screen around it.
 
+<img src="docs/media/carousel.jpg" alt="Five ErgoTube screens side by side: sign-in, Home, the action fan, the player and Search" width="100%">
+
 <table>
 <tr>
-<td width="38%" align="center"><img src="docs/media/tour.gif" alt="A tour through ErgoTube's screens" width="320"></td>
-<td>
+<td valign="top" width="33%">
 
 ### Hold, flick, done
 
-Press and hold any video card and a fan of actions opens under your finger: **Watch later, Download, Save, Share, Not interested, Channel**. Flick toward one and let go. Release in the centre to cancel. No three-dot menu, no reaching.
+Press and hold any video card and a fan of actions opens under your finger: **Later, Download, Save, Share, Not interested, Listen**. Flick toward one and let go. No three-dot menu, no reaching.
+
+</td>
+<td valign="top" width="33%">
 
 ### A remote, not a toolbar
 
-The portrait player keeps the picture on top and a remote under your thumb: play, ±10 s (taps add up), hold for 2×, and a timeline that gets finer as your finger moves up. Turn the phone and the controls gather into a fan in the bottom corner.
+The portrait player keeps the picture on top and a remote under your thumb: play, ±10 s (taps add up), hold for 2×, and a timeline that gets finer as your finger moves up. Turn the phone and the controls gather into a fan in the corner.
+
+</td>
+<td valign="top" width="33%">
 
 ### Calm by design
 
@@ -52,17 +59,7 @@ Everything that appears or hides comes into focus out of a blur. Nothing slides 
 
 <img src="docs/media/reach.jpg" alt="Every fixed control sits in the bottom 55% of the screen" width="100%">
 
-<table>
-<tr>
-<td align="center" width="25%"><img src="docs/media/home.jpg" alt="Home feed with the dock and chips at the bottom"><br><sub><b>Home</b>: chips, Music and the dock by your thumb</sub></td>
-<td align="center" width="25%"><img src="docs/media/fan.jpg" alt="The action fan over a blurred feed"><br><sub><b>Fan</b>: hold a card, flick to an action</sub></td>
-<td align="center" width="25%"><img src="docs/media/player.jpg" alt="Portrait player with the remote at the bottom"><br><sub><b>Player</b>: the remote sits under the thumb</sub></td>
-<td align="center" width="25%"><img src="docs/media/search.jpg" alt="Search with the field at the bottom edge"><br><sub><b>Search</b>: the field is at the bottom edge</sub></td>
-</tr>
-<tr>
-<td colspan="4" align="center"><img src="docs/media/fullscreen.jpg" alt="Fullscreen with the corner fan and the arc timeline" width="90%"><br><sub><b>Fullscreen</b>: controls gather in a fan in the corner, the timeline is an arc you sweep with your thumb</sub></td>
-</tr>
-</table>
+<p align="center"><img src="docs/media/fullscreen.jpg" alt="Fullscreen with the corner fan and the arc timeline" width="90%"><br><sub><b>Fullscreen</b>: the controls gather in a fan in the corner, and the timeline is an arc you sweep with your thumb</sub></p>
 
 ## Features
 
