@@ -495,4 +495,14 @@
     <string name="music_on_phone_short">On phone</string>
     <string name="music_downloading_short">Saving…</string>
     <string name="music_layer_played">Played</string>
+    <!-- Support the author -->
+    <string name="support_author">Support the author</string>
+    <string name="support_author_hint">ErgoTube is free and has no ads</string>
+    <string name="support_sheet_text">If ErgoTube is useful to you, you can buy the author a coffee.</string>
+    <string name="support_russia">From Russia — Mir card, SBP</string>
+    <string name="support_abroad">From abroad — card, PayPal</string>
+    <string name="support_crypto">Crypto — USDT (TON)</string>
+    <string name="support_copy">Copy address</string>
+    <string name="support_copied">Address copied</string>
+    <string name="support_open_failed">Could not open the link</string>
 </resources>

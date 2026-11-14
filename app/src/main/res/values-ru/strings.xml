@@ -501,4 +501,14 @@
     <string name="music_on_phone_short">В телефоне</string>
     <string name="music_downloading_short">Качаю…</string>
     <string name="music_layer_played">Уже играли</string>
+    <!-- Support the author -->
+    <string name="support_author">Поддержать автора</string>
+    <string name="support_author_hint">ErgoTube бесплатный и без рекламы</string>
+    <string name="support_sheet_text">Если ErgoTube вам полезен, можно угостить автора кофе.</string>
+    <string name="support_russia">Из России — карта Мир, СБП</string>
+    <string name="support_abroad">Из-за рубежа — карта, PayPal</string>
+    <string name="support_crypto">Криптовалюта — USDT (TON)</string>
+    <string name="support_copy">Скопировать адрес</string>
+    <string name="support_copied">Адрес скопирован</string>
+    <string name="support_open_failed">Не удалось открыть ссылку</string>
 </resources>

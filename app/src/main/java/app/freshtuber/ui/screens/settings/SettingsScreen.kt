@@ -122,6 +122,8 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
     var clearImages by remember { mutableStateOf(false) }
     var remove by remember { mutableStateOf<app.freshtuber.data.subscriptions.LocalChannel?>(null) }
     var about by remember { mutableStateOf(false) }
+    var support by remember { mutableStateOf(false) }
+    val supportOptions = remember { app.freshtuber.data.support.DonateLinks.options }
     val qualityOptions = listOf(144, 240, 360, 480, 720, 1080, 1440, 2160, 4320)
     val notificationsOn = preferences.enabled(AppFeature.Notifications) && systemNotifications
     val themeNames = listOf(R.string.theme_system, R.string.theme_light, R.string.theme_dark, R.string.theme_amoled, R.string.theme_classic).map { stringResource(it) }
@@ -145,6 +147,11 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
         reverseScrolling = !preferences.enabled(AppFeature.TraditionalScroll)).heightIn(min = maxHeight).padding(bottom = 12.dp),
         verticalArrangement = Arrangement.Bottom) {
         ScreenHeader(stringResource(R.string.nav_settings), stringResource(R.string.settings_subtitle))
+        // Above the account row: seen on every visit, but the tiles stay under the thumb.
+        if (supportOptions.isNotEmpty()) {
+            SupportAuthorRow(onClick = { support = true }, modifier = Modifier.padding(horizontal = 12.dp))
+            Spacer(Modifier.height(10.dp))
+        }
         val signed = account as? app.freshtuber.data.account.AccountState.SignedIn
         Surface(onClick = onAccount, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).heightIn(min = 56.dp),
             shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.7f)) {
@@ -295,6 +302,7 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
     remove?.let { channel -> AlertDialog(onDismissRequest = { remove = null }, title = { Text(stringResource(R.string.local_remove_channel)) }, text = { Text(channel.name) },
         confirmButton = { TextButton(onClick = { viewModel.removeChannel(channel.id); remove = null }) { Text(stringResource(R.string.local_remove_channel)) } },
         dismissButton = { TextButton(onClick = { remove = null }) { Text(stringResource(R.string.action_cancel)) } }) }
+    if (support) SupportSheet(onDismiss = { support = false }, options = supportOptions)
     if (about) AlertDialog(onDismissRequest = { about = false }, title = { Text(stringResource(R.string.app_name)) },
         text = { Text(stringResource(R.string.settings_about_text)) }, confirmButton = { TextButton(onClick = { about = false }) { Text(stringResource(android.R.string.ok)) } })
 }
