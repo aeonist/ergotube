@@ -63,19 +63,19 @@ Menus appear through a soft blur. The background glows in the colors of the vide
 
 ## Why it's good
 
-**Extremely flexible.** Works for the left or right hand, five themes, and a classic YouTube layout if you want it. Yoga mat not included.
+**Extremely flexible.** Left hand, right hand, five themes, and the classic YouTube layout for people who enjoy suffering.
 
-**Fast.** ErgoTube asks YouTube for a video once instead of seven times, so the stream is ready in about 0.3 seconds. Possibly faster than light (not verified).
+**Fast.** One request to YouTube instead of seven. The video is ready before you've decided to watch it.
 
-**The best design known to mankind.** Every button you need is in the bottom half of the screen, and the background glows in the colors of the video. Historians are reconsidering the Renaissance.
+**The best design known to mankind.** Obviously.
 
-**Private.** No servers, no analytics, no tracking. We don't know who you are.
+**Private.** No servers, no analytics. We couldn't sell your data even if we wanted to. We don't.
 
-**Free.** No ads, no subscription, open source.
+**Free.** No ads, no subscription, open source. You're welcome.
 
-**Saves data.** Uses the VP9 format when your phone supports it, which needs about a third less traffic. Your carrier will be upset.
+**Saves data.** Uses VP9 when your phone supports it: about a third less traffic for the same picture. Sorry, carriers.
 
-**Tested.** Over 230 automated tests. More than some airplanes. Probably.
+**Tested.** Over 230 automated tests. We sleep fine.
 
 ## Features
 
