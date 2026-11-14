@@ -19,7 +19,7 @@
 
 **English** · [Русский](README.ru.md)
 
-<a href="https://github.com/aeonist/ergotube/releases/latest"><b>⬇ Download the latest APK</b></a> · <a href="#features">Features</a> · <a href="#how-it-compares">Compare</a> · <a href="#install">Install</a> · <a href="#build-from-source">Build</a> · <a href="#support-the-project">Donate</a> · <a href="CHANGELOG.md">Changelog</a>
+<a href="https://github.com/aeonist/ergotube/releases/latest"><b>⬇ Download the latest APK</b></a> · <a href="#features">Features</a> · <a href="#why-its-good">Why</a> · <a href="#how-it-compares">Compare</a> · <a href="#install">Install</a> · <a href="#build-from-source">Build</a> · <a href="#support-the-project">Donate</a> · <a href="CHANGELOG.md">Changelog</a>
 
 </div>
 
@@ -60,6 +60,32 @@ Menus and panels fade in and out of a blur instead of sliding. The background pi
 <img src="docs/media/reach.jpg" alt="Every fixed control sits in the bottom half of the screen" width="100%">
 
 <p align="center"><img src="docs/media/fullscreen.jpg" alt="Fullscreen with the corner fan and the arc timeline" width="90%"><br><sub>In fullscreen the controls sit in a fan in the corner, and you seek by sweeping your thumb along the arc.</sub></p>
+
+## Why it's good
+
+**Extremely flexible.**
+Right hand or left hand, and the whole layout mirrors. Lists read top to bottom or bottom to top. Five themes, two languages, and a classic YouTube layout for anyone who misses the old ways. If ErgoTube were any more flexible it would need a yoga mat.
+
+**Fast.**
+Clients built on NewPipeExtractor make seven requests to YouTube, one after another, before a video can start. ErgoTube makes one short one, which takes about 0.3 seconds. The lookup begins the moment your finger touches a card, and the next Short starts loading while you are still swiping, so it plays 0.2 seconds after you let go. We haven't measured it against the speed of light yet, but we're optimistic.
+
+**The best design known to mankind.**
+The background takes its light from the video. Menus come into focus out of a blur instead of sliding in. Every button you use often is in the bottom half of the screen, and a test fails the build if one drifts up. Several historians are said to be reconsidering the Renaissance.
+
+**Made for the thumb you actually have.**
+Search, tabs, filters, the player controls and the action fan are all where your thumb already is. You can watch an entire evening of videos without ever doing the two-handed phone shuffle. Doctors hate this one trick (citation needed).
+
+**Private.**
+ErgoTube has no servers, no analytics and no account of its own. Your cookies go to YouTube and nowhere else. We don't know who you are, and we'd like to keep it that way.
+
+**Free, with no ads.**
+No ads, no subscription, no trial. The code is GPL, so it stays open. The only thing ErgoTube costs you is the habit of reaching for the top of the screen.
+
+**Light on data.**
+On phones with a hardware VP9 decoder ErgoTube picks VP9 first, which uses about a third less data than H.264 at the same quality. Your mobile plan will send a thank-you card.
+
+**Tested.**
+More than 230 automated tests check the YouTube parsers, the player maths, the layout and the reach rule for both hands. That is more tests than most people have had hot dinners this week.
 
 ## Features
 
