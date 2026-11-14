@@ -68,3 +68,6 @@ Fullscreen: no bottom timeline while the fan is hidden; scrubbing (fan and class
 
 ## Build 33 (13 Nov 2026)
 Build 32 plus the music pulse: the music player's background light follows the song (`AudioPulse` tap in the music ExoPlayer's audio chain, no microphone permission; `LiquidLight.stepPulse`, shader uniforms `uPulse`/`uBeat`; switch `AppFeature.LiquidPulse`). Two instrumentation tests (`LiquidShaderCompileTest`, `AudioPulseIntegrationTest`) ran on the emulator; not looked at on a phone. APK `apk/ErgoTube-build33-release.apk`.
+
+## Build 34 (14 Nov 2026)
+Build 33 plus «Поддержать автора»: a card above the account row in Settings (hidden when nothing is configured) opens a `BlurSheet` (`ui/screens/settings/SupportSheet.kt`). All values live in `data/support/DonateLinks.kt`: CloudTips (Russia), lava.top (abroad), USDT wallets as a list of network + address (TON first with a `ton://transfer` jetton link, TRC20 copy only), each with a network warning. Not run on a device. APK `apk/ErgoTube-build34-donate-release.apk`.

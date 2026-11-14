@@ -1,5 +1,7 @@
 # ErgoTube
 
+**Build 34.** Everything from build 33, plus «Support the author» in Settings: a card above the account opens a sheet with four ways to donate: from Russia (Mir card, SBP, via CloudTips), from abroad (card, PayPal, via lava.top), and USDT on TON or TRC20 (tap to copy the address; on TON a wallet app opens). [Release APK](apk/ErgoTube-build34-donate-release.apk)
+
 **Build 33.** Everything from build 32, and in the music player the light around the cover now breathes with the song: brighter and wider on loud passages, a short flash on a bass kick. It reads the sound inside the app's own player, so no microphone permission is asked. One switch, «Background to the music», in Settings → Energy. [Release APK](apk/ErgoTube-build33-release.apk)
 
 **Build 32.** Full screen: no timeline while the video just plays, and seeking moves the handle slower than the finger from where it is (a quick sweep still crosses the whole video). Lists read top to bottom by default (one switch in Hand & look, the music queue included). The floating player has play/pause in the top left corner. The music player can delete a song from the phone, downloads and phone files alike. New setting «YouTube-style controls» for the portrait player, and a switch that hides the «Music» tab on Home. The update banner now notices a new GitHub release by the build number in its tag, title or APK name, on every start. Search chips fold away softly. [Debug APK](apk/ErgoTube-build32-debug.apk) · [Release APK](apk/ErgoTube-build32-release.apk)

@@ -27,7 +27,7 @@ android {
         minSdk = 26
         targetSdk = 37
         // Test build number: bump with every build handed to the user (file name and Settings show it).
-        versionCode = 33
+        versionCode = 34
         versionName = "1.2 · " + gitShortHash()
         // Public GitHub repository whose releases the app checks for updates ("owner/name").
         buildConfigField("String", "UPDATE_REPO", "\"aeonist/ergotube\"")

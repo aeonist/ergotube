@@ -6,7 +6,7 @@ package app.freshtuber.data.support
  */
 object DonateLinks {
     /** CloudTips page: payments from Russia (Mir cards, SBP). */
-    val CLOUDTIPS_URL: String = ""
+    val CLOUDTIPS_URL: String = "https://pay.cloudtips.ru/p/2a226afa"
 
     /** lava.top page: foreign cards and PayPal. */
     val LAVA_URL: String = "https://app.lava.top/2097792502?tabId=donate"

@@ -18,8 +18,9 @@ class DonateLinksTest {
             availableOptions("a", "b", listOf(ton, tron)))
     }
 
-    @Test fun `shipped config offers lava, then TON, then TRC20`() {
-        assertEquals(DonateOption.Abroad, DonateLinks.options.first())
+    @Test fun `shipped config offers every way - Russia, abroad, then TON and TRC20`() {
+        assertEquals(listOf(DonateOption.Russia, DonateOption.Abroad), DonateLinks.options.take(2))
+        assertTrue(DonateLinks.CLOUDTIPS_URL.startsWith("https://pay.cloudtips.ru/"))
         assertTrue(DonateLinks.LAVA_URL.startsWith("https://"))
         val wallets = DonateLinks.options.filterIsInstance<DonateOption.Usdt>().map { it.wallet }
         assertEquals(listOf(UsdtNetwork.TON, UsdtNetwork.TRC20), wallets.map { it.network })
