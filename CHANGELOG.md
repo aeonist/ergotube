@@ -4,7 +4,7 @@ What changed in each ErgoTube build, newest first. Release APKs are on the [Rele
 
 Builds are numbered by `versionCode`. A release tag or APK name that contains `buildNN` is what the in-app update banner compares against.
 
-## Unreleased
+## Build 36 · 14 Nov 2026
 
 - Channel pages switch between **Home, Videos, Shorts, Live, Playlists** (and Podcasts, Releases, Courses where a channel has them). The switch sits at the bottom, under the thumb.
 - English first: «Support the author» lists card and PayPal first and the Russian payment page last; a Russian interface keeps the Russian page on top.

@@ -563,3 +563,7 @@ Build 32 plus the music pulse, in one build.
 - The page still opens on Videos (the list people come for); Home is one tap away. Home is a fixed set of shelves flattened into the list and does not page, because its continuations belong to single shelves.
 - Ergonomics: the tabs are a `HandChips` row in the `BottomBar`, in reading order pressed to the working-hand edge, hiding while reading like Home's chips. In classic (YouTube-like) mode they sit under the top bar. A tab switch keeps the channel header and any subscription change just made.
 - Fixtures `channel_featured`, `channel_shorts`, `channel_playlists` (MKBHD, anonymous, hl=en). Unit tests, debug build and lint pass; not run on a device.
+
+## Build 36 — channel tabs (14 November 2026)
+
+- Release of the channel tabs and the English-first support sheet above, versionCode 36, signed with ErgoTube's own key; installs over Build 35.
