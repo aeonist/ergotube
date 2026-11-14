@@ -28,8 +28,9 @@ import androidx.core.net.toUri
 import app.freshtuber.R
 import app.freshtuber.data.support.DonateLinks
 import app.freshtuber.data.support.DonateOption
+import app.freshtuber.data.support.UsdtNetwork
+import app.freshtuber.data.support.usdtWalletLink
 import app.freshtuber.data.support.shortAddress
-import app.freshtuber.data.support.tonTransferLink
 import app.freshtuber.ui.components.BlurSheet
 import app.freshtuber.ui.components.LocalAppMessages
 
@@ -59,9 +60,11 @@ fun SupportSheet(onDismiss: () -> Unit, options: List<DonateOption> = DonateLink
     val openFailed = stringResource(R.string.support_open_failed)
     val copied = stringResource(R.string.support_copied)
     val clear = ListItemDefaults.colors(containerColor = Color.Transparent)
+    val network = when (DonateLinks.USDT_NETWORK) { UsdtNetwork.TON -> "TON"; UsdtNetwork.TRC20 -> "TRC20" }
+    val networkHint = when (DonateLinks.USDT_NETWORK) { UsdtNetwork.TON -> R.string.support_network_ton; UsdtNetwork.TRC20 -> R.string.support_network_trc20 }
     fun open(url: String) { runCatching { uriHandler.openUri(url) }.onFailure { messages?.show(openFailed) } }
     fun copy() {
-        copyToClipboard(context, DonateLinks.USDT_TON_ADDRESS.trim())
+        copyToClipboard(context, DonateLinks.USDT_ADDRESS.trim())
         // Android 13 and newer confirm a copy themselves.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) messages?.show(copied)
     }
@@ -83,14 +86,22 @@ fun SupportSheet(onDismiss: () -> Unit, options: List<DonateOption> = DonateLink
                         modifier = Modifier.heightIn(min = 56.dp).clickable { open(DonateLinks.LAVA_URL.trim()) })
                     DonateOption.Crypto -> ListItem(colors = clear,
                         leadingContent = { Icon(Icons.Rounded.CurrencyBitcoin, null) },
-                        headlineContent = { Text(stringResource(R.string.support_crypto)) },
-                        supportingContent = { Text(shortAddress(DonateLinks.USDT_TON_ADDRESS)) },
+                        headlineContent = { Text(stringResource(R.string.support_crypto, network)) },
+                        supportingContent = {
+                            Column {
+                                Text(shortAddress(DonateLinks.USDT_ADDRESS))
+                                // Coins sent on another network are lost, so say which one plainly.
+                                Text(stringResource(networkHint), style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        },
                         trailingContent = {
                             IconButton(onClick = ::copy) { Icon(Icons.Rounded.ContentCopy, stringResource(R.string.support_copy)) }
                         },
-                        // A wallet app opens on the transfer; without one the address is copied.
+                        // On TON a wallet app opens on the transfer; otherwise (or with no wallet) the address is copied.
                         modifier = Modifier.heightIn(min = 64.dp).clickable {
-                            if (!openWallet(context, tonTransferLink(DonateLinks.USDT_TON_ADDRESS))) copy()
+                            val link = usdtWalletLink(DonateLinks.USDT_NETWORK, DonateLinks.USDT_ADDRESS)
+                            if (link == null || !openWallet(context, link)) copy()
                         })
                 }
             }
@@ -107,5 +118,5 @@ private fun openWallet(context: Context, link: String): Boolean = try {
 
 private fun copyToClipboard(context: Context, text: String) {
     val clipboard = context.getSystemService(ClipboardManager::class.java) ?: return
-    clipboard.setPrimaryClip(ClipData.newPlainText("USDT (TON)", text))
+    clipboard.setPrimaryClip(ClipData.newPlainText("USDT", text))
 }

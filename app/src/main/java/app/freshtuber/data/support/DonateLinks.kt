@@ -11,19 +11,25 @@ object DonateLinks {
     /** lava.top page: foreign cards and PayPal. */
     val LAVA_URL: String = ""
 
-    /** Wallet address for USDT on TON. */
-    val USDT_TON_ADDRESS: String = ""
+    /** Wallet address for USDT, on the network in [USDT_NETWORK]. */
+    val USDT_ADDRESS: String = "TUzoKgYS74SmxA32a9hqkiPrTyfFKtRaxC"
 
-    val options: List<DonateOption> get() = availableOptions(CLOUDTIPS_URL, LAVA_URL, USDT_TON_ADDRESS)
+    /** The network [USDT_ADDRESS] belongs to; USDT sent on another network is lost. */
+    val USDT_NETWORK: UsdtNetwork = UsdtNetwork.TRC20
+
+    val options: List<DonateOption> get() = availableOptions(CLOUDTIPS_URL, LAVA_URL, USDT_ADDRESS)
 }
 
 enum class DonateOption { Russia, Abroad, Crypto }
 
+/** Networks USDT can be received on. */
+enum class UsdtNetwork { TON, TRC20 }
+
 /** The options whose value is set, in the order they are shown. */
-fun availableOptions(cloudTipsUrl: String, lavaUrl: String, tonAddress: String): List<DonateOption> = buildList {
+fun availableOptions(cloudTipsUrl: String, lavaUrl: String, cryptoAddress: String): List<DonateOption> = buildList {
     if (cloudTipsUrl.isNotBlank()) add(DonateOption.Russia)
     if (lavaUrl.isNotBlank()) add(DonateOption.Abroad)
-    if (tonAddress.isNotBlank()) add(DonateOption.Crypto)
+    if (cryptoAddress.isNotBlank()) add(DonateOption.Crypto)
 }
 
 /** A long wallet address cut to its start and end, e.g. `UQAb12…xY9z`. */
@@ -35,5 +41,11 @@ fun shortAddress(address: String, head: Int = 6, tail: Int = 4): String {
 /** USDT jetton master contract on TON. */
 const val USDT_TON_JETTON = "EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs"
 
-/** A `ton://transfer` link that opens a wallet app on a USDT transfer to [address]; the sum is left to the person. */
-fun tonTransferLink(address: String): String = "ton://transfer/${java.net.URLEncoder.encode(address.trim(), "UTF-8")}?jetton=$USDT_TON_JETTON"
+/**
+ * A link that opens a wallet app on a USDT transfer to [address], the sum left to the person.
+ * Only TON has such a link that wallets share; for TRC20 there is none and the address is copied.
+ */
+fun usdtWalletLink(network: UsdtNetwork, address: String): String? = when (network) {
+    UsdtNetwork.TON -> "ton://transfer/${java.net.URLEncoder.encode(address.trim(), "UTF-8")}?jetton=$USDT_TON_JETTON"
+    UsdtNetwork.TRC20 -> null
+}

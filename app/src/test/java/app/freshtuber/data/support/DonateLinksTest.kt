@@ -1,6 +1,7 @@
 package app.freshtuber.data.support
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -12,9 +13,11 @@ class DonateLinksTest {
         assertEquals(DonateOption.entries, availableOptions("a", "b", "c"))
     }
 
-    @Test fun `shipped config has no options yet`() {
-        // The real values are added later; until then the settings item stays hidden.
-        assertTrue(DonateLinks.options.isEmpty())
+    @Test fun `shipped config offers the crypto wallet`() {
+        assertEquals(listOf(DonateOption.Crypto), DonateLinks.options)
+        assertEquals(UsdtNetwork.TRC20, DonateLinks.USDT_NETWORK)
+        // A TRON (TRC20) address: 34 base58 characters starting with T.
+        assertTrue(DonateLinks.USDT_ADDRESS.matches(Regex("T[1-9A-HJ-NP-Za-km-z]{33}")))
     }
 
     @Test fun `long addresses are shortened, short ones kept`() {
@@ -22,7 +25,8 @@ class DonateLinksTest {
         assertEquals("short", shortAddress(" short "))
     }
 
-    @Test fun `ton link asks a wallet for a USDT transfer`() {
-        assertEquals("ton://transfer/UQabc_-1?jetton=$USDT_TON_JETTON", tonTransferLink(" UQabc_-1 "))
+    @Test fun `only TON has a wallet link`() {
+        assertEquals("ton://transfer/UQabc_-1?jetton=$USDT_TON_JETTON", usdtWalletLink(UsdtNetwork.TON, " UQabc_-1 "))
+        assertNull(usdtWalletLink(UsdtNetwork.TRC20, "TUzoKgYS74SmxA32a9hqkiPrTyfFKtRaxC"))
     }
 }
