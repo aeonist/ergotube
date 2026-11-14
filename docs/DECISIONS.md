@@ -567,3 +567,10 @@ Build 32 plus the music pulse, in one build.
 ## Build 36 — channel tabs (14 November 2026)
 
 - Release of the channel tabs and the English-first support sheet above, versionCode 36, signed with ErgoTube's own key; installs over Build 35.
+
+
+## Build 37 — default language and tile placement (14 November 2026)
+
+- The interface defaults to English even on a phone set to another language. Android 13 and newer keep an existing explicit per-app language and initialize English once when no language is set. On Android 8–12 the activity uses the saved language, with English as the default. The language selector offers English, Russian, and System.
+- Account moves from Settings to Mine and keeps the active account name or signed-out status. It sits immediately left of Settings even with the Shorts tile enabled. Support the author becomes a Settings tile immediately left of Music and still opens the existing support sheet. Both pairs keep their order with either hand.
+- Debug build and 208 JVM tests passed. No device was connected for visual verification. Local APK: `apk/ErgoTube-build37-debug.apk`.

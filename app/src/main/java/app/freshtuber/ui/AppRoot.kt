@@ -339,7 +339,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
             composable<PlaylistRoute> { Box(docked.then(transitionBlur())) { ListScreen(navigation, onSignIn = signIn) } }
             composable<ChannelRoute> { Box(docked.then(transitionBlur())) { ListScreen(navigation, onSignIn = signIn) } }
             composable<AccountRoute> { Box(docked.then(transitionBlur())) { AccountScreen(onSignIn = signIn) } }
-            composable<SettingsRoute> { Box(docked.then(transitionBlur())) { SettingsScreen(onAccount = { navController.navigate(AccountRoute) }) } }
+            composable<SettingsRoute> { Box(docked.then(transitionBlur())) { SettingsScreen() } }
             composable<MusicListenRoute> { Box(docked.then(transitionBlur())) { app.freshtuber.ui.music.MusicListenScreen() } }
             composable<MusicLibraryRoute> { entry -> Box(docked.then(transitionBlur())) { app.freshtuber.ui.music.MusicLibraryScreen(entry.toRoute<MusicLibraryRoute>().collection) } }
             composable<MusicPlayerRoute> { Box(Modifier.fillMaxSize().then(transitionBlur(28.dp))) {
@@ -406,7 +406,9 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
         }
         // «Моё» blurs away when it closes, as it came.
         app.freshtuber.ui.motion.BlurVisibility(mineOpen && dockVisible, max = 18.dp, enterMs = 1, exitMs = Motion.EXIT_MS, fromScale = 1f) { MineList(downloads, bottomInset = if (onShorts) compactDockSpace else dockSpace,
-            items = MineItem.entries.filter { it != MineItem.Shorts || (musicTab && shortsEnabled) }, onPick = { item ->
+            showShorts = musicTab && shortsEnabled,
+            accountName = (viewModel.accountState.collectAsStateWithLifecycle().value as? app.freshtuber.data.account.AccountState.SignedIn)
+                ?.active?.let { it.name ?: it.email }, onPick = { item ->
             mineOpen = false
             openSection(when (item) {
                 MineItem.WatchLater -> LibraryListRoute(LibrarySection.WatchLater.name)
@@ -415,6 +417,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
                 MineItem.History -> LibraryListRoute(LibrarySection.History.name)
                 MineItem.Playlists -> LibraryListRoute(LibrarySection.Playlists.name)
                 MineItem.Settings -> SettingsRoute
+                MineItem.Account -> AccountRoute
             })
         }, onDismiss = { mineOpen = false }) }
         SnackbarHost(snackbarHost, Modifier.align(Alignment.BottomCenter)

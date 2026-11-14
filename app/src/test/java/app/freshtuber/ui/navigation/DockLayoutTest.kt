@@ -32,12 +32,15 @@ class DockLayoutTest {
     }
 
     @Test fun mineTilesPutTheMostUsedLowestOnTheHandSide() {
-        // Right hand: Watch later bottom right, Downloads beside it, Settings on top. Music has its own ear now.
-        val items = MineItem.entries.filter { it != MineItem.Shorts }
-        assertEquals(listOf(null, MineItem.Settings, MineItem.Playlists, MineItem.History, MineItem.Downloads, MineItem.WatchLater),
-            app.freshtuber.ui.components.handGrid(items, 2, left = false))
-        assertEquals(listOf(MineItem.Settings, null, MineItem.History, MineItem.Playlists, MineItem.WatchLater, MineItem.Downloads),
-            app.freshtuber.ui.components.handGrid(items, 2, left = true))
+        for (showShorts in listOf(false, true)) {
+            val rightGrid = app.freshtuber.ui.components.handGrid(DockLayout.mineItems(false, showShorts), 2, left = false)
+            val leftGrid = app.freshtuber.ui.components.handGrid(DockLayout.mineItems(true, showShorts), 2, left = true)
+            val accountRow = if (showShorts) 2 else 0
+            assertEquals(listOf(MineItem.Account, MineItem.Settings), rightGrid.subList(accountRow, accountRow + 2))
+            assertEquals(listOf(MineItem.Account, MineItem.Settings), leftGrid.subList(accountRow, accountRow + 2))
+            assertEquals(listOf(MineItem.Downloads, MineItem.WatchLater), rightGrid.takeLast(2))
+            assertEquals(listOf(MineItem.WatchLater, MineItem.Downloads), leftGrid.takeLast(2))
+        }
     }
 
     @Test fun mineHasNoMusicTile() {

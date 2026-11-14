@@ -4,6 +4,12 @@ What changed in each ErgoTube build, newest first. Release APKs are on the [Rele
 
 Builds are numbered by `versionCode`. A release tag or APK name that contains `buildNN` is what the in-app update banner compares against.
 
+## Build 37 · 14 Nov 2026
+
+- The interface defaults to English. Hand & look offers English, Russian, and the phone language.
+- **Account** is immediately left of **Settings** in **Mine**.
+- **Support the author** is immediately left of **Music** in Settings.
+
 ## Build 36 · 14 Nov 2026
 
 - Channel pages switch between **Home, Videos, Shorts, Live, Playlists** (and Podcasts, Releases, Courses where a channel has them). The switch sits at the bottom, under the thumb.

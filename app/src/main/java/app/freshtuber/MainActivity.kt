@@ -1,6 +1,7 @@
 package app.freshtuber
 
 import android.app.PictureInPictureParams
+import android.content.Context
 import android.content.Intent
 import android.content.ComponentName
 import androidx.media3.session.MediaController
@@ -25,6 +26,7 @@ import androidx.core.os.ConfigurationCompat
 import androidx.lifecycle.lifecycleScope
 import app.freshtuber.core.newpipe.NewPipeInitializer
 import app.freshtuber.data.settings.AppSettings
+import app.freshtuber.data.settings.InterfaceLanguage
 import app.freshtuber.player.PlayerController
 import app.freshtuber.ui.AppRoot
 import app.freshtuber.ui.theme.AppTheme
@@ -86,6 +88,10 @@ class MainActivity : ComponentActivity() {
         val playing = playerController.player.isPlaying
         if (playing) window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         else window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+    }
+
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(InterfaceLanguage.activityContext(newBase))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

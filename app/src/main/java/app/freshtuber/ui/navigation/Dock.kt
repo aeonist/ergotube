@@ -56,12 +56,26 @@ enum class MineItem(val icon: ImageVector, @param:StringRes val labelRes: Int, @
     Downloads(Icons.Rounded.DownloadDone, R.string.library_downloads, R.string.mine_downloads_hint),
     History(Icons.Rounded.History, R.string.library_history, R.string.mine_history_hint),
     Playlists(Icons.AutoMirrored.Rounded.PlaylistPlay, R.string.library_playlists, R.string.mine_playlists_hint),
+    Settings(Icons.Rounded.Settings, R.string.nav_settings, R.string.mine_settings_hint),
+    Account(Icons.Rounded.AccountCircle, R.string.nav_account, R.string.settings_account_signed_out),
     /** Only while Music has Shorts' place in the dock. */
     Shorts(Icons.Rounded.Slideshow, R.string.nav_shorts, R.string.mine_shorts_hint),
-    Settings(Icons.Rounded.Settings, R.string.nav_settings, R.string.mine_settings_hint),
 }
 
 object DockLayout {
+    /** Keep Account physically to the left of Settings with either hand. */
+    fun mineItems(left: Boolean, showShorts: Boolean): List<MineItem> {
+        val items = MineItem.entries.filter { showShorts || it != MineItem.Shorts }
+        if (!left) return items
+        return items.map {
+            when (it) {
+                MineItem.Settings -> MineItem.Account
+                MineItem.Account -> MineItem.Settings
+                else -> it
+            }
+        }
+    }
+
     /** Compact still leaves five readable 56dp slots; the setting interpolates to full width. */
     fun width(available: Float, percent: Int, expanded: Boolean): Float {
         val minimum = minOf(available, 300f)
@@ -191,7 +205,7 @@ private fun DockButton(@StringRes labelRes: Int, icon: ImageVector, active: Bool
  */
 @Composable
 fun MineList(downloads: Int, onPick: (MineItem) -> Unit, onDismiss: () -> Unit, bottomInset: androidx.compose.ui.unit.Dp = 0.dp,
-    items: List<MineItem> = MineItem.entries.filter { it != MineItem.Shorts }) {
+    showShorts: Boolean = false, accountName: String? = null) {
     BackHandler(onBack = onDismiss)
     val left = app.freshtuber.ui.components.LocalLeftHanded.current
     // The tiles come into focus out of a blur as the pane opens.
@@ -204,13 +218,14 @@ fun MineList(downloads: Int, onPick: (MineItem) -> Unit, onDismiss: () -> Unit, 
         // Tap outside closes; not a control of its own (Back does the same for TalkBack).
         Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.22f * appear.value))
             .pointerInput(onDismiss) { detectTapGestures { onDismiss() } })
-        app.freshtuber.ui.components.SectionTiles(items, left,
+        app.freshtuber.ui.components.SectionTiles(DockLayout.mineItems(left, showShorts), left,
             Modifier.align(if (left) Alignment.BottomStart else Alignment.BottomEnd)
                 .padding(start = 12.dp, end = 12.dp, bottom = 10.dp + bottomInset).widthIn(max = 560.dp)
                 .blurFade({ appear.value }, max = 18.dp, fromScale = 0.94f)) { item, modifier ->
             val hint = when (item) {
                 MineItem.Downloads -> if (downloads > 0) resources.getQuantityString(R.plurals.mine_downloads_count, downloads, downloads)
                     else resources.getString(R.string.mine_downloads_hint)
+                MineItem.Account -> accountName ?: resources.getString(item.hintRes)
                 else -> resources.getString(item.hintRes)
             }
             app.freshtuber.ui.components.SectionTile(item.icon, stringResource(item.labelRes), hint, modifier.testTag("mine:${item.name}")) { onPick(item) }

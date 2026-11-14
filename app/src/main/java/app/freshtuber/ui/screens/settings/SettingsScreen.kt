@@ -16,8 +16,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import app.freshtuber.R
 import app.freshtuber.data.settings.AppSettings
+import app.freshtuber.data.settings.InterfaceLanguage
 import app.freshtuber.ui.components.*
-import androidx.compose.material.icons.rounded.AccountCircle
+import androidx.compose.material.icons.rounded.LocalCafe
+import androidx.activity.compose.LocalActivity
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.BackHand
 import androidx.compose.material.icons.rounded.BatterySaver
@@ -25,7 +27,6 @@ import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.PlayCircle
 import androidx.compose.material.icons.rounded.SdStorage
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.saveable.rememberSaveable
 import app.freshtuber.data.settings.AppFeature
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -45,11 +46,9 @@ class MenuSettingsViewModel @Inject constructor(private val settings: AppSetting
 @HiltViewModel
 class SettingsViewModel @Inject constructor(private val settings: AppSettings,
     val local: app.freshtuber.data.subscriptions.LocalSubscriptions,
-    accounts: app.freshtuber.data.account.AccountRepository,
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context) : ViewModel() {
     val preferences = settings.preferences.stateIn(viewModelScope, SharingStarted.Eagerly, app.freshtuber.data.settings.AppPreferences())
     val channels = local.channels.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    val account = accounts.state
     private val _messages = kotlinx.coroutines.flow.MutableSharedFlow<Int>(extraBufferCapacity = 2)
     val messages = _messages.asSharedFlow()
     private fun update(block: suspend () -> Unit) { viewModelScope.launch {
@@ -88,20 +87,20 @@ private enum class SettingsGroup(val icon: androidx.compose.ui.graphics.vector.I
     Notifications(androidx.compose.material.icons.Icons.Rounded.Notifications, R.string.settings_group_notifications),
     Storage(androidx.compose.material.icons.Icons.Rounded.SdStorage, R.string.settings_group_storage),
     Music(androidx.compose.material.icons.Icons.Rounded.Headphones, R.string.settings_group_music),
+    Support(androidx.compose.material.icons.Icons.Rounded.LocalCafe, R.string.support_author),
 }
 
 /**
- * Settings, built from the thumb up: the title, the account and six section tiles sit low on
+ * Settings, built from the thumb up: the title and section tiles sit low on
  * the screen; a tile opens its switches in a sheet at the bottom. Choices are chips in place,
  * never a dialog in the middle of the screen.
  */
 @Composable
-fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltViewModel()) {
+fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val preferences by viewModel.preferences.collectAsStateWithLifecycle()
     val channels by viewModel.channels.collectAsStateWithLifecycle()
     val menu: MenuSettingsViewModel = hiltViewModel()
     val left by menu.leftHanded.collectAsStateWithLifecycle()
-    val account by viewModel.account.collectAsStateWithLifecycle()
     val resources = androidx.compose.ui.platform.LocalResources.current
     val context = androidx.compose.ui.platform.LocalContext.current
     val appMessages = LocalAppMessages.current
@@ -122,7 +121,6 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
     var clearImages by remember { mutableStateOf(false) }
     var remove by remember { mutableStateOf<app.freshtuber.data.subscriptions.LocalChannel?>(null) }
     var about by remember { mutableStateOf(false) }
-    var support by remember { mutableStateOf(false) }
     val russianFirst = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "ru"
     val supportOptions = remember(russianFirst) { app.freshtuber.data.support.DonateLinks.options(russianFirst) }
     val qualityOptions = listOf(144, 240, 360, 480, 720, 1080, 1440, 2160, 4320)
@@ -140,42 +138,29 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
         SettingsGroup.Notifications -> if (notificationsOn) on else off
         SettingsGroup.Storage -> resources.getString(R.string.quality_resolution, preferences.downloadQuality)
         SettingsGroup.Music -> resources.getString(R.string.settings_music_summary)
+        SettingsGroup.Support -> resources.getString(R.string.support_author_hint)
     }
 
     // Pressed to the bottom; on a short screen (landscape) it scrolls instead of clipping.
     BoxWithConstraints(Modifier.fillMaxSize()) {
-    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState(),
-        reverseScrolling = !preferences.enabled(AppFeature.TraditionalScroll)).heightIn(min = maxHeight).padding(bottom = 12.dp),
-        verticalArrangement = Arrangement.Bottom) {
-        ScreenHeader(stringResource(R.string.nav_settings), stringResource(R.string.settings_subtitle))
-        // Above the account row: seen on every visit, but the tiles stay under the thumb.
-        if (supportOptions.isNotEmpty()) {
-            SupportAuthorRow(onClick = { support = true }, modifier = Modifier.padding(horizontal = 12.dp))
-            Spacer(Modifier.height(10.dp))
-        }
-        val signed = account as? app.freshtuber.data.account.AccountState.SignedIn
-        Surface(onClick = onAccount, modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).heightIn(min = 56.dp),
-            shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.7f)) {
-            Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(androidx.compose.material.icons.Icons.Rounded.AccountCircle, null)
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.nav_account), style = MaterialTheme.typography.titleSmall)
-                    Text(signed?.active?.let { it.name ?: it.email } ?: stringResource(R.string.settings_account_signed_out),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
-                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                }
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState(),
+            reverseScrolling = !preferences.enabled(AppFeature.TraditionalScroll)).heightIn(min = maxHeight).padding(bottom = 12.dp),
+            verticalArrangement = Arrangement.Bottom) {
+            ScreenHeader(stringResource(R.string.nav_settings), stringResource(R.string.settings_subtitle))
+            val groups = SettingsGroup.entries.filter { it != SettingsGroup.Support || supportOptions.isNotEmpty() }
+            val tiles = if (left && supportOptions.isNotEmpty()) {
+                groups.dropLast(2) + listOf(SettingsGroup.Support, SettingsGroup.Music)
+            } else groups
+            SectionTiles(tiles, left, Modifier.padding(horizontal = 12.dp)) { group, tileModifier ->
+                SectionTile(group.icon, stringResource(group.title), summary(group), tileModifier) { open = group }
             }
         }
-        Spacer(Modifier.height(10.dp))
-        SectionTiles(SettingsGroup.entries, left, Modifier.padding(horizontal = 12.dp)) { group, tileModifier ->
-            SectionTile(group.icon, stringResource(group.title), summary(group), tileModifier) { open = group }
-        }
-    }
     }
 
     open?.let { group ->
-        SettingsSheet(stringResource(group.title), onDismiss = { open = null }) {
+        if (group == SettingsGroup.Support) {
+            SupportSheet(onDismiss = { open = null }, options = supportOptions)
+        } else SettingsSheet(stringResource(group.title), onDismiss = { open = null }) {
             // Inside a sheet the most used rows come last, nearest the thumb.
             when (group) {
                 SettingsGroup.Look -> {
@@ -196,14 +181,13 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
                         if (preferences.enabled(AppFeature.SerifFont)) 0 else 1, left) { viewModel.feature(AppFeature.SerifFont, it == 0) }
                     SettingsChoice(stringResource(R.string.settings_style), listOf(stringResource(R.string.settings_style_ergonomic), stringResource(R.string.settings_style_classic)),
                         preferences.style.ordinal, left) { viewModel.style(app.freshtuber.data.settings.UiStyle.entries[it]) }
-                    if (android.os.Build.VERSION.SDK_INT >= 33) {
-                        val locales = context.getSystemService(android.app.LocaleManager::class.java)
+                    LocalActivity.current?.let { activity ->
                         val tags = listOf("", "en", "ru")
-                        val selected = tags.indexOf(locales.applicationLocales[0]?.language.orEmpty()).coerceAtLeast(0)
+                        val selected = tags.indexOf(InterfaceLanguage.selectedTag(activity)).coerceAtLeast(0)
                         SettingsChoice(stringResource(R.string.settings_language),
                             listOf(R.string.settings_language_system, R.string.settings_language_en, R.string.settings_language_ru)
                                 .map { stringResource(it) }, selected, left) { index ->
-                            locales.applicationLocales = android.os.LocaleList.forLanguageTags(tags[index])
+                            InterfaceLanguage.select(activity, tags[index])
                         }
                     }
                     SettingsChoice(stringResource(R.string.settings_theme), themeNames, preferences.theme.ordinal, left) { viewModel.theme(app.freshtuber.data.settings.ThemeMode.entries[it]) }
@@ -284,6 +268,7 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
                         Triple(AppFeature.StartWithMusic, R.string.settings_start_music, R.string.settings_start_music_hint),
                     ).forEach { (feature, label, hint) -> SettingsToggle(stringResource(label), stringResource(hint), preferences.enabled(feature)) { viewModel.feature(feature, it) } }
                 }
+                SettingsGroup.Support -> Unit // Uses its own sheet.
                 SettingsGroup.Storage -> {
                     ListItem(colors = ClearListItem, headlineContent = { Text(stringResource(R.string.settings_about)) }, supportingContent = { Text(stringResource(R.string.settings_version, app.freshtuber.BuildConfig.VERSION_NAME)) }, modifier = Modifier.clickable { about = true })
                     ListItem(colors = ClearListItem, headlineContent = { Text(stringResource(R.string.settings_reset_hidden)) }, modifier = Modifier.clickable { clearHidden = true })
@@ -303,7 +288,6 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
     remove?.let { channel -> AlertDialog(onDismissRequest = { remove = null }, title = { Text(stringResource(R.string.local_remove_channel)) }, text = { Text(channel.name) },
         confirmButton = { TextButton(onClick = { viewModel.removeChannel(channel.id); remove = null }) { Text(stringResource(R.string.local_remove_channel)) } },
         dismissButton = { TextButton(onClick = { remove = null }) { Text(stringResource(R.string.action_cancel)) } }) }
-    if (support) SupportSheet(onDismiss = { support = false }, options = supportOptions)
     if (about) AlertDialog(onDismissRequest = { about = false }, title = { Text(stringResource(R.string.app_name)) },
         text = { Text(stringResource(R.string.settings_about_text)) }, confirmButton = { TextButton(onClick = { about = false }) { Text(stringResource(android.R.string.ok)) } })
 }

@@ -8,11 +8,9 @@ import android.content.Intent
 import android.os.Build
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.CurrencyBitcoin
-import androidx.compose.material.icons.rounded.LocalCafe
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material3.*
@@ -34,23 +32,6 @@ import app.freshtuber.data.support.usdtWalletLink
 import app.freshtuber.data.support.shortAddress
 import app.freshtuber.ui.components.BlurSheet
 import app.freshtuber.ui.components.LocalAppMessages
-
-/** The settings row that opens the support sheet, in the same card style as the account row. */
-@Composable
-fun SupportAuthorRow(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Surface(onClick = onClick, modifier = modifier.fillMaxWidth().heightIn(min = 56.dp),
-        shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.7f)) {
-        Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.LocalCafe, null)
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f).padding(vertical = 8.dp)) {
-                Text(stringResource(R.string.support_author), style = MaterialTheme.typography.titleSmall)
-                Text(stringResource(R.string.support_author_hint), style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-            }
-        }
-    }
-}
 
 /** Ways to support the author; a row shows only when its value is set in [DonateLinks]. */
 @Composable

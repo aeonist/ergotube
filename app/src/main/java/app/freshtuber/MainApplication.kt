@@ -5,6 +5,7 @@ import android.content.res.Configuration
 import androidx.core.os.ConfigurationCompat
 import app.freshtuber.core.network.ExtractorDownloader
 import app.freshtuber.core.newpipe.NewPipeInitializer
+import app.freshtuber.data.settings.InterfaceLanguage
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
@@ -27,6 +28,7 @@ class MainApplication : Application(), SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
+        InterfaceLanguage.initialize(this)
         NewPipeInitializer.init(extractorDownloader, currentLocale(resources.configuration))
         app.freshtuber.background.SubscriptionWorker.schedule(this)
         downloads.start()
