@@ -9,7 +9,7 @@
 ## Checked
 
 - [ ] `./gradlew testDebugUnitTest lintDebug assembleDebug` passes
-- [ ] Every new fixed control sits in the bottom 55% of the screen, for both hands
+- [ ] Every new fixed control sits in the bottom half of the screen, for both hands
 - [ ] New UI strings are in `res/values` and `res/values-ru`
 - [ ] Looked at it on a phone or emulator (say which), or explained why not
 

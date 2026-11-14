@@ -57,7 +57,7 @@ Everything that appears or hides comes into focus out of a blur. Nothing slides 
 </tr>
 </table>
 
-<img src="docs/media/reach.jpg" alt="Every fixed control sits in the bottom 55% of the screen" width="100%">
+<img src="docs/media/reach.jpg" alt="Every fixed control sits in the bottom half of the screen" width="100%">
 
 <p align="center"><img src="docs/media/fullscreen.jpg" alt="Fullscreen with the corner fan and the arc timeline" width="90%"><br><sub><b>Fullscreen</b>: the controls gather in a fan in the corner, and the timeline is an arc you sweep with your thumb</sub></p>
 
@@ -69,7 +69,7 @@ Everything that appears or hides comes into focus out of a blur. Nothing slides 
 
 **🖐 Made for one hand**
 - Hand-side dock: You, Subscriptions, Search, Shorts, Home. Mirror it for the left hand.
-- Every fixed control below 55% of the height, checked by `ReachRuleTest` for both hands.
+- Every fixed control in the bottom half of the screen, checked by `ReachRuleTest` for both hands.
 - No on-screen Back buttons: the system gesture and the dock are enough.
 - Search, chips and channel strips at the bottom edge; lists can read bottom-up.
 - Optional classic layout that places buttons the way YouTube does.
@@ -129,9 +129,6 @@ There are excellent open YouTube clients. ErgoTube is not trying to replace them
 3. Android 8.0 (API 26) or newer is required. No Google Play Services needed.
 
 The app tells you itself when a newer release appears here.
-
-> [!IMPORTANT]
-> **Coming from an older ErgoTube?** Since build 35 the app is `app.ergotube` and signed with its own key. Android installs it next to the old `app.freshtuber` instead of over it. Sign in again, then uninstall the old one by hand. Every later build updates in place.
 
 > [!WARNING]
 > **About your account.** Signing in through any unofficial client breaks YouTube's Terms of Service. Google may show captchas, limit access for a while or suspend the account. The risk is small but real, so **use a spare account, not your main one**, or use ErgoTube without signing in.

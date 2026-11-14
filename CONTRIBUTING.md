@@ -4,7 +4,7 @@ Thanks for wanting to help. ErgoTube is a small project with one strong opinion,
 
 ## The one rule
 
-**Everything you tap often sits under the thumb of the hand that holds the phone.** Fixed controls live in the bottom 55% of the screen, on the hand's side, and mirror for the left hand. `ReachRuleTest` walks every screen for both hands and fails if a control drifts above the line. A feature that needs a button at the top of the screen needs a very good reason.
+**Everything you tap often sits under the thumb of the hand that holds the phone.** Fixed controls live in the bottom half of the screen, on the hand's side, and mirror for the left hand. `ReachRuleTest` walks every screen for both hands and fails if a control drifts above the line. A feature that needs a button at the top of the screen needs a very good reason.
 
 The product principles are in [`PRODUCT.md`](PRODUCT.md), and the history of every decision in [`docs/DECISIONS.md`](docs/DECISIONS.md). Read the relevant part before changing behaviour that was decided on purpose.
 
