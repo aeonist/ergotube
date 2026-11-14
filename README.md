@@ -52,6 +52,18 @@ Everything that appears or hides comes into focus out of a blur. Nothing slides 
 
 <img src="docs/media/reach.jpg" alt="Every fixed control sits in the bottom 55% of the screen" width="100%">
 
+<table>
+<tr>
+<td align="center" width="25%"><img src="docs/media/home.jpg" alt="Home feed with the dock and chips at the bottom"><br><sub><b>Home</b>: chips, Music and the dock by your thumb</sub></td>
+<td align="center" width="25%"><img src="docs/media/fan.jpg" alt="The action fan over a blurred feed"><br><sub><b>Fan</b>: hold a card, flick to an action</sub></td>
+<td align="center" width="25%"><img src="docs/media/player.jpg" alt="Portrait player with the remote at the bottom"><br><sub><b>Player</b>: the remote sits under the thumb</sub></td>
+<td align="center" width="25%"><img src="docs/media/search.jpg" alt="Search with the field at the bottom edge"><br><sub><b>Search</b>: the field is at the bottom edge</sub></td>
+</tr>
+<tr>
+<td colspan="4" align="center"><img src="docs/media/fullscreen.jpg" alt="Fullscreen with the corner fan and the arc timeline" width="90%"><br><sub><b>Fullscreen</b>: controls gather in a fan in the corner, the timeline is an arc you sweep with your thumb</sub></td>
+</tr>
+</table>
+
 ## Features
 
 <table>

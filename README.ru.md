@@ -43,6 +43,18 @@
 </tr>
 </table>
 
+<table>
+<tr>
+<td align="center" width="25%"><img src="docs/media/home.jpg" alt="Главная"><br><sub><b>Главная</b>: фильтры, музыка и панель у пальца</sub></td>
+<td align="center" width="25%"><img src="docs/media/fan.jpg" alt="Веер действий"><br><sub><b>Веер</b>: зажми карточку и махни</sub></td>
+<td align="center" width="25%"><img src="docs/media/player.jpg" alt="Плеер"><br><sub><b>Плеер</b>: пульт под большим пальцем</sub></td>
+<td align="center" width="25%"><img src="docs/media/search.jpg" alt="Поиск"><br><sub><b>Поиск</b>: поле у нижнего края</sub></td>
+</tr>
+<tr>
+<td colspan="4" align="center"><img src="docs/media/fullscreen.jpg" alt="Полный экран" width="90%"><br><sub><b>Полный экран</b>: кнопки собираются веером в углу, а перемотка идёт по дуге под пальцем</sub></td>
+</tr>
+</table>
+
 ## Возможности
 
 **🖐 Под одну руку**
