@@ -19,15 +19,15 @@
 
 **English** · [Русский](README.ru.md)
 
-<a href="https://github.com/aeonist/ergotube/releases/latest"><b>⬇ Download the latest APK</b></a> · <a href="#features">Features</a> · <a href="#why-ergotube">Why</a> · <a href="#install">Install</a> · <a href="#build-from-source">Build</a> · <a href="CHANGELOG.md">Changelog</a>
+<a href="https://github.com/aeonist/ergotube/releases/latest"><b>⬇ Download the latest APK</b></a> · <a href="#features">Features</a> · <a href="#how-it-compares">Compare</a> · <a href="#install">Install</a> · <a href="#build-from-source">Build</a> · <a href="#support-the-project">Donate</a> · <a href="CHANGELOG.md">Changelog</a>
 
 </div>
 
 ---
 
-Phones got taller. Thumbs did not. Every YouTube app, official or open source, still puts search, tabs and menus at the top of the screen, where your thumb can't reach without a second hand.
+Most YouTube apps, the official one and the open-source ones, keep search, tabs and menus at the top of the screen. On a tall phone held in one hand, your thumb can't reach them.
 
-**ErgoTube moves all of it down.** Tabs, search, filters, the player remote and every card action sit in the lower half of the screen, on the side of the hand that holds the phone. You can sign in with your Google account without Google Play Services or microG, or use it with no account at all. No ads, background play, downloads, a full music mode, and a soft light that the video throws onto the screen around it.
+ErgoTube puts them at the bottom. Tabs, search, filters, the player controls and the actions for each video sit in the lower half of the screen, on the side of the hand that holds the phone. You can sign in with a Google account without Google Play Services or microG, or skip the account entirely. There are no ads, and you get background play, downloads, a music mode, and a soft glow around the video that takes its colors from the picture.
 
 <img src="docs/media/carousel.jpg" alt="Five ErgoTube screens side by side: sign-in, Home, the action fan, the player and Search" width="100%">
 
@@ -35,23 +35,23 @@ Phones got taller. Thumbs did not. Every YouTube app, official or open source, s
 <tr>
 <td valign="top" width="33%">
 
-### Hold, flick, done
+### The action fan
 
-Press and hold any video card and a fan of actions opens under your finger: **Later, Download, Save, Share, Not interested, Listen**. Flick toward one and let go. No three-dot menu, no reaching.
-
-</td>
-<td valign="top" width="33%">
-
-### A remote, not a toolbar
-
-The portrait player keeps the picture on top and a remote under your thumb: play, ±10 s (taps add up), hold for 2×, and a timeline that gets finer as your finger moves up. Turn the phone and the controls gather into a fan in the corner.
+Press and hold a video card and six actions open around your finger: Later, Download, Save, Share, Not interested and Listen. Slide toward one and let go. You never have to find a small three-dot button.
 
 </td>
 <td valign="top" width="33%">
 
-### Calm by design
+### The player
 
-Everything that appears or hides comes into focus out of a blur. Nothing slides across the screen. The background takes its light from the picture you are watching, and in music mode it breathes with the song.
+In portrait the video stays on top and the controls sit under your thumb: play, ±10 s (taps add up), hold for 2× speed, and a timeline that gets more precise as you move your finger up. Turn the phone sideways and the controls move into a fan in the corner.
+
+</td>
+<td valign="top" width="33%">
+
+### Motion
+
+Menus and panels fade in and out of a blur instead of sliding. The background picks up light from the video you are watching, and in music mode it pulses with the song.
 
 </td>
 </tr>
@@ -59,7 +59,7 @@ Everything that appears or hides comes into focus out of a blur. Nothing slides 
 
 <img src="docs/media/reach.jpg" alt="Every fixed control sits in the bottom half of the screen" width="100%">
 
-<p align="center"><img src="docs/media/fullscreen.jpg" alt="Fullscreen with the corner fan and the arc timeline" width="90%"><br><sub><b>Fullscreen</b>: the controls gather in a fan in the corner, and the timeline is an arc you sweep with your thumb</sub></p>
+<p align="center"><img src="docs/media/fullscreen.jpg" alt="Fullscreen with the corner fan and the arc timeline" width="90%"><br><sub>In fullscreen the controls sit in a fan in the corner, and you seek by sweeping your thumb along the arc.</sub></p>
 
 ## Features
 
@@ -67,16 +67,16 @@ Everything that appears or hides comes into focus out of a blur. Nothing slides 
 <tr>
 <td valign="top" width="50%">
 
-**🖐 Made for one hand**
+**One-handed use**
 - Hand-side dock: You, Subscriptions, Search, Shorts, Home. Mirror it for the left hand.
 - Every fixed control in the bottom half of the screen, checked by `ReachRuleTest` for both hands.
-- No on-screen Back buttons: the system gesture and the dock are enough.
+- No on-screen Back buttons; use the system Back gesture or the dock.
 - Search, chips and channel strips at the bottom edge; lists can read bottom-up.
 - Optional classic layout that places buttons the way YouTube does.
 
-**▶ Watching**
+**Watching**
 - Background playback, picture-in-picture and a floating mini-player you drag to any corner.
-- Precise fullscreen seek: the timeline zooms to a short stretch of the video and glides slower than your finger.
+- Precise seeking in fullscreen: the timeline zooms in on a short part of the video and moves slower than your finger.
 - Quality palettes with separate Wi-Fi and mobile limits, speed, captions, loop, sleep timer.
 - Pinch to zoom in portrait and fullscreen; tabletop and unfolded layouts on foldables.
 - SponsorBlock with segments on the timeline, DeArrow titles and thumbnails, Return YouTube Dislike.
@@ -84,30 +84,30 @@ Everything that appears or hides comes into focus out of a blur. Nothing slides 
 </td>
 <td valign="top" width="50%">
 
-**👤 Your account, or none**
+**With or without an account**
 - Google sign-in in the app: recommendations, subscriptions, history, playlists, comments, likes.
 - No account: local subscriptions with background RSS checks and new-video notifications.
-- Careful mode guards your main account against accidental actions.
+- Careful mode asks before actions on your main account, so a stray tap doesn't like or subscribe.
 
-**🎧 Music mode**
-- «Listen» page with your jams, a player lit by the cover, synced lyrics, a three-layer queue.
+**Music**
+- A Listen page with your mixes, a player that takes its colors from the cover, synced lyrics and a queue.
 - One library for YouTube songs and the music files on your phone.
-- Downloads land as tagged files in `Music/ErgoTube`; the light pulses to the beat without a microphone permission.
+- Downloaded songs are saved with tags in `Music/ErgoTube`. The background pulses to the beat without asking for microphone access.
 
-**⬇ Downloads and offline**
-- Download any video, Short or song into a persistent queue with pause, resume and retry.
-- Artwork, captions and metadata stay on the phone, so downloads play with no network.
+**Downloads**
+- Download any video, Short or song. The queue survives restarts and supports pause, resume and retry.
+- Thumbnails, captions and descriptions are saved too, so downloads play offline.
 
-**🎨 Look**
+**Appearance**
 - Light, dark, system and AMOLED themes, a classic YouTube dark theme, English and Russian.
 
 </td>
 </tr>
 </table>
 
-## Why ErgoTube
+## How it compares
 
-There are excellent open YouTube clients. ErgoTube is not trying to replace them; it answers one question they don't: *what if the whole app were reachable with one thumb?*
+NewPipe and LibreTube are good YouTube clients. ErgoTube differs mainly in layout: everything is reachable with one thumb.
 
 | | **ErgoTube** | NewPipe | LibreTube |
 |---|:---:|:---:|:---:|
@@ -120,22 +120,22 @@ There are excellent open YouTube clients. ErgoTube is not trying to replace them
 | SponsorBlock | ✅ | — | ✅ |
 | Music mode with lyrics | ✅ | — | — |
 
-<sub>Compared against the upstream apps' default builds in November 2026. Forks add their own features.</sub>
+<sub>Based on the standard builds of each app as of November 2026. Forks may add more.</sub>
 
 ## Install
 
-1. Open **[Releases](https://github.com/aeonist/ergotube/releases/latest)** on your phone and download `ErgoTube-buildNN-release.apk`.
+1. Open [Releases](https://github.com/aeonist/ergotube/releases/latest) on your phone and download `ErgoTube-buildNN-release.apk`.
 2. Open the file. Android asks to allow installs from this source; allow it.
 3. Android 8.0 (API 26) or newer is required. No Google Play Services needed.
 
-The app tells you itself when a newer release appears here.
+The app shows a banner when a new release is published here.
 
 > [!WARNING]
-> **About your account.** Signing in through any unofficial client breaks YouTube's Terms of Service. Google may show captchas, limit access for a while or suspend the account. The risk is small but real, so **use a spare account, not your main one**, or use ErgoTube without signing in.
+> Signing in through any unofficial client breaks YouTube's Terms of Service. Google may show captchas, limit access for a while or suspend the account. The risk is small, but use a spare account rather than your main one, or use ErgoTube without signing in.
 
 ## Privacy
 
-ErgoTube has no servers and collects nothing. Account cookies are encrypted with a key in the Android Keystore and are sent only to `youtube.com` and `googlevideo.com`. Cloud backup of app data is turned off. The only other network calls are the optional SponsorBlock, DeArrow and Return YouTube Dislike lookups, song lyrics from LRCLIB, and the update check against this repository's releases.
+ErgoTube has no servers and collects no data. Account cookies are encrypted with a key in the Android Keystore and are sent only to `youtube.com` and `googlevideo.com`. Cloud backup of app data is turned off. The only other network calls are the optional SponsorBlock, DeArrow and Return YouTube Dislike lookups, song lyrics from LRCLIB, and the update check against this repository's releases.
 
 ## Build from source
 
@@ -152,7 +152,7 @@ Debug builds install as `app.ergotube.debug` next to a release build. `./gradlew
 
 InnerTube parsers are tested against saved responses in `app/src/test/resources/innertube`. Automated tests never sign in to a personal account.
 
-## Under the hood
+## Project structure
 
 ```
 app/src/main/java/app/freshtuber/
@@ -167,11 +167,22 @@ app/src/main/java/app/freshtuber/
 
 Kotlin, Jetpack Compose, Material 3, Hilt, Room, DataStore, WorkManager, Media3 (ExoPlayer), OkHttp, Coil and [NewPipeExtractor](https://github.com/TeamNewPipe/NewPipeExtractor) for anonymous streams. The package is still `app.freshtuber`, the project's working name; the installed app id is `app.ergotube`.
 
-Every product and technical decision is written down in [`docs/DECISIONS.md`](docs/DECISIONS.md). Start at [`docs/README.md`](docs/README.md) for a map of the docs, and at [`CONTRIBUTING.md`](CONTRIBUTING.md) if you want to help.
+Product and technical decisions are recorded in [`docs/DECISIONS.md`](docs/DECISIONS.md). Start at [`docs/README.md`](docs/README.md) for a map of the docs, and at [`CONTRIBUTING.md`](CONTRIBUTING.md) if you want to help.
 
-## Support
+## Support the project
 
-ErgoTube is free and will stay free. If it saves your thumb, **Settings → Support the author** lets you say thanks by card, PayPal or USDT.
+ErgoTube is free. If you'd like to support it:
+
+<p>
+<a href="https://app.lava.top/2097792502?tabId=donate"><img alt="Donate by card or PayPal" src="https://img.shields.io/badge/Donate-card%20or%20PayPal-F3C39E?style=for-the-badge&labelColor=2a1a1d"></a>
+</p>
+
+USDT (send only USDT, and only on the network named):
+
+- TON: `UQCE_gE_8LGNM9_8WztoWQcTSqRh3E2uY9CrTstU5IOIv_R2`
+- TRON (TRC20): `TUzoKgYS74SmxA32a9hqkiPrTyfFKtRaxC`
+
+The same options are in the app under Settings → Support the author.
 
 ## Thanks
 
@@ -183,4 +194,4 @@ Formats and ideas were checked against [NewPipe](https://github.com/TeamNewPipe/
 
 Copyright © 2026 aeonist.
 
-<sub>ErgoTube is an independent project. It is not affiliated with, endorsed by or connected to YouTube or Google. YouTube is a trademark of Google LLC.</sub>
+<sub>ErgoTube is an independent project and is not affiliated with YouTube or Google. YouTube is a trademark of Google LLC.</sub>

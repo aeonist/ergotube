@@ -1,18 +1,18 @@
 # Contributing to ErgoTube
 
-Thanks for wanting to help. ErgoTube is a small project with one strong opinion, so a few minutes with this page saves everyone time.
+Thanks for helping with ErgoTube. Please read this page before opening an issue or a pull request.
 
-## The one rule
+## The layout rule
 
-**Everything you tap often sits under the thumb of the hand that holds the phone.** Fixed controls live in the bottom half of the screen, on the hand's side, and mirror for the left hand. `ReachRuleTest` walks every screen for both hands and fails if a control drifts above the line. A feature that needs a button at the top of the screen needs a very good reason.
+Everything you tap often sits under the thumb of the hand that holds the phone. Fixed controls live in the bottom half of the screen, on the hand's side, and mirror for the left hand. `ReachRuleTest` walks every screen for both hands and fails if a control drifts above the line. Features that need a button at the top of the screen are unlikely to be accepted.
 
 The product principles are in [`PRODUCT.md`](PRODUCT.md), and the history of every decision in [`docs/DECISIONS.md`](docs/DECISIONS.md). Read the relevant part before changing behaviour that was decided on purpose.
 
 ## Reporting bugs
 
-Use the [bug report form](https://github.com/aeonist/ergotube/issues/new/choose). Include the build, the phone and Android version, and whether you were signed in. A screen recording is worth a thousand words.
+Use the [bug report form](https://github.com/aeonist/ergotube/issues/new/choose). Include the build, the phone and Android version, and whether you were signed in. A screen recording helps a lot.
 
-**Never paste cookies, tokens, `adb` dumps of app storage or anything from your Google account.** Security problems go through [private advisories](https://github.com/aeonist/ergotube/security/advisories/new), see [`SECURITY.md`](SECURITY.md).
+Never paste cookies, tokens, `adb` dumps of app storage or anything from your Google account. Security problems go through [private advisories](https://github.com/aeonist/ergotube/security/advisories/new), see [`SECURITY.md`](SECURITY.md).
 
 ## Setting up
 
