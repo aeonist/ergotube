@@ -1,0 +1,22 @@
+name: Idea
+description: Suggest something that would make ErgoTube better
+labels: [idea]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ErgoTube is built around one rule: everything you tap often sits under the thumb of the hand holding the phone. Ideas that keep that rule have the best chance. Russian is welcome.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What gets in your way
+      description: The moment in daily use where something is missing or awkward.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you would like instead
+      description: Where on the screen it should live and how it should feel under one thumb.
+    validations:
+      required: true

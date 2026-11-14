@@ -1,0 +1,50 @@
+name: Bug report
+description: Something in ErgoTube does not work as it should
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. Russian is welcome too, пиши по-русски, если удобнее.
+        Never paste cookies, tokens or anything from your Google account here.
+  - type: input
+    id: build
+    attributes:
+      label: Build
+      description: The line under «About ErgoTube» in Settings, for example «Version 1.2 · f1dfbf2», or the APK file name.
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Phone and Android version
+      placeholder: Pixel 8, Android 15
+    validations:
+      required: true
+  - type: dropdown
+    id: account
+    attributes:
+      label: Signed in?
+      options:
+        - Signed in with a Google account
+        - Without an account
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you saw instead. A screenshot or screen recording helps a lot.
+    validations:
+      required: true
+  - type: textarea
+    id: video
+    attributes:
+      label: Video link
+      description: If it is about one video, Short or song, paste its YouTube link.
+  - type: textarea
+    id: log
+    attributes:
+      label: Crash log
+      description: If the app crashed, the log from `adb logcat` or a crash reporter.
+      render: text

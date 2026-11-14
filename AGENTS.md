@@ -22,7 +22,7 @@ Android SDK: `/opt/homebrew/share/android-commandlinetools` (see `local.properti
 ```
 The emulator's hardware video decoders always fail; the player skips them and uses software ones (expected).
 
-After every stage: build must pass, all unit tests green, check on the emulator, copy the APK to `apk/ErgoTube-stageN-debug.apk` for the user, update the status in `README.md` (English) and `README.ru.md` (Russian) and `docs/DECISIONS.md`.
+After every stage: build must pass, all unit tests green, check on the emulator, copy the APK to `apk/ErgoTube-stageN-debug.apk` for the user, add the build to `CHANGELOG.md` and `docs/DECISIONS.md`. `README.md` (English) and `README.ru.md` (Russian) are the project's showcase, not a build log: touch them only when a feature list, install step or image needs to change. README images live in `docs/media/` (see `docs/README.md`).
 
 ## Rules
 - Code and comments in English; UI strings in `res/values` and `res/values-ru`.

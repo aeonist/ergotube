@@ -1,134 +1,180 @@
-# ErgoTube
+<div align="center">
 
-**Build 35.** Everything from build 34, now installed as `app.ergotube` and signed with ErgoTube's own release key. Android treats it as a new app: it installs next to the old ErgoTube (`app.freshtuber`) instead of over it, so sign in again and uninstall the old one by hand. Later builds update over this one. [Release APK](apk/ErgoTube-build35-release.apk)
+<img src="docs/media/hero.jpg" alt="ErgoTube: YouTube that lives under your thumb" width="100%">
 
-**Build 34.** Everything from build 33, plus «Support the author» in Settings: a card above the account opens a sheet with four ways to donate: from Russia (Mir card, SBP, via CloudTips), from abroad (card, PayPal, via lava.top), and USDT on TON or TRC20 (tap to copy the address; on TON a wallet app opens). [Release APK](apk/ErgoTube-build34-donate-release.apk)
+<h3>An Android YouTube client built around one thumb.</h3>
 
-**Build 33.** Everything from build 32, and in the music player the light around the cover now breathes with the song: brighter and wider on loud passages, a short flash on a bass kick. It reads the sound inside the app's own player, so no microphone permission is asked. One switch, «Background to the music», in Settings → Energy. [Release APK](apk/ErgoTube-build33-release.apk)
+<p>
+<a href="https://github.com/aeonist/ergotube/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/aeonist/ergotube?include_prereleases&style=for-the-badge&label=download&color=F3C39E&labelColor=2a1a1d"></a>
+<a href="LICENSE"><img alt="GPL-3.0" src="https://img.shields.io/badge/license-GPL--3.0-F3C39E?style=for-the-badge&labelColor=2a1a1d"></a>
+<img alt="Android 8.0+" src="https://img.shields.io/badge/Android-8.0%2B-F3C39E?style=for-the-badge&logo=android&logoColor=white&labelColor=2a1a1d">
+</p>
+<p>
+<img alt="Kotlin" src="https://img.shields.io/badge/Kotlin-100%25-7F52FF?style=flat-square&logo=kotlin&logoColor=white">
+<img alt="Jetpack Compose" src="https://img.shields.io/badge/Jetpack%20Compose-Material%203-4285F4?style=flat-square&logo=jetpackcompose&logoColor=white">
+<img alt="Media3" src="https://img.shields.io/badge/player-Media3%20ExoPlayer-34A853?style=flat-square">
+<img alt="Tests" src="https://img.shields.io/badge/tests-230%2B-2ea44f?style=flat-square">
+<img alt="No Google Play Services" src="https://img.shields.io/badge/Google%20Play%20Services-not%20needed-555?style=flat-square">
+</p>
 
-**Build 32.** Full screen: no timeline while the video just plays, and seeking moves the handle slower than the finger from where it is (a quick sweep still crosses the whole video). Lists read top to bottom by default (one switch in Hand & look, the music queue included). The floating player has play/pause in the top left corner. The music player can delete a song from the phone, downloads and phone files alike. New setting «YouTube-style controls» for the portrait player, and a switch that hides the «Music» tab on Home. The update banner now notices a new GitHub release by the build number in its tag, title or APK name, on every start. Search chips fold away softly. [Debug APK](apk/ErgoTube-build32-debug.apk) · [Release APK](apk/ErgoTube-build32-release.apk)
+**English** · [Русский](README.ru.md)
 
-**Build 27 — polish.** Two-row portrait remote that fits folded phones, no clock over the picture, captions in More, Back always leaves the player, quiet reconnect after network drops, faster Shorts start, a soft video light without stripes, a springier card fan. Music: «Мой джем» first and jams labelled by where they come from, downloads saved as tagged files in Music/ErgoTube, «Show songs from Music», «Remove duplicates», «Open music on launch», and an update banner for new GitHub releases. [Debug APK](apk/ErgoTube-build27-debug.apk) · [Release APK](apk/ErgoTube-build27-release.apk)
+<a href="https://github.com/aeonist/ergotube/releases/latest"><b>⬇ Download the latest APK</b></a> · <a href="#features">Features</a> · <a href="#why-ergotube">Why</a> · <a href="#install">Install</a> · <a href="#build-from-source">Build</a> · <a href="CHANGELOG.md">Changelog</a>
 
-**Build 26.** Fullscreen player: the fan's buttons no longer overlap (Next moved to the outer ring), and the elapsed time hides together with the other controls. [Debug APK](apk/ErgoTube-build26-debug.apk) · [Release APK](apk/ErgoTube-build26-release.apk)
+</div>
 
-**Build 25 — ErgoTube Music v2.** A new music mode in the same liquid light: «Слушать», a player lit by the cover, lyrics, a three-layer queue, one library for phone files and YouTube songs, and the song line inside the dock. [Debug APK](apk/ErgoTube-music2-debug.apk) · [Release APK](apk/ErgoTube-music2-release.apk)
+---
 
-**Build 24.** Shorts skip the signed-out Home request and look up the first stream while loading the queue. Playback retry is centered on the screen. Tapping Home jumps to the top.
+Phones got taller. Thumbs did not. Every YouTube app, official or open source, still puts search, tabs and menus at the top of the screen, where your thumb can't reach without a second hand.
 
-On Android 13 and later, choose English, Russian or the system language under Settings → Hand and look → Language.
+**ErgoTube moves all of it down.** Tabs, search, filters, the player remote and every card action sit in the lower half of the screen, on the side of the hand that holds the phone. You can sign in with your Google account without Google Play Services or microG, or use it with no account at all. No ads, background play, downloads, a full music mode, and a soft light that the video throws onto the screen around it.
 
-The 9 November test build adds pull-to-refresh, bottom-up lists with a traditional option under Hand & look, and a mirrored dock. The player adds audio-only background playback, finer timeline scrubbing and Previous in Android media controls. The channel name now has its own Subscribe button. [Test APK](apk/ErgoTube-edits-queue-debug.apk)
+<table>
+<tr>
+<td width="38%" align="center"><img src="docs/media/tour.gif" alt="A tour through ErgoTube's screens" width="320"></td>
+<td>
 
-Cloud-sofa branding: the selected cloud-sofa symbol replaces the classic YouTube badge and the welcome mark, without a wordmark in the header. Launcher/themed and notification icons share its vector silhouette. 136 JVM tests pass; Debug and minified Release build. APK: `apk/ErgoTube-cloud-sofa-release.apk`.
+### Hold, flick, done
 
-English · [Русский](README.ru.md)
+Press and hold any video card and a fan of actions opens under your finger: **Watch later, Download, Save, Share, Not interested, Channel**. Flick toward one and let go. Release in the centre to cancel. No three-dot menu, no reaching.
 
-ErgoTube is an Android YouTube client built for one-handed use. Everything you tap often sits in the lower part of the screen, next to your thumb, on the side of the hand you hold the phone with. You can sign in with your Google account without Google Play Services or microG, or use the app with no account at all. There are no ads, and playback continues in the background.
+### A remote, not a toolbar
 
-PiP hotfix: the system cross clears playback even when Android reports dismissal after `onStop`; headphones retain background audio. Validation is limited to the focused PiP action scenario and APK builds, as requested.
+The portrait player keeps the picture on top and a remote under your thumb: play, ±10 s (taps add up), hold for 2×, and a timeline that gets finer as your finger moves up. Turn the phone and the controls gather into a fan in the bottom corner.
 
-Earlier trial **1.2 "liquid 13"** (versionCode 16), branch `liquid-light-ui`.
-- Liquid 14: one network request before playback (cached visitor id), lookup starts on card press, clock bottom-left on the video and always on the remote. APK `apk/ErgoTube-liquid-14-release.apk`.
-- Liquid 15: restyled quality palette, foldable watch page without side bars, whole Shorts on wide screens. APK `apk/ErgoTube-liquid-15-release.apk`.
+### Calm by design
 
-> ErgoTube is an independent project. It is not affiliated with, endorsed by or connected to YouTube or Google. YouTube is a trademark of Google LLC.
+Everything that appears or hides comes into focus out of a blur. Nothing slides across the screen. The background takes its light from the picture you are watching, and in music mode it breathes with the song.
+
+</td>
+</tr>
+</table>
+
+<img src="docs/media/reach.jpg" alt="Every fixed control sits in the bottom 55% of the screen" width="100%">
 
 ## Features
 
-**Made for one hand**
-- The right-hand dock starts with Mine, Subscriptions, Search, Shorts and Home. Mine contains Watch later, Downloads, History, Playlists and Settings. The dock fills the width of an unfolded screen. Its width is adjustable on phones. Swapping Mine and Home mirrors the whole row.
-- Every fixed control sits below 55% of the screen height. A test (`ReachRuleTest`) checks this for both hands.
-- No on-screen Back buttons. The system Back gesture and the dock are enough.
-- Hold a video card and flick toward Watch later, Download, Save, Share, Not interested (with undo) or Channel. Releasing in the centre cancels.
-- An optional classic layout that places buttons the way the official YouTube app does. Colours, effects and fonts stay configurable in both layouts.
+<table>
+<tr>
+<td valign="top" width="50%">
 
-**Watching**
-- The portrait player keeps the video at the top and a control pad under your thumb: play/pause, ±10 seconds (taps add up), hold for 2×, and seeking with a frame preview that gets more precise as you move your finger up.
-- Fullscreen opens when you turn the phone, swipe up on the pad or tap a button. The controls gather in a fan in the bottom corner.
-- Background playback, picture-in-picture, and a floating mini-player you can drag to any corner or drop on a cross to close.
-- Compact quality palettes anchored to HQ in portrait and fullscreen, with separate Wi-Fi and mobile quality limits and Auto. Speed, subtitles, loop and a sleep timer.
-- Pinch to zoom and pan in portrait and fullscreen without changing playback. Single picture taps never pause; mini-player taps can open the portrait page or show controls.
-- Time stays on the picture; while seeking it also appears on the remote. Returning from the Home mini-player retains the current buffer and position.
-- A headphones action in system PiP keeps background audio; Close stops playback. Descriptions and comments support text selection, real links and timestamp seeking, including saved descriptions.
-- Hollow like icons until a like is actually set, and a transparent navigation bar in the classic layout.
-- Fast start: one short request to YouTube before playback, and the next Short starts loading as soon as you lift your finger.
-- SponsorBlock with segments highlighted on the timeline, DeArrow titles and thumbnails, and Return YouTube Dislike. Each can be turned off.
+**🖐 Made for one hand**
+- Hand-side dock: You, Subscriptions, Search, Shorts, Home. Mirror it for the left hand.
+- Every fixed control below 55% of the height, checked by `ReachRuleTest` for both hands.
+- No on-screen Back buttons: the system gesture and the dock are enough.
+- Search, chips and channel strips at the bottom edge; lists can read bottom-up.
+- Optional classic layout that places buttons the way YouTube does.
 
-**Your account, or none**
-- With an account: recommendations, subscriptions, channels, history, playlists, comments, likes and saving to playlists.
-- Without an account: local subscriptions on the device, RSS checks in the background and notifications about new videos from channels you choose.
-- Careful mode protects your main account from accidental actions.
+**▶ Watching**
+- Background playback, picture-in-picture and a floating mini-player you drag to any corner.
+- Precise fullscreen seek: the timeline zooms to a short stretch of the video and glides slower than your finger.
+- Quality palettes with separate Wi-Fi and mobile limits, speed, captions, loop, sleep timer.
+- Pinch to zoom in portrait and fullscreen; tabletop and unfolded layouts on foldables.
+- SponsorBlock with segments on the timeline, DeArrow titles and thumbnails, Return YouTube Dislike.
 
-**Downloads and offline**
-- Download any video or Short. A persistent queue with progress, pause, resume, retry and delete.
-- Artwork, captions and metadata are stored on the device, so downloaded videos play with no network.
+</td>
+<td valign="top" width="50%">
 
-**Look**
-- Light, dark, system and AMOLED themes, plus a classic YouTube dark theme.
-- Foldables: a 2–3 column feed when unfolded, a two-column video page, and video on top with controls below in tabletop posture.
+**👤 Your account, or none**
+- Google sign-in in the app: recommendations, subscriptions, history, playlists, comments, likes.
+- No account: local subscriptions with background RSS checks and new-video notifications.
+- Careful mode guards your main account against accidental actions.
 
-## Account warning
+**🎧 Music mode**
+- «Listen» page with your jams, a player lit by the cover, synced lyrics, a three-layer queue.
+- One library for YouTube songs and the music files on your phone.
+- Downloads land as tagged files in `Music/ErgoTube`; the light pulses to the beat without a microphone permission.
 
-Signing in through an unofficial client **breaks YouTube's Terms of Service**. Google may show captchas, limit access for a while or suspend the account. The risk is small, but it is real. **Use a spare account, not your main one.** You can also use ErgoTube without signing in.
+**⬇ Downloads and offline**
+- Download any video, Short or song into a persistent queue with pause, resume and retry.
+- Artwork, captions and metadata stay on the phone, so downloads play with no network.
 
-ErgoTube collects no data. Account cookies are stored on the phone encrypted with a key in the Android Keystore and are sent only to youtube.com and googlevideo.com. Cloud backup of app data is turned off.
+**🎨 Look**
+- Light, dark, system and AMOLED themes, a classic YouTube dark theme, English and Russian.
+
+</td>
+</tr>
+</table>
+
+## Why ErgoTube
+
+There are excellent open YouTube clients. ErgoTube is not trying to replace them; it answers one question they don't: *what if the whole app were reachable with one thumb?*
+
+| | **ErgoTube** | NewPipe | LibreTube |
+|---|:---:|:---:|:---:|
+| Every control in the thumb zone | ✅ | — | — |
+| Hold-and-flick card actions | ✅ | — | — |
+| Sign in with a Google account, no microG | ✅ | — | — |
+| Use without any account | ✅ | ✅ | ✅ |
+| Background play and picture-in-picture | ✅ | ✅ | ✅ |
+| Downloads and offline playback | ✅ | ✅ | ✅ |
+| SponsorBlock | ✅ | — | ✅ |
+| Music mode with lyrics | ✅ | — | — |
+
+<sub>Compared against the upstream apps' default builds in November 2026. Forks add their own features.</sub>
 
 ## Install
 
-1. Download the APK from the [Releases](../../releases) page of this repository.
-2. Open the file on your phone. Android will ask you to allow installs from this source; allow it.
-3. Android 8.0 (API 26) or newer is required.
+1. Open **[Releases](https://github.com/aeonist/ergotube/releases/latest)** on your phone and download `ErgoTube-buildNN-release.apk`.
+2. Open the file. Android asks to allow installs from this source; allow it.
+3. Android 8.0 (API 26) or newer is required. No Google Play Services needed.
 
-Debug builds install as `app.freshtuber.debug` and can live next to a release build.
+The app tells you itself when a newer release appears here.
+
+> [!IMPORTANT]
+> **Coming from an older ErgoTube?** Since build 35 the app is `app.ergotube` and signed with its own key. Android installs it next to the old `app.freshtuber` instead of over it. Sign in again, then uninstall the old one by hand. Every later build updates in place.
+
+> [!WARNING]
+> **About your account.** Signing in through any unofficial client breaks YouTube's Terms of Service. Google may show captchas, limit access for a while or suspend the account. The risk is small but real, so **use a spare account, not your main one**, or use ErgoTube without signing in.
+
+## Privacy
+
+ErgoTube has no servers and collects nothing. Account cookies are encrypted with a key in the Android Keystore and are sent only to `youtube.com` and `googlevideo.com`. Cloud backup of app data is turned off. The only other network calls are the optional SponsorBlock, DeArrow and Return YouTube Dislike lookups, song lyrics from LRCLIB, and the update check against this repository's releases.
 
 ## Build from source
 
-You need:
-
-- JDK 21 (for example `brew install openjdk@21` on macOS);
-- Android SDK with platform `android-37.0` and build-tools 37 (through Android Studio or `sdkmanager`).
-
-Point Gradle at the SDK with `sdk.dir=...` in `local.properties` or the `ANDROID_HOME` variable. Then:
+You need JDK 21 and the Android SDK with platform `android-37.0` and build-tools 37 (through Android Studio or `sdkmanager`). Point Gradle at the SDK with `sdk.dir=…` in `local.properties` or `ANDROID_HOME`.
 
 ```bash
-export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
-./gradlew assembleDebug
+./gradlew assembleDebug           # app/build/outputs/apk/debug/app-debug.apk
+./gradlew testDebugUnitTest       # 200+ JVM tests
+./gradlew lintDebug
+./gradlew connectedDebugAndroidTest   # instrumentation tests, needs an emulator or a phone
 ```
 
-The APK appears at `app/build/outputs/apk/debug/app-debug.apk`. Install it with `adb install -r app/build/outputs/apk/debug/app-debug.apk` or copy it to the phone.
+Debug builds install as `app.ergotube.debug` next to a release build. `./gradlew assembleRelease` makes a minified release; without your own `keystore.properties` it is signed with the debug key, which is fine for personal use.
 
-A minified release build: `./gradlew assembleRelease`. Without your own signing config it is signed with the debug key, which is fine for personal use but not for distribution.
+InnerTube parsers are tested against saved responses in `app/src/test/resources/innertube`. Automated tests never sign in to a personal account.
 
-### Tests
+## Under the hood
 
-```bash
-./gradlew testDebugUnitTest lintDebug
-./gradlew connectedDebugAndroidTest   # needs an emulator or a device
+```
+app/src/main/java/app/freshtuber/
+├── innertube/    own InnerTube client: signed requests, cookie rotation, parsers
+├── player/       Media3 playback service, stream resolver, PiP, music player, audio pulse
+├── data/         account, feeds, downloads, music library, subscriptions, settings, updates
+├── background/   WorkManager jobs: downloads, RSS checks, notifications
+├── core/         Hilt modules, networking, NewPipe bridge, Keystore encryption
+├── domain/       plain models shared by every layer
+└── ui/           Compose screens, liquid-light shaders, blur motion, dock and fan
 ```
 
-InnerTube parsers are tested against saved responses in `app/src/test/resources/innertube`. Playback, picture-in-picture and download instrumentation scenarios use real public YouTube videos and need a network. Account checks use structural fixtures; automated tests never sign in to a personal account.
+Kotlin, Jetpack Compose, Material 3, Hilt, Room, DataStore, WorkManager, Media3 (ExoPlayer), OkHttp, Coil and [NewPipeExtractor](https://github.com/TeamNewPipe/NewPipeExtractor) for anonymous streams. The package is still `app.freshtuber`, the project's working name; the installed app id is `app.ergotube`.
 
-## Project layout
+Every product and technical decision is written down in [`docs/DECISIONS.md`](docs/DECISIONS.md). Start at [`docs/README.md`](docs/README.md) for a map of the docs, and at [`CONTRIBUTING.md`](CONTRIBUTING.md) if you want to help.
 
-- `app/` — the single Android module, package `app.freshtuber` (the project's working name before ErgoTube).
-- `app/src/main/java/app/freshtuber/innertube/` — ErgoTube's own InnerTube layer; parsers live in `innertube/parse`.
-- `docs/DECISIONS.md` — every product and technical decision and the stage plan.
-- `docs/BACKLOG.md` — open issues.
-- `PRODUCT.md` — who the app is for and its principles.
+## Support
 
-## Built with
+ErgoTube is free and will stay free. If it saves your thumb, **Settings → Support the author** has ways to say thanks from Russia and from abroad.
 
-- Kotlin, Jetpack Compose and Material 3
-- Media3 (ExoPlayer), Room, DataStore, WorkManager, Hilt, OkHttp, Coil
-- [NewPipeExtractor](https://github.com/TeamNewPipe/NewPipeExtractor) for streams and anonymous data
+## Thanks
 
-Data formats were checked against open projects: [NewPipe](https://github.com/TeamNewPipe/NewPipe), [LibreTube](https://github.com/libre-tube/LibreTube), [Metrolist](https://github.com/mostafaalagamy/Metrolist), [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [YouTube.js](https://github.com/LuanRT/YouTube.js).
+Formats and ideas were checked against [NewPipe](https://github.com/TeamNewPipe/NewPipe), [LibreTube](https://github.com/libre-tube/LibreTube), [Metrolist](https://github.com/mostafaalagamy/Metrolist), [yt-dlp](https://github.com/yt-dlp/yt-dlp) and [YouTube.js](https://github.com/LuanRT/YouTube.js). Segment data comes from [SponsorBlock](https://sponsor.ajay.app), titles from [DeArrow](https://dearrow.ajay.app), dislikes from [Return YouTube Dislike](https://returnyoutubedislike.com), lyrics from [LRCLIB](https://lrclib.net).
 
 ## License
 
-[GNU GPL v3.0](LICENSE) with an author attribution term under section 7(b), described in [NOTICE](NOTICE).
+[GNU GPL v3.0](LICENSE) with an author attribution term under section 7(b), described in [NOTICE](NOTICE). You may use, change and share the code, but every copy and every modified version must keep the credit **"Based on ErgoTube by aeonist (https://github.com/aeonist/ergotube)"** in its source, its README and the About section of the app, and modified versions must say they were changed.
 
-You may use, change and share the code, but every copy and every modified version must keep the credit **"Based on ErgoTube by aeonist (https://github.com/aeonist/ergotube)"** in its source, its README and the About section of the app. Modified versions must say they were changed. ErgoTube uses NewPipeExtractor, which is GPLv3, so ErgoTube stays GPLv3.
+Copyright © 2026 aeonist.
 
-Copyright (C) 2026 aeonist.
+<sub>ErgoTube is an independent project. It is not affiliated with, endorsed by or connected to YouTube or Google. YouTube is a trademark of Google LLC.</sub>
