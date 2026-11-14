@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        ErgoTube is built around one rule: everything you tap often sits under the thumb of the hand holding the phone. Ideas that keep that rule have the best chance. Russian is welcome.
+        ErgoTube is built around one rule: everything you tap often sits under the thumb of the hand holding the phone. Ideas that keep that rule have the best chance.
   - type: textarea
     id: problem
     attributes:

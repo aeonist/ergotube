@@ -8,7 +8,7 @@ object DonateLinks {
     /** CloudTips page: payments from Russia (Mir cards, SBP). */
     val CLOUDTIPS_URL: String = "https://pay.cloudtips.ru/p/2a226afa"
 
-    /** lava.top page: foreign cards and PayPal. */
+    /** lava.top page: cards and PayPal from anywhere outside Russia. */
     val LAVA_URL: String = "https://app.lava.top/2097792502?tabId=donate"
 
     /** USDT wallets, shown in this order; a blank address hides its row. */
@@ -17,7 +17,8 @@ object DonateLinks {
         UsdtWallet(UsdtNetwork.TRC20, "TUzoKgYS74SmxA32a9hqkiPrTyfFKtRaxC"),
     )
 
-    val options: List<DonateOption> get() = availableOptions(CLOUDTIPS_URL, LAVA_URL, USDT_WALLETS)
+    /** The options to show; [russianFirst] puts the Russian payment page on top for Russian speakers. */
+    fun options(russianFirst: Boolean): List<DonateOption> = availableOptions(CLOUDTIPS_URL, LAVA_URL, USDT_WALLETS, russianFirst)
 }
 
 /** Networks USDT can be received on. USDT sent on another network than the address's is lost. */
@@ -31,11 +32,16 @@ sealed interface DonateOption {
     data class Usdt(val wallet: UsdtWallet) : DonateOption
 }
 
-/** The options whose value is set, in the order they are shown. */
-fun availableOptions(cloudTipsUrl: String, lavaUrl: String, wallets: List<UsdtWallet>): List<DonateOption> = buildList {
-    if (cloudTipsUrl.isNotBlank()) add(DonateOption.Russia)
+/**
+ * The options whose value is set, in the order they are shown. Card and PayPal lead and the
+ * Russian page comes last, unless [russianFirst] (a Russian interface) puts it on top.
+ */
+fun availableOptions(cloudTipsUrl: String, lavaUrl: String, wallets: List<UsdtWallet>, russianFirst: Boolean = false): List<DonateOption> = buildList {
+    val russia = cloudTipsUrl.isNotBlank()
+    if (russia && russianFirst) add(DonateOption.Russia)
     if (lavaUrl.isNotBlank()) add(DonateOption.Abroad)
     wallets.filter { it.address.isNotBlank() }.forEach { add(DonateOption.Usdt(it.copy(address = it.address.trim()))) }
+    if (russia && !russianFirst) add(DonateOption.Russia)
 }
 
 /** A long wallet address cut to its start and end, e.g. `UQAb12…xY9z`. */

@@ -12,17 +12,24 @@ class DonateLinksTest {
     @Test fun `blank values hide their options`() {
         assertTrue(availableOptions("", " ", listOf(UsdtWallet(UsdtNetwork.TON, " "))).isEmpty())
         assertEquals(listOf(DonateOption.Abroad), availableOptions("", "https://lava.top/x", emptyList()))
-        assertEquals(listOf(DonateOption.Russia, DonateOption.Usdt(tron)),
+        assertEquals(listOf(DonateOption.Usdt(tron), DonateOption.Russia),
             availableOptions("https://pay.cloudtips.ru/p/1", "", listOf(UsdtWallet(UsdtNetwork.TON, ""), tron)))
-        assertEquals(listOf(DonateOption.Russia, DonateOption.Abroad, DonateOption.Usdt(ton), DonateOption.Usdt(tron)),
+        assertEquals(listOf(DonateOption.Abroad, DonateOption.Usdt(ton), DonateOption.Usdt(tron), DonateOption.Russia),
             availableOptions("a", "b", listOf(ton, tron)))
     }
 
-    @Test fun `shipped config offers every way - Russia, abroad, then TON and TRC20`() {
-        assertEquals(listOf(DonateOption.Russia, DonateOption.Abroad), DonateLinks.options.take(2))
+    @Test fun `a Russian interface puts the Russian page first`() {
+        assertEquals(listOf(DonateOption.Russia, DonateOption.Abroad, DonateOption.Usdt(ton), DonateOption.Usdt(tron)),
+            availableOptions("a", "b", listOf(ton, tron), russianFirst = true))
+    }
+
+    @Test fun `shipped config offers every way - card and PayPal first, Russia last`() {
+        assertEquals(DonateOption.Abroad, DonateLinks.options(russianFirst = false).first())
+        assertEquals(DonateOption.Russia, DonateLinks.options(russianFirst = false).last())
+        assertEquals(listOf(DonateOption.Russia, DonateOption.Abroad), DonateLinks.options(russianFirst = true).take(2))
         assertTrue(DonateLinks.CLOUDTIPS_URL.startsWith("https://pay.cloudtips.ru/"))
         assertTrue(DonateLinks.LAVA_URL.startsWith("https://"))
-        val wallets = DonateLinks.options.filterIsInstance<DonateOption.Usdt>().map { it.wallet }
+        val wallets = DonateLinks.options(russianFirst = false).filterIsInstance<DonateOption.Usdt>().map { it.wallet }
         assertEquals(listOf(UsdtNetwork.TON, UsdtNetwork.TRC20), wallets.map { it.network })
         // TON user-friendly address: 48 base64url characters; TRON: 34 base58 characters starting with T.
         assertTrue(wallets[0].address.matches(Regex("[UE]Q[A-Za-z0-9_-]{46}")))

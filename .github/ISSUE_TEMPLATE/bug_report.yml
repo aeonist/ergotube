@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for taking the time. Russian is welcome too, пиши по-русски, если удобнее.
+        Thanks for taking the time.
         Never paste cookies, tokens or anything from your Google account here.
   - type: input
     id: build

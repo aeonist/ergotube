@@ -123,7 +123,8 @@ fun SettingsScreen(onAccount: () -> Unit, viewModel: SettingsViewModel = hiltVie
     var remove by remember { mutableStateOf<app.freshtuber.data.subscriptions.LocalChannel?>(null) }
     var about by remember { mutableStateOf(false) }
     var support by remember { mutableStateOf(false) }
-    val supportOptions = remember { app.freshtuber.data.support.DonateLinks.options }
+    val russianFirst = androidx.compose.ui.platform.LocalConfiguration.current.locales[0].language == "ru"
+    val supportOptions = remember(russianFirst) { app.freshtuber.data.support.DonateLinks.options(russianFirst) }
     val qualityOptions = listOf(144, 240, 360, 480, 720, 1080, 1440, 2160, 4320)
     val notificationsOn = preferences.enabled(AppFeature.Notifications) && systemNotifications
     val themeNames = listOf(R.string.theme_system, R.string.theme_light, R.string.theme_dark, R.string.theme_amoled, R.string.theme_classic).map { stringResource(it) }

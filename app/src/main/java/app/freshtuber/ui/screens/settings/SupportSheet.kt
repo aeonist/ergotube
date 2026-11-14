@@ -54,7 +54,7 @@ fun SupportAuthorRow(onClick: () -> Unit, modifier: Modifier = Modifier) {
 
 /** Ways to support the author; a row shows only when its value is set in [DonateLinks]. */
 @Composable
-fun SupportSheet(onDismiss: () -> Unit, options: List<DonateOption> = DonateLinks.options) {
+fun SupportSheet(onDismiss: () -> Unit, options: List<DonateOption>) {
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     val messages = LocalAppMessages.current

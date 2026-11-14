@@ -548,3 +548,10 @@ Build 32 plus the music pulse, in one build.
 - Android treats it as a different app. It installs next to `app.freshtuber`; login, subscriptions, favourites, downloads and settings do not move over, and the old app must be uninstalled by hand. Music files exported by the old app belong to it in MediaStore; deleting them from the new app goes through the existing consent prompt.
 - Since every phone installs it fresh anyway, release builds switch from the shared debug key to ErgoTube's own key (RSA 4096, alias `ergotube`, CN=ErgoTube, 10000 days). The keystore and its password stay in the gitignored `signing/` folder of the checkout with a Russian README on keeping a backup; Gradle reads them from the gitignored `keystore.properties` and falls back to the debug key when that file is missing. Losing the key means no update can be installed over Build 35.
 - versionCode 35. Release build, unit tests and lint pass; package and signature checked with aapt2 and apksigner. Not run on a device.
+
+## After build 35 — English first (14 November 2026)
+
+- The user set the target audience: people in the United States, so everything defaults to English. The app already did: `res/values` is English, InnerTube sends the phone's own language and region (falling back to `en`/`US`), and the language setting defaults to the system one.
+- «Support the author» now lists card/PayPal (lava.top) first, then USDT, and the Russian CloudTips page last; with a Russian interface the CloudTips page stays on top (`availableOptions(..., russianFirst)`, chosen from the current locale in `SettingsScreen`). English labels: «Card or PayPal», «From Russia (Mir card, SBP)».
+- The repository is English-first: README images use only English screenshots, issue templates and release notes are English only; `README.ru.md` stays as a translation.
+- Unit-tested (`DonateLinksTest`), not run on a device.

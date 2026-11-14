@@ -1,6 +1,6 @@
 # Contributing to ErgoTube
 
-Thanks for wanting to help. ErgoTube is a small project with one strong opinion, so a few minutes with this page saves everyone time. Issues and pull requests in Russian are welcome too.
+Thanks for wanting to help. ErgoTube is a small project with one strong opinion, so a few minutes with this page saves everyone time.
 
 ## The one rule
 

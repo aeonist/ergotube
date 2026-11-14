@@ -165,7 +165,7 @@ Every product and technical decision is written down in [`docs/DECISIONS.md`](do
 
 ## Support
 
-ErgoTube is free and will stay free. If it saves your thumb, **Settings → Support the author** has ways to say thanks from Russia and from abroad.
+ErgoTube is free and will stay free. If it saves your thumb, **Settings → Support the author** lets you say thanks by card, PayPal or USDT.
 
 ## Thanks
 
