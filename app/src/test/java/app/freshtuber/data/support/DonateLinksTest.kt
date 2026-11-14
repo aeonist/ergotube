@@ -18,7 +18,9 @@ class DonateLinksTest {
             availableOptions("a", "b", listOf(ton, tron)))
     }
 
-    @Test fun `shipped config offers TON first, then TRC20`() {
+    @Test fun `shipped config offers lava, then TON, then TRC20`() {
+        assertEquals(DonateOption.Abroad, DonateLinks.options.first())
+        assertTrue(DonateLinks.LAVA_URL.startsWith("https://"))
         val wallets = DonateLinks.options.filterIsInstance<DonateOption.Usdt>().map { it.wallet }
         assertEquals(listOf(UsdtNetwork.TON, UsdtNetwork.TRC20), wallets.map { it.network })
         // TON user-friendly address: 48 base64url characters; TRON: 34 base58 characters starting with T.

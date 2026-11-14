@@ -9,7 +9,7 @@ object DonateLinks {
     val CLOUDTIPS_URL: String = ""
 
     /** lava.top page: foreign cards and PayPal. */
-    val LAVA_URL: String = ""
+    val LAVA_URL: String = "https://app.lava.top/2097792502?tabId=donate"
 
     /** USDT wallets, shown in this order; a blank address hides its row. */
     val USDT_WALLETS: List<UsdtWallet> = listOf(
