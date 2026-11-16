@@ -27,7 +27,6 @@ import app.freshtuber.domain.model.FeedPage
 import app.freshtuber.domain.model.FeedFilter
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.PaddingValues
 import app.freshtuber.ui.components.*
 import app.freshtuber.ui.feed.AccountScopedFeed
@@ -150,19 +149,14 @@ fun HomeScreen(
                 }
             }),
         )
-        // Filters live at the bottom, starting at the working-hand edge; the «Музыка» chip sits
-        // in the same row at the very edge, so the whole bar is one chip row tall.
+        // Filters live at the bottom, starting at the working-hand edge; the «Музыка» ear stands
+        // on top of them. Both rows are trimmed so the bar stays quiet.
         val showChips = !classic && state.filters.size > 1
         if (showChips || ear != null) BottomBar {
-            androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth(), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                val earSlot = @Composable { ear?.let { androidx.compose.foundation.layout.Box(Modifier.padding(horizontal = 10.dp)) { it() } } }
-                if (left) earSlot()
-                androidx.compose.foundation.layout.Box(Modifier.weight(1f)) {
-                    if (showChips) app.freshtuber.ui.motion.BlurVisibility(hide.visible, collapse = true) {
-                        HandChips(chips, left, contentPadding = PaddingValues(horizontal = if (ear != null) 0.dp else 12.dp, vertical = 4.dp))
-                    }
-                }
-                if (!left) earSlot()
+            ear?.invoke()
+            if (showChips) app.freshtuber.ui.motion.BlurVisibility(hide.visible, collapse = true) {
+                HandChips(chips, left, rowMinHeight = 42.dp,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp))
             }
         }
     }

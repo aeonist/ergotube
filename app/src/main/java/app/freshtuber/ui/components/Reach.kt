@@ -162,7 +162,10 @@ fun HandChips(
     modifier: Modifier = Modifier,
     natural: Boolean = false,
     contentPadding: PaddingValues = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+    rowMinHeight: Dp = 48.dp,
 ) {
+    // A slimmer row keeps a 42 dp touch target; the chip itself shrinks to 36 dp to fit it.
+    val chipHeight = if (rowMinHeight < 48.dp) 36.dp else 40.dp
     val chips = if (natural && !left) chips.reversed() else chips
     // A short row also sits at the hand edge, not across the screen. A row too long for the
     // screen fades out where more chips wait, instead of looking cut off.
@@ -173,12 +176,12 @@ fun HandChips(
         itemsIndexed(chips, key = { index, chip -> "$index:${chip.label}" }) { _, chip ->
             val bg = if (chip.selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surfaceContainerHigh
             val fg = if (chip.selected) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurface
-            Box(Modifier.heightIn(min = 48.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.heightIn(min = rowMinHeight.coerceAtLeast(42.dp)), contentAlignment = Alignment.Center) {
                 Text(chip.label, style = MaterialTheme.typography.labelLarge, color = fg, maxLines = 1,
                     modifier = Modifier.clip(RoundedCornerShape(20.dp)).background(bg)
                         .semantics { selected = chip.selected }
                         .clickable(role = Role.Tab, onClick = chip.onClick)
-                        .height(40.dp).wrapContentHeight().padding(horizontal = 16.dp))
+                        .height(chipHeight).wrapContentHeight().padding(horizontal = 16.dp))
             }
         }
     }
