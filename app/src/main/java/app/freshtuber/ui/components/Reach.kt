@@ -40,8 +40,25 @@ object Reach {
     /** Fixed controls start below this fraction of the screen height. */
     const val LINE = 0.55f
 
-    /** Height of the floating navigation drop. */
-    val DockHeight: Dp = 68.dp
+    /**
+     * Height of the floating navigation drop. The drop itself is barely visible, so its icons
+     * and labels (about 49 dp, centred) are what the eye reads as the row; 52 dp leaves them
+     * ~1.5 dp in from the top, and [DockTopGap] brings the gap above them to the rows' gap.
+     */
+    val DockHeight: Dp = 52.dp
+
+    /**
+     * Padding between stacked bottom rows (Music ear, chips, actions, dock). A 42 dp chip row
+     * holds a 36 dp chip and a 48 dp button row a 40 dp button, each 3-4 dp in from its edge, so
+     * every visible gap between rows comes out at about RowGap + 3 dp (~7 dp).
+     */
+    val RowGap: Dp = 4.dp
+
+    /** Space above the dock drop: with the row's 3 dp and the icons' 1.5 dp, ~7 dp like [RowGap]. */
+    val DockTopGap: Dp = 2.dp
+
+    /** Space under the dock drop, above the navigation bar. */
+    val DockBottomGap: Dp = 14.dp
 
     /** The slim dock drawn over a Short: icons only. */
     val CompactDockHeight: Dp = 50.dp

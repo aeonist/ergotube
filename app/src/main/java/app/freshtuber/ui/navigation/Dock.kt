@@ -119,7 +119,7 @@ fun AppDock(selected: DockTab?, mineOpen: Boolean, left: Boolean, shorts: Boolea
 @Composable
 private fun DockDrop(left: Boolean, modifier: Modifier, line: (@Composable () -> Unit)?, ear: (@Composable () -> Unit)?, buttons: @Composable RowScope.() -> Unit) {
     val light = app.freshtuber.ui.liquid.LocalLiquidLight.current
-    val radius = with(androidx.compose.ui.platform.LocalDensity.current) { 34.dp.toPx() }
+    val radius = with(androidx.compose.ui.platform.LocalDensity.current) { (Reach.DockHeight / 2).toPx() }
     DisposableEffect(light) { onDispose { light?.setDrop(0, null, 0f) } }
     val preferences = app.freshtuber.ui.theme.LocalAppPreferences.current
     val expanded = app.freshtuber.ui.components.isLargeScreen()
@@ -127,7 +127,7 @@ private fun DockDrop(left: Boolean, modifier: Modifier, line: (@Composable () ->
     Column(modifier.fillMaxWidth(), horizontalAlignment = if (left) Alignment.Start else Alignment.End) {
         ear?.invoke()
         BoxWithConstraints(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
-            .padding(start = 14.dp, end = 14.dp, top = 8.dp, bottom = 14.dp).fillMaxWidth(),
+            .padding(start = 14.dp, end = 14.dp, top = Reach.DockTopGap, bottom = Reach.DockBottomGap).fillMaxWidth(),
             contentAlignment = if (left) Alignment.CenterStart else Alignment.CenterEnd) {
         val width = DockLayout.width(maxWidth.value, preferences.dockWidth, expanded).dp
         Column(Modifier.width(width).onGloballyPositioned { light?.setDrop(0, it.boundsInRoot(), radius) }) {

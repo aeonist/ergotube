@@ -281,23 +281,17 @@ fun ListScreen(
                 ContextBar(actions, left)
             }
         } else if (!classic && (header != null || tabChips.size > 1)) BottomBar {
-            // Subscribe and the bell are pinned under the thumb at the hand end; the channel's
-            // sections fill the rest of the row, in YouTube's reading order from the hand edge.
+            // Three rows from the top: Subscribe and the bell at the hand end, the channel's
+            // sections in YouTube's reading order from the hand edge, then the dock. Only the
+            // sections hide while the list is read; the actions stay under the thumb.
             val channel = header
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                val buttons = @Composable {
-                    if (channel != null) Box(Modifier.padding(horizontal = 10.dp)) {
-                        ChannelActions(channel.subscribed == true, viewModel::toggleSubscription, bellOn, left, onBell)
-                    }
-                }
-                if (left) buttons()
-                Box(Modifier.weight(1f)) {
-                    if (tabChips.size > 1) app.freshtuber.ui.motion.BlurVisibility(hide.visible, collapse = true) {
-                        HandChips(tabChips, left, natural = true,
-                            contentPadding = PaddingValues(horizontal = if (channel != null) 0.dp else 12.dp, vertical = 4.dp))
-                    }
-                }
-                if (!left) buttons()
+            if (channel != null) Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 0.dp),
+                horizontalArrangement = if (left) Arrangement.Start else Arrangement.End) {
+                ChannelActions(channel.subscribed == true, viewModel::toggleSubscription, bellOn, left, onBell)
+            }
+            if (tabChips.size > 1) app.freshtuber.ui.motion.BlurVisibility(hide.visible, collapse = true) {
+                HandChips(tabChips, left, natural = true, rowMinHeight = 42.dp,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp))
             }
         }
     }

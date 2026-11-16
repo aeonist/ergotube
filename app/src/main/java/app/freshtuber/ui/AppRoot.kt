@@ -267,7 +267,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     // is, so nothing jumps while two screens cross-fade.
     // While music is on, its song line sits in the dock drop above the buttons.
     val musicLine = musicInApp && musicState.active && !onShorts
-    val dockSpace = (if (classic) compactDockSpace else Reach.DockHeight + 22.dp + navBottom) + if (musicLine) app.freshtuber.ui.music.MusicLineHeight else 0.dp
+    val dockSpace = (if (classic) compactDockSpace else Reach.DockHeight + Reach.DockTopGap + Reach.DockBottomGap + navBottom) + if (musicLine) app.freshtuber.ui.music.MusicLineHeight else 0.dp
     // The «Музыка» ear stands on top of Home's bottom chip row (right above the dock when Home
     // has no chips). It folds away with the chips when scrolling hides them, so the feed reaches
     // the dock. The classic layout keeps it in the dock column.

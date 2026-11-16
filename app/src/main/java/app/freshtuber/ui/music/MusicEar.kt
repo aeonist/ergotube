@@ -20,8 +20,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import app.freshtuber.R
 
-/** Height reserved for the «Музыка» ear above the dock. */
-val MusicEarHeight = 30.dp
+/** Height reserved for the «Музыка» ear: the 28 dp pill and one row gap under it. */
+val MusicEarHeight = 28.dp + app.freshtuber.ui.components.Reach.RowGap
 
 /**
  * The «Музыка» ear above the dock on Home. It blurs away while the feed is read and comes
@@ -30,7 +30,8 @@ val MusicEarHeight = 30.dp
 @Composable
 fun MusicEar(visible: Boolean, left: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val appear by animateFloatAsState(if (visible) 1f else 0f, tween(220), label = "musicEar")
-    Box(modifier.fillMaxWidth().height(MusicEarHeight).padding(horizontal = 14.dp), contentAlignment = if (left) Alignment.BottomStart else Alignment.BottomEnd) {
+    Box(modifier.fillMaxWidth().height(MusicEarHeight).padding(start = 14.dp, end = 14.dp, bottom = app.freshtuber.ui.components.Reach.RowGap),
+        contentAlignment = if (left) Alignment.BottomStart else Alignment.BottomEnd) {
         if (appear > 0.01f) Surface(onClick = onClick, enabled = visible, shape = RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 6.dp, bottomEnd = 6.dp),
             color = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
             modifier = Modifier.blurFade({ appear }, max = 14.dp, fromScale = 0.9f)) {
