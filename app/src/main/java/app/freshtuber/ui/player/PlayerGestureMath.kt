@@ -64,47 +64,26 @@ object Scrub {
 }
 
 /**
- * Full-screen scrubbing that slows the handle down the way a mouse pointer does: it starts where
- * it is (nothing jumps to the finger) and moves slower than the finger. A slow, careful finger
- * moves it about a fifth as far, so a frame is easy to hit; a quick sweep moves it the whole way,
- * so the whole video stays within one stroke. In between the speed eases from one to the other.
+ * Full-screen scrubbing at a fixed ratio: the handle starts where it is (nothing jumps to the
+ * finger) and always moves [RATIO] as far as the finger, whatever its speed. A finger that runs
+ * 30 px a second along the timeline moves the handle 10 px a second, so every frame is easy to hit
+ * and the handle never surprises by speeding up.
  */
-class GlideScrub(start: Float) {
+class SlowScrub(start: Float) {
     /** Position in the video, 0..1. */
     var fraction = start.coerceIn(0f, 1f)
         private set
-    /** Finger speed in dp per second, smoothed over a few events. */
-    private var speed = 0f
-    private var lastMs = Long.MIN_VALUE
 
-    /**
-     * The finger moved [deltaDp] along a track [trackDp] long (the whole video) at [timeMs].
-     * [factor] slows it further (fine mode). Returns the new position.
-     */
-    fun move(deltaDp: Float, trackDp: Float, timeMs: Long, factor: Float = 1f): Float {
-        if (trackDp <= 0f || deltaDp == 0f) return fraction
-        // The first move has no time to measure against: it counts as slow.
-        if (lastMs != Long.MIN_VALUE) speed += (abs(deltaDp) * 1000f / (timeMs - lastMs).coerceIn(1L, 120L) - speed) * SMOOTHING
-        lastMs = timeMs
-        fraction = (fraction + deltaDp / trackDp * gain(speed) * factor).coerceIn(0f, 1f)
+    /** The finger moved [delta] along a timeline [track] long (the whole video), both in one unit. */
+    fun move(delta: Float, track: Float): Float {
+        if (track <= 0f || delta == 0f) return fraction
+        fraction = (fraction + delta / track * RATIO).coerceIn(0f, 1f)
         return fraction
     }
 
     companion object {
-        /** Share of the finger's travel the handle makes when the finger is slow. */
-        const val SLOW_GAIN = 0.2f
-        const val FAST_GAIN = 1f
-        /** At or below this speed (dp/s) the handle runs at [SLOW_GAIN]. */
-        const val SLOW_DPS = 60f
-        /** At or above this speed (dp/s) the handle keeps up with the finger. */
-        const val FAST_DPS = 900f
-        private const val SMOOTHING = 0.35f
-
-        /** Handle travel per finger travel at [dps] dp per second. */
-        fun gain(dps: Float): Float {
-            val t = ((dps - SLOW_DPS) / (FAST_DPS - SLOW_DPS)).coerceIn(0f, 1f)
-            return SLOW_GAIN + (FAST_GAIN - SLOW_GAIN) * t * t * (3f - 2f * t)
-        }
+        /** Handle travel per finger travel. */
+        const val RATIO = 1f / 3f
     }
 }
 

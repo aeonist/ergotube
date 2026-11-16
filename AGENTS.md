@@ -74,3 +74,6 @@ Build 33 plus «Поддержать автора»: a card above the account ro
 
 ## Build 35 (14 Nov 2026)
 Build 34 with applicationId `app.ergotube` (Kotlin namespace and packages stay `app.freshtuber`; debug keeps the `.debug` suffix) and its own release key. `signingConfigs.release` reads the gitignored `keystore.properties`; the keystore lives in the gitignored `signing/` folder of this checkout (never commit it, never print the password). Without that file release falls back to the debug key, which cannot update a phone that has Build 35. New app for Android: the old `app.freshtuber` install stays and must be removed by hand. APK `apk/ErgoTube-build35-release.apk`.
+
+## Build 38 (16 Nov 2026)
+Fullscreen scrubbing is a fixed 1/3 of the finger (`SlowScrub`, replaces `GlideScrub` and the fullscreen fine mode). Fullscreen time sits at the start of the timeline arc. Channel header shows @handle, subscribers and videos (`ChannelHeaderParser`) and a bell for the local new-video notifications. Released from `main` as build38.

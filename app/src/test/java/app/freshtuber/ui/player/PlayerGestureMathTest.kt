@@ -34,32 +34,31 @@ class PlayerGestureMathTest {
         assertEquals(1f, TimelineWindow.zoomAt(1f, 180_000).fractionAt(1f), 0.0001f)
     }
 
-    @Test fun fullScreenScrubStartsInPlaceAndRunsSlowerThanASlowFinger() {
-        val glide = GlideScrub(0.4f)
-        // Touching does not move it; a slow 100 dp drag along a 300 dp track moves it a fifth as far.
-        assertEquals(0.4f, glide.fraction, 0.0001f)
-        var t = 0L
-        repeat(25) { t += 100; glide.move(4f, 300f, t) }
-        assertEquals(0.4f + 100f / 300f * GlideScrub.SLOW_GAIN, glide.fraction, 0.002f)
+    @Test fun fullScreenScrubStartsInPlaceAndRunsAtAThirdOfTheFinger() {
+        val scrub = SlowScrub(0.4f)
+        // Touching does not move it; 30 px of finger along a 300 px timeline moves the handle 10 px.
+        assertEquals(0.4f, scrub.fraction, 0.0001f)
+        scrub.move(30f, 300f)
+        assertEquals(0.4f + 10f / 300f, scrub.fraction, 0.0001f)
     }
 
-    @Test fun aQuickSweepKeepsUpWithTheFinger() {
-        val glide = GlideScrub(0f)
-        var t = 0L
-        repeat(10) { t += 16; glide.move(30f, 300f, t) }
-        // About 1900 dp/s: once the speed is picked up the handle follows the finger.
-        assertTrue(glide.fraction > 0.75f)
-        assertEquals(1f, GlideScrub.gain(2_000f), 0.0001f)
-        assertEquals(GlideScrub.SLOW_GAIN, GlideScrub.gain(10f), 0.0001f)
-        assertTrue(GlideScrub.gain(300f) in GlideScrub.SLOW_GAIN..1f)
+    @Test fun theRatioDoesNotDependOnFingerSpeed() {
+        // One quick 90 px stroke and thirty slow 3 px steps end in the same place.
+        val quick = SlowScrub(0.2f).apply { move(90f, 600f) }.fraction
+        val slow = SlowScrub(0.2f).apply { repeat(30) { move(3f, 600f) } }.fraction
+        assertEquals(quick, slow, 0.0001f)
+        assertEquals(0.2f + 30f / 600f, quick, 0.0001f)
     }
 
-    @Test fun fineScrubIsFinerStillAndStaysInTheVideo() {
-        val coarse = GlideScrub(0.5f).apply { move(-5f, 300f, 100) }.fraction
-        val fine = GlideScrub(0.5f).apply { move(-5f, 300f, 100, factor = Scrub.FINE_FACTOR) }.fraction
-        assertTrue(0.5f - fine < 0.5f - coarse)
-        assertEquals(0f, GlideScrub(0.01f).apply { move(-300f, 300f, 16) }.fraction, 0.0001f)
-        assertEquals(1f, GlideScrub(0.99f).apply { move(300f, 300f, 16) }.fraction, 0.0001f)
+    @Test fun fullScreenScrubStaysInTheVideo() {
+        assertEquals(0f, SlowScrub(0.01f).apply { move(-300f, 300f) }.fraction, 0.0001f)
+        assertEquals(1f, SlowScrub(0.99f).apply { move(300f, 300f) }.fraction, 0.0001f)
+    }
+
+    @Test fun fanTravelIsMeasuredAlongTheFingersCircle() {
+        // A quarter turn at radius 100 is a quarter of the circumference.
+        assertEquals((Math.PI * 100 / 2).toFloat(), FanGeometry.travel(0f, 1f, 100f), 0.001f)
+        assertEquals(-FanGeometry.travel(0.2f, 0.4f, 150f), FanGeometry.travel(0.4f, 0.2f, 150f), 0.0001f)
     }
 
     @Test fun reZoomingMidDragKeepsTheHandleUnderTheFinger() {

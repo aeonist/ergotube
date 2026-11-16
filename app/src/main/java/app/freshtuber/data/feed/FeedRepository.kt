@@ -35,7 +35,7 @@ sealed interface FeedSource {
     data class Kiosk(val kiosk: ExtractorSearchSource.Kiosk) : FeedSource
 }
 
-data class ChannelHeader(val channel: ChannelSummary, val subscribed: Boolean?)
+data class ChannelHeader(val channel: ChannelSummary, val subscribed: Boolean?, val facts: app.freshtuber.innertube.parse.ChannelFacts? = null)
 
 /** One section of a channel: its header, the sections it offers and this section's first page. */
 data class ChannelPage(val header: ChannelHeader?, val tabs: List<ChannelTab>, val page: FeedPage)
@@ -152,6 +152,7 @@ class FeedRepository @Inject constructor(
                 avatarUrl = meta.obj("avatar").bestThumbnailUrl(),
             ),
             subscribed = subscribed,
+            facts = app.freshtuber.innertube.parse.ChannelHeaderParser.facts(root),
         )
     }
 

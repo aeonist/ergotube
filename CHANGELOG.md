@@ -4,6 +4,13 @@ What changed in each ErgoTube build, newest first. Release APKs are on the [Rele
 
 Builds are numbered by `versionCode`. A release tag or APK name that contains `buildNN` is what the in-app update banner compares against.
 
+## Build 38 · 16 Nov 2026
+
+- Full screen: dragging along the timeline always moves the marker at **one third of your finger's speed**, slow or fast, so you can land on the exact moment. The marker starts where it is.
+- Full screen: the elapsed / total time sits at the start of the timeline, on the bottom edge, like YouTube's.
+- Channel pages show the **@handle, subscriber count and number of videos** under the name.
+- A **bell** next to Subscribe on the channel page turns on notifications about the channel's new videos.
+
 ## Build 37 · 14 Nov 2026
 
 - The interface defaults to English. Hand & look offers English, Russian, and the phone language.

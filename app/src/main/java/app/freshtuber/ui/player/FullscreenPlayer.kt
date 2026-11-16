@@ -18,6 +18,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.Offset
@@ -64,7 +65,7 @@ private val Shade = TextStyle(shadow = Shadow(Color.Black.copy(alpha = 0.6f), bl
 /**
  * Fullscreen: the phone is turned and the controls gather in an arc in the bottom corner under
  * the holding hand. Tap: middle pauses, ends skip 10 s and add up. Hold: 2×. Tap on the
- * outer arc: jump there; drag: scrub slower than the finger, moving away from the corner finer still. Small chips
+ * outer arc: jump there; drag: scrub at a third of the finger's speed. Small chips
  * for speed, captions, exit and next. After a few idle seconds the fan disappears and the picture
  * stays clean, with no timeline; a tap brings the fan back. Outside the arc the video keeps YouTube's gestures.
  */
@@ -185,16 +186,16 @@ fun FullscreenPlayer(
                         }
                         return@awaitEachGesture
                     }
-                    // Scrub along the fan: the dot starts where it is and runs slower than the finger,
-                    // fully only on a quick sweep (GlideScrub); moving away from the corner is finer still.
+                    // Scrub along the fan: the dot starts where it is and always runs a third as far as
+                    // the finger (SlowScrub). The finger's travel is measured along its own circle, the
+                    // dot's along the timeline arc, so on screen the dot moves at a third of the finger's speed.
                     if (durationMs <= 0) { touching = false; return@awaitEachGesture }
                     val durationSeconds = durationMs / 1000f
-                    val glide = GlideScrub(player.currentPosition.toFloat() / durationMs)
+                    val glide = SlowScrub(player.currentPosition.toFloat() / durationMs)
                     val startSeconds = glide.fraction * durationSeconds
                     var lastU = u0
-                    var fine = false
                     ui.hush()
-                    ui.fine = false
+                    ui.fine = null
                     ui.scrubMs = (glide.fraction * durationMs).toLong()
                     while (true) {
                         val event = awaitPointerEvent()
@@ -205,11 +206,8 @@ fun FullscreenPlayer(
                         val change = event.changes.firstOrNull { it.id == down.id } ?: break
                         change.consume()
                         val (r, u) = geo.polar(change.position.x / density, change.position.y / density)
-                        val nowFine = r - r0 > FanGeometry.FINE_DISTANCE
-                        if (nowFine != fine) { fine = nowFine; haptics.performHapticFeedback(HapticFeedbackType.SegmentTick) }
-                        glide.move((u - lastU) * geo.quarter, geo.videoArc, change.uptimeMillis, if (fine) Scrub.FINE_FACTOR else 1f)
+                        glide.move(FanGeometry.travel(lastU, u, r), geo.videoArc)
                         lastU = u
-                        ui.fine = fine
                         ui.scrubMs = (glide.fraction * durationMs).toLong()
                         if (!change.pressed) break
                     }
@@ -374,11 +372,19 @@ fun FullscreenPlayer(
                         renderEffect = if (android.os.Build.VERSION.SDK_INT >= 31 && r > 0.5f)
                             androidx.compose.ui.graphics.BlurEffect(r, r, androidx.compose.ui.graphics.TileMode.Decal) else null
                     })
-            // Elapsed / total comes and goes with the controls, on the side away from the fan.
-            if (!live && shown > 0f) PlaybackTime(progress, ui.scrubMs, Modifier
-                .align(if (geo.upright) Alignment.TopStart else if (left) Alignment.BottomEnd else Alignment.BottomStart)
-                .padding(start = 20.dp, end = 20.dp, top = if (geo.upright) 44.dp else 0.dp, bottom = if (geo.upright) 0.dp else 16.dp)
-                .graphicsLayer { alpha = titleIn })
+            // Elapsed / total sits at the start of the timeline, the way YouTube puts it at the left
+            // end of its bar: just outside where the arc begins, on the bottom edge, away from the fan.
+            if (!live && shown > 0f && durationMs > 0) {
+                val start = geo.position(geo.track, FanGeometry.U0)
+                Text("${formatDuration(shownMs / 1000)} / ${formatDuration(durationMs / 1000)}", color = Color.White,
+                    style = MaterialTheme.typography.labelLarge.merge(Shade).copy(fontFeatureSettings = app.freshtuber.ui.theme.TabularNumbers),
+                    maxLines = 1, modifier = Modifier
+                        .align(if (left) Alignment.BottomStart else Alignment.BottomEnd)
+                        .padding(start = if (left) (start.x + FanGeometry.TIME_GAP).dp else 0.dp,
+                            end = if (left) 0.dp else (geo.width - start.x + FanGeometry.TIME_GAP).dp, bottom = 2.dp)
+                        .testTag("video:time")
+                        .graphicsLayer { alpha = titleIn })
+            }
             val freeX = geo.freeCenterX.dp
             ui.bubble?.let { Bubble(it, Modifier.offset { IntOffset((freeX - 80.dp).roundToPx(), 58.dp.roundToPx()) }.width(160.dp).wrapContentWidth()) }
             ui.scrubMs?.let { ms ->

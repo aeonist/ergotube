@@ -154,17 +154,12 @@ fun ClassicVideoControls(
                 .height(if (active) 24.dp else 3.dp)
                 .then(if (active) Modifier.testTag("classic:seek").pointerInput(progress.durationMs, fullscreen) {
                     fun at(x: Float) = (x / size.width).coerceIn(0f, 1f)
-                    var startY = 0f
-                    var fine = false
-                    // Full screen: the handle stays where it is and runs slower than the finger
-                    // (fully only on a quick sweep); lifting the finger above the bar slows it five times more.
-                    var glide: GlideScrub? = null
+                    // Full screen: the handle stays where it is and moves a third as far as the finger.
+                    var glide: SlowScrub? = null
                     detectHorizontalDragGestures(
                         onDragStart = {
-                            startY = it.y
-                            fine = false
                             if (fullscreen) {
-                                glide = GlideScrub(player.currentPosition.toFloat() / progress.durationMs)
+                                glide = SlowScrub(player.currentPosition.toFloat() / progress.durationMs)
                                 scrub = glide?.fraction
                             } else {
                                 val touch = at(it.x)
@@ -182,10 +177,8 @@ fun ClassicVideoControls(
                         onDragCancel = { scrub = null; glide = null; timeline = TimelineWindow.Full },
                     ) { change, amount ->
                         val slow = glide
-                        if (slow != null) {
-                            fine = Scrub.isFine(startY, change.position.y, Scrub.FINE_LIFT_DP * density)
-                            scrub = slow.move(amount / density, size.width / density, change.uptimeMillis, if (fine) Scrub.FINE_FACTOR else 1f)
-                        } else scrub = timeline.fractionAt(at(change.position.x))
+                        if (slow != null) scrub = slow.move(amount, size.width.toFloat())
+                        else scrub = timeline.fractionAt(at(change.position.x))
                     }
                 }.pointerInput(progress.durationMs) {
                     detectTapGestures { player.seekTo((it.x / size.width * player.duration.coerceAtLeast(0)).toLong()); hide.poke() }

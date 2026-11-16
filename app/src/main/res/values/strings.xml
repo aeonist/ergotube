@@ -96,6 +96,8 @@
     <string name="library_liked">Liked videos</string>
     <string name="library_downloads">Downloads</string>
     <string name="channel_subscribe">Subscribe</string>
+    <string name="channel_bell_on">Notifications on for this channel</string>
+    <string name="channel_bell_off">Notify me about new videos</string>
     <string name="channel_subscribed">Subscribed</string>
     <string name="library_needs_account">Sign in to your YouTube account to see this list.</string>
     <string name="action_needs_sign_in">Sign in to like, subscribe and comment.</string>

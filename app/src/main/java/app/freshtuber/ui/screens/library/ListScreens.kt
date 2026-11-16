@@ -18,6 +18,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Login
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.ThumbUp
+import androidx.compose.material.icons.rounded.NotificationsActive
+import androidx.compose.material.icons.rounded.NotificationsNone
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import app.freshtuber.ui.components.rememberNotificationPermission
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -69,6 +78,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -178,6 +188,20 @@ class ListViewModel @Inject constructor(
         }
     }
 
+    /** ErgoTube's own new-video notifications for this channel (the bell); they follow it locally too. */
+    val channelNotifications: StateFlow<Boolean> = localSubscriptions.channel(channelId)
+        .map { it?.notifications == true }
+        .stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5_000), false)
+
+    fun setNotifications(enabled: Boolean) {
+        val header = _header.value ?: return
+        viewModelScope.launch {
+            try { localSubscriptions.notify(header.channel, enabled); if (enabled) localSubscriptions.refresh() }
+            catch (e: CancellationException) { throw e }
+            catch (e: Exception) { _actionError.value = e.toLoadError() }
+        }
+    }
+
     fun clearActionError() {
         _actionError.value = null
     }
@@ -195,6 +219,8 @@ fun ListScreen(
     val actionError by viewModel.actionError.collectAsStateWithLifecycle()
     val tabs by viewModel.channelTabs.collectAsStateWithLifecycle()
     val needsAccount by viewModel.needsAccount.collectAsStateWithLifecycle()
+    val bellOn by viewModel.channelNotifications.collectAsStateWithLifecycle()
+    val enableBell = rememberNotificationPermission { viewModel.setNotifications(true) }
     val left = LocalLeftHanded.current
     val title = viewModel.titleText
         ?: viewModel.sectionTitleRes?.let { stringResource(it) }
@@ -231,7 +257,9 @@ fun ListScreen(
                 header = {
                     val channel = header
                     if (channel != null) item(key = "channel-header") {
-                        ChannelHeaderRow(channel, actionError, onSignIn, viewModel::toggleSubscription)
+                        ChannelHeaderRow(channel, actionError, onSignIn, viewModel::toggleSubscription, bellOn, left) {
+                            if (bellOn) viewModel.setNotifications(false) else enableBell()
+                        }
                     }
                     else if (!viewModel.isChannel) item(key = "header") { ScreenHeader(title) }
                 },
@@ -277,7 +305,11 @@ private fun ChannelHeaderRow(
     actionError: LoadError?,
     onSignIn: () -> Unit,
     onSubscribe: () -> Unit,
+    bellOn: Boolean,
+    left: Boolean,
+    onBell: () -> Unit,
 ) {
+    val facts = header.facts
     Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             AsyncImage(
@@ -285,19 +317,41 @@ private fun ChannelHeaderRow(
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
-                    .size(64.dp)
+                    .size(72.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.surfaceContainerHighest),
             )
             Spacer(Modifier.width(16.dp))
-            Text(
-                header.channel.name,
-                style = MaterialTheme.typography.titleLarge,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
-            ChannelSubscribeButton(header.subscribed == true, onSubscribe)
+            Column(Modifier.weight(1f)) {
+                Text(
+                    header.channel.name,
+                    style = MaterialTheme.typography.titleLarge,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                facts?.handle?.let {
+                    Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp))
+                }
+                val counts = listOfNotNull(facts?.subscribers, facts?.videos).joinToString(" · ")
+                if (counts.isNotEmpty()) Text(counts, style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp).testTag("channel:subscribers"))
+            }
+        }
+        // Subscribe and the bell, side by side on the hand's side, as on YouTube.
+        Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp, if (left) Alignment.Start else Alignment.End)) {
+            val bell = @Composable {
+                val label = stringResource(if (bellOn) R.string.channel_bell_on else R.string.channel_bell_off)
+                FilledTonalIconButton(onClick = onBell, modifier = Modifier.testTag("channel:bell").semantics { contentDescription = label },
+                    colors = if (bellOn) IconButtonDefaults.filledTonalIconButtonColors(containerColor = MaterialTheme.colorScheme.onSurface,
+                        contentColor = MaterialTheme.colorScheme.surface) else IconButtonDefaults.filledTonalIconButtonColors()) {
+                    Icon(if (bellOn) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsNone, null)
+                }
+            }
+            val subscribe = @Composable { ChannelSubscribeButton(header.subscribed == true, onSubscribe, Modifier) }
+            (if (left) listOf(bell, subscribe) else listOf(subscribe, bell)).forEach { it() }
         }
         if (actionError == LoadError.SessionExpired) {
             ActionHint(stringResource(R.string.action_needs_sign_in), onSignIn)

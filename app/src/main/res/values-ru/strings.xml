@@ -96,6 +96,8 @@
     <string name="library_liked">Понравившиеся</string>
     <string name="library_downloads">Скачанные</string>
     <string name="channel_subscribe">Подписаться</string>
+    <string name="channel_bell_on">Уведомления о канале включены</string>
+    <string name="channel_bell_off">Сообщать о новых видео</string>
     <string name="channel_subscribed">Вы подписаны</string>
     <string name="library_needs_account">Войди в аккаунт YouTube, и здесь появится этот список.</string>
     <string name="action_needs_sign_in">Войди, чтобы ставить лайки, подписываться и комментировать.</string>

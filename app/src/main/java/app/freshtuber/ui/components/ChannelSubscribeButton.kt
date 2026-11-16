@@ -13,11 +13,11 @@ import androidx.compose.ui.unit.dp
 import app.freshtuber.R
 
 @Composable
-fun ChannelSubscribeButton(subscribed: Boolean, onClick: () -> Unit) {
+fun ChannelSubscribeButton(subscribed: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier.padding(start = 8.dp)) {
     val colors = MaterialTheme.colorScheme
     Button(
         onClick = onClick,
-        modifier = Modifier.padding(start = 8.dp),
+        modifier = modifier,
         colors = ButtonDefaults.buttonColors(
             containerColor = if (subscribed) colors.surfaceContainerHigh else colors.onSurface,
             contentColor = if (subscribed) colors.onSurface else colors.surface,

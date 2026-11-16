@@ -72,8 +72,11 @@ class FanGeometry(val width: Float, val height: Float, val left: Boolean) {
         }
         private const val OUTER0 = 0.12f
         private const val OUTER1 = 0.88f
-        const val FINE_DISTANCE = 48f
+        /** Distance a finger at radius [r] covers going from [u0] to [u1] along its circle. */
+        fun travel(u0: Float, u1: Float, r: Float): Float = (u1 - u0) * r * PI.toFloat() / 2f
         const val IDLE_MS = 3_000L
+        /** Space between the elapsed time and the start of the timeline arc. */
+        const val TIME_GAP = 18f
     }
 }
 
