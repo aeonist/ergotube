@@ -15,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
@@ -39,6 +40,23 @@ fun MusicEar(visible: Boolean, left: Boolean, onClick: () -> Unit, modifier: Mod
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.nav_music), style = MaterialTheme.typography.labelLarge)
             }
+        }
+    }
+}
+
+/**
+ * The «Музыка» pill at the hand end of Home's filter row: chip height, so the bottom bar stays
+ * one row tall.
+ */
+@Composable
+fun MusicChip(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(onClick = onClick, shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        modifier = modifier.testTag("home:music")) {
+        Row(Modifier.height(40.dp).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.Headphones, null, Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(stringResource(R.string.nav_music), style = MaterialTheme.typography.labelLarge, maxLines = 1)
         }
     }
 }

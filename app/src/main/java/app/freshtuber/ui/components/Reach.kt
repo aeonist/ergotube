@@ -156,13 +156,19 @@ data class ChipItem(val label: String, val selected: Boolean, val onClick: () ->
  * order left to right (scales such as speeds or quality), still pressed to the hand edge.
  */
 @Composable
-fun HandChips(chips: List<ChipItem>, left: Boolean, modifier: Modifier = Modifier, natural: Boolean = false) {
+fun HandChips(
+    chips: List<ChipItem>,
+    left: Boolean,
+    modifier: Modifier = Modifier,
+    natural: Boolean = false,
+    contentPadding: PaddingValues = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+) {
     val chips = if (natural && !left) chips.reversed() else chips
     // A short row also sits at the hand edge, not across the screen. A row too long for the
     // screen fades out where more chips wait, instead of looking cut off.
     val state = androidx.compose.foundation.lazy.rememberLazyListState()
     LazyRow(modifier.fillMaxWidth().edgeFade(state, reversed = !left), state = state, reverseLayout = !left,
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+        contentPadding = contentPadding,
         horizontalArrangement = Arrangement.spacedBy(8.dp, if (left) Alignment.Start else Alignment.End)) {
         itemsIndexed(chips, key = { index, chip -> "$index:${chip.label}" }) { _, chip ->
             val bg = if (chip.selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surfaceContainerHigh

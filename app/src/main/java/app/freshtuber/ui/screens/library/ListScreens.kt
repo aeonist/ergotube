@@ -6,6 +6,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -221,6 +222,7 @@ fun ListScreen(
     val needsAccount by viewModel.needsAccount.collectAsStateWithLifecycle()
     val bellOn by viewModel.channelNotifications.collectAsStateWithLifecycle()
     val enableBell = rememberNotificationPermission { viewModel.setNotifications(true) }
+    val onBell = { if (bellOn) viewModel.setNotifications(false) else enableBell() }
     val left = LocalLeftHanded.current
     val title = viewModel.titleText
         ?: viewModel.sectionTitleRes?.let { stringResource(it) }
@@ -257,9 +259,9 @@ fun ListScreen(
                 header = {
                     val channel = header
                     if (channel != null) item(key = "channel-header") {
-                        ChannelHeaderRow(channel, actionError, onSignIn, viewModel::toggleSubscription, bellOn, left) {
-                            if (bellOn) viewModel.setNotifications(false) else enableBell()
-                        }
+                        ChannelHeaderRow(channel, actionError, onSignIn, actions = if (classic) ({
+                            ChannelActions(channel.subscribed == true, viewModel::toggleSubscription, bellOn, left, onBell)
+                        }) else null)
                     }
                     else if (!viewModel.isChannel) item(key = "header") { ScreenHeader(title) }
                 },
@@ -278,10 +280,24 @@ fun ListScreen(
             app.freshtuber.ui.motion.BlurVisibility(hide.visible, collapse = true) {
                 ContextBar(actions, left)
             }
-        } else if (!classic && tabChips.size > 1) BottomBar {
-            // The channel's sections sit under the thumb, in YouTube's reading order from the hand edge.
-            app.freshtuber.ui.motion.BlurVisibility(hide.visible, collapse = true) {
-                HandChips(tabChips, left, Modifier.padding(vertical = 4.dp), natural = true)
+        } else if (!classic && (header != null || tabChips.size > 1)) BottomBar {
+            // Subscribe and the bell are pinned under the thumb at the hand end; the channel's
+            // sections fill the rest of the row, in YouTube's reading order from the hand edge.
+            val channel = header
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                val buttons = @Composable {
+                    if (channel != null) Box(Modifier.padding(horizontal = 10.dp)) {
+                        ChannelActions(channel.subscribed == true, viewModel::toggleSubscription, bellOn, left, onBell)
+                    }
+                }
+                if (left) buttons()
+                Box(Modifier.weight(1f)) {
+                    if (tabChips.size > 1) app.freshtuber.ui.motion.BlurVisibility(hide.visible, collapse = true) {
+                        HandChips(tabChips, left, natural = true,
+                            contentPadding = PaddingValues(horizontal = if (channel != null) 0.dp else 12.dp, vertical = 4.dp))
+                    }
+                }
+                if (!left) buttons()
             }
         }
     }
@@ -304,10 +320,7 @@ private fun ChannelHeaderRow(
     header: ChannelHeader,
     actionError: LoadError?,
     onSignIn: () -> Unit,
-    onSubscribe: () -> Unit,
-    bellOn: Boolean,
-    left: Boolean,
-    onBell: () -> Unit,
+    actions: (@Composable () -> Unit)?,
 ) {
     val facts = header.facts
     Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 10.dp)) {
@@ -339,25 +352,29 @@ private fun ChannelHeaderRow(
                     modifier = Modifier.padding(top = 2.dp).testTag("channel:subscribers"))
             }
         }
-        // Subscribe and the bell, side by side on the hand's side, as on YouTube.
-        Row(Modifier.fillMaxWidth().padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp, if (left) Alignment.Start else Alignment.End)) {
-            val bell = @Composable {
-                val label = stringResource(if (bellOn) R.string.channel_bell_on else R.string.channel_bell_off)
-                FilledTonalIconButton(onClick = onBell, modifier = Modifier.testTag("channel:bell").semantics { contentDescription = label },
-                    colors = if (bellOn) IconButtonDefaults.filledTonalIconButtonColors(containerColor = MaterialTheme.colorScheme.onSurface,
-                        contentColor = MaterialTheme.colorScheme.surface) else IconButtonDefaults.filledTonalIconButtonColors()) {
-                    Icon(if (bellOn) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsNone, null)
-                }
-            }
-            val subscribe = @Composable { ChannelSubscribeButton(header.subscribed == true, onSubscribe, Modifier) }
-            (if (left) listOf(bell, subscribe) else listOf(subscribe, bell)).forEach { it() }
-        }
+        actions?.let { Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.End) { it() } }
         if (actionError == LoadError.SessionExpired) {
             ActionHint(stringResource(R.string.action_needs_sign_in), onSignIn)
         } else if (actionError != null) {
             ActionHint(stringResource(actionError.messageRes()), null)
         }
+    }
+}
+
+/** Subscribe and the bell, side by side; the bell is on the outer, hand side. */
+@Composable
+private fun ChannelActions(subscribed: Boolean, onSubscribe: () -> Unit, bellOn: Boolean, left: Boolean, onBell: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        val bell = @Composable {
+            val label = stringResource(if (bellOn) R.string.channel_bell_on else R.string.channel_bell_off)
+            FilledTonalIconButton(onClick = onBell, modifier = Modifier.testTag("channel:bell").semantics { contentDescription = label },
+                colors = if (bellOn) IconButtonDefaults.filledTonalIconButtonColors(containerColor = MaterialTheme.colorScheme.onSurface,
+                    contentColor = MaterialTheme.colorScheme.surface) else IconButtonDefaults.filledTonalIconButtonColors()) {
+                Icon(if (bellOn) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsNone, null)
+            }
+        }
+        val subscribe = @Composable { ChannelSubscribeButton(subscribed, onSubscribe, Modifier) }
+        (if (left) listOf(bell, subscribe) else listOf(subscribe, bell)).forEach { it() }
     }
 }
 
