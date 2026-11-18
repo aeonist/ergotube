@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -37,8 +38,10 @@ class PortraitZoomIntegrationTest {
         } as Player
         val zoom = VideoZoom()
         compose.setContent {
-            Box(Modifier.size(320.dp, 180.dp).testTag("video").videoZoom(zoom, true, 16f / 9f)) {
-                PortraitVideoLayer(player, PlayerState(), onMinimize = { minimizes++ })
+            val pull = rememberMinimizeDrag()
+            Box(Modifier.size(320.dp, 180.dp).onSizeChanged { pull.heightPx = it.height * 4f }.testTag("video")
+                .minimizeDrag(pull, enabled = true, onMinimize = { minimizes++ }).videoZoom(zoom, true, 16f / 9f)) {
+                PortraitVideoLayer(player, PlayerState())
             }
         }
         compose.onNodeWithTag("video").performTouchInput {
@@ -57,5 +60,36 @@ class PortraitZoomIntegrationTest {
         compose.onNodeWithTag("video").performTouchInput { click(Offset(width * 0.85f, height * 0.5f)) }
         Thread.sleep(400)
         compose.runOnIdle { assertEquals(0, pauses) }
+    }
+
+    @Test fun pullingTheUnzoomedVideoDownMinimizesAndAShortSlowPullDoesNot() {
+        var minimizes = 0
+        val player = Proxy.newProxyInstance(Player::class.java.classLoader, arrayOf(Player::class.java)) { proxy, method, args ->
+            when (method.name) {
+                "isPlaying", "getPlayWhenReady" -> false
+                "getPlaybackState" -> Player.STATE_READY
+                "getCurrentPosition" -> 0L
+                "getDuration", "getBufferedPosition" -> 60_000L
+                "hashCode" -> System.identityHashCode(proxy)
+                "equals" -> proxy === args?.get(0)
+                else -> null
+            }
+        } as Player
+        lateinit var pull: MinimizeDrag
+        compose.setContent {
+            pull = rememberMinimizeDrag()
+            Box(Modifier.size(320.dp, 600.dp).onSizeChanged { pull.heightPx = it.height.toFloat() }.testTag("video")
+                .minimizeDrag(pull, enabled = true, onMinimize = { minimizes++ })) {
+                PortraitVideoLayer(player, PlayerState())
+            }
+        }
+        // A slow pull of a tenth of the page springs back.
+        compose.onNodeWithTag("video").performTouchInput { swipeDown(height * 0.2f, height * 0.3f, durationMillis = 1200) }
+        compose.waitForIdle()
+        compose.runOnIdle { assertEquals(0, minimizes); assertEquals(0f, pull.offsetPx, 0.5f) }
+        // Past a quarter of the page it drops into the mini-player.
+        compose.onNodeWithTag("video").performTouchInput { swipeDown(height * 0.1f, height * 0.5f, durationMillis = 1200) }
+        compose.waitForIdle()
+        compose.runOnIdle { assertEquals(1, minimizes) }
     }
 }

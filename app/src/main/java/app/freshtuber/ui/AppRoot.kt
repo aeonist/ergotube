@@ -494,6 +494,8 @@ private object ScreenMotion {
     }
 
     fun popExit(from: NavBackStackEntry, to: NavBackStackEntry): ExitTransition = when {
+        // Pulled down by the finger, the page is already low and faint: only finish the fade.
+        from.isPlayer() && app.freshtuber.ui.player.MinimizeDrag.recentlyDismissed() -> fadeOut(tween(120, easing = Motion.Accelerate))
         from.isPlayer() -> fadeOut(exitSpec()) + slideOutVertically(tween(Motion.EXIT_MS + 60, easing = Motion.Accelerate)) { (it * 0.08f).toInt() }
         else -> fadeOut(exitSpec()) + scaleOut(exitSpec(), 0.95f)
     }

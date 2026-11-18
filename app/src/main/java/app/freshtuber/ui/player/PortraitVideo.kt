@@ -45,10 +45,10 @@ class VideoFlash {
 
 /**
  * Gestures on the video itself, as in YouTube: a tap leaves playback unchanged, double tap on a side skips 10 s and
- * repeated taps add up, swipe down minimizes. Loading and errors are drawn here too.
+ * repeated taps add up. Pulling down to minimize lives on the video box ([minimizeDrag]). Loading and errors are drawn here too.
  */
 @Composable
-fun PortraitVideoLayer(player: Player, state: PlayerState, onMinimize: () -> Unit, modifier: Modifier = Modifier) {
+fun PortraitVideoLayer(player: Player, state: PlayerState, modifier: Modifier = Modifier) {
     val progress = rememberProgress(player)
     val scope = rememberCoroutineScope()
     val flash = remember { VideoFlash() }
@@ -67,14 +67,13 @@ fun PortraitVideoLayer(player: Player, state: PlayerState, onMinimize: () -> Uni
             var end = down
             while (true) {
                 val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: return@awaitEachGesture
-                // A second pointer belongs to zoom, never to single-tap action or minimize.
+                // A second pointer belongs to zoom, never to a single-tap action.
                 if (change.isConsumed || currentEvent.changes.size > 1) { pending?.cancel(); return@awaitEachGesture }
                 end = change
                 if (!change.pressed) break
             }
             val dx = (end.position.x - down.position.x) / density
             val dy = (end.position.y - down.position.y) / density
-            if (dy > 50 && abs(dy) > abs(dx)) { pending?.cancel(); onMinimize(); return@awaitEachGesture }
             if (abs(dx) >= 10 || abs(dy) >= 10) return@awaitEachGesture
             val fx = end.position.x / size.width
             val side = if (live) 0 else if (fx < 0.33f) -1 else if (fx > 0.67f) 1 else 0

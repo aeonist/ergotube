@@ -221,8 +221,13 @@ fun PlayerScreen(
     val density = LocalDensity.current
     val statusTop = WindowInsets.statusBars.getTop(density)
 
+    // Pulling the video down drags the whole page toward the mini-player, as in YouTube.
+    val pull = app.freshtuber.ui.player.rememberMinimizeDrag()
+    val minimize = { pull.dismiss(onBack) }
     CompositionLocalProvider(LocalQualityAnchor provides { qualityAnchor = it }) {
-    BoxWithConstraints(Modifier.fillMaxSize().then(if (inPip || tabletop) Modifier.background(Color.Black) else Modifier)) {
+    BoxWithConstraints(Modifier.fillMaxSize().then(if (inPip || tabletop) Modifier.background(Color.Black) else Modifier)
+        .onSizeChanged { pull.heightPx = it.height.toFloat() }
+        .graphicsLayer { pull.apply(this) }) {
         val details = state.details
         val pageHeight = maxHeight - with(density) { statusTop.toDp() }
         // A wide page (unfolded foldable held sideways, tablet): the video and its details on the
@@ -262,6 +267,8 @@ fun PlayerScreen(
             if (!scrolls) 0 else if (listState.firstVisibleItemIndex == 0) -listState.firstVisibleItemScrollOffset else -videoHeightPx
         } }
         val big = fullscreen || inPip || tabletop
+        val pullable = !big && !twoPane && currentPage
+        LaunchedEffect(pullable) { if (!pullable) pull.reset() }
         val zoom = remember(videoId, big) { VideoZoom() }
         // Where the picture sits on screen, for pictures flying in and out.
         val videoRect = if (tabletop && !inPip) {
@@ -277,7 +284,7 @@ fun PlayerScreen(
         LaunchedEffect(fullscreen, inPip, videoRect) {
             if (fullscreen && !inPip) light?.setVideoRect(videoRect)
         }
-        val currentRect by rememberUpdatedState(videoRect.translate(0f, if (big) 0f else videoOffset.toFloat()))
+        val currentRect by rememberUpdatedState(pull.transform(videoRect.translate(0f, if (big) 0f else videoOffset.toFloat()), widthPx))
         LaunchedEffect(handoff, videoRect, handoff?.flight) { handoff?.land(videoId, FlightTarget.Page, videoRect, 0f) }
         LaunchedEffect(settled) {
             if (settled) {
@@ -303,7 +310,7 @@ fun PlayerScreen(
         if (!big) Box(Modifier.width(paneWidth).fillMaxHeight()) {
             if (classic) ClassicPortraitPage(details, state, navigation, listState, viewModel, now, videoHeight, { moreOpen = true }, related = !twoPane)
             else PortraitPage(details, state, navigation, listState, padHide, padUi, playerState, viewModel, now, left, pinned, scrolls, videoHeight,
-                captionsOn, onBack, onNext, onPrevious, enterFullscreen, onSpeed, onCaptions, onBoost, { qualityOpen = true }, { moreOpen = true }, pages, related = !twoPane)
+                captionsOn, minimize, onNext, onPrevious, enterFullscreen, onSpeed, onCaptions, onBoost, { qualityOpen = true }, { moreOpen = true }, pages, related = !twoPane)
         }
         if (twoPane && details != null) UpNextPane(details, navigation, Modifier.align(Alignment.TopEnd).width(maxWidth - paneWidth).fillMaxHeight())
         val fullControls: @Composable (Modifier, Boolean) -> Unit = { controlsModifier, below ->
@@ -340,6 +347,7 @@ fun PlayerScreen(
             .offset { androidx.compose.ui.unit.IntOffset(0, videoOffset) }.clipToBounds())
             // Hidden while its picture is still flying in, or once it has flown off to the floating window.
             .graphicsLayer { alpha = if (handoff != null && (handoff.awaiting(videoId, FlightTarget.Page) || handoff.departed(videoId, FlightTarget.Mini))) 0f else 1f }
+            .minimizeDrag(pull, enabled = pullable, onMinimize = onBack)
             .clipToBounds().videoZoom(zoom, enabled = !inPip && !tabletop, aspect = videoAspect, panAllowed = { point, viewport ->
                 if (classic || (tapControls && !fullscreen)) point.y < viewport.y - with(density) { 72.dp.toPx() } else !fullscreen || !FanGeometry(viewport.x / density.density, viewport.y / density.density, left)
                     .inFan(point.x / density.density, point.y / density.density)
@@ -365,8 +373,8 @@ fun PlayerScreen(
                     hasPrevious = playerState.history.isNotEmpty(), hasNext = playerState.queue.isNotEmpty(),
                     captionsOn = captionsOn, captionsAvailable = !now?.subtitles.isNullOrEmpty(),
                     onPrevious = onPrevious, onNext = onNext, onFullscreen = enterFullscreen,
-                    onMinimize = onBack, onCaptions = { onCaptions() }, onMore = { moreOpen = true }, onQuality = { qualityOpen = true }, onScrubPosition = { padUi.scrubMs = it })
-                else -> PortraitVideoLayer(viewModel.player, playerState, onMinimize = onBack)
+                    onMinimize = minimize, onCaptions = { onCaptions() }, onMore = { moreOpen = true }, onQuality = { qualityOpen = true }, onScrubPosition = { padUi.scrubMs = it })
+                else -> PortraitVideoLayer(viewModel.player, playerState)
             }
             // The pad shows the time in portrait and the controls do in full screen; only the classic
             // portrait layout, which has neither, keeps it over the picture.
