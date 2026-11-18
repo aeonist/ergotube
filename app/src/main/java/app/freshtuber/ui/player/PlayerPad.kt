@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -92,7 +93,7 @@ fun PadUi.skip(player: Player, seconds: Int, secondsLabel: (String) -> String) {
  * The video's own controls, moved down under the thumb. Every gesture also has a visible button.
  * Tap: middle pauses, sides skip 10 s and add up. Hold: 2× while held. Drag sideways: scrub,
  * lift the finger higher to scrub finely. Drag along the bar: jump. Swipe up: full screen.
- * Swipe down: minimize. The pad is two rows: time around the track with the speed pill, then
+ * Swipe down (from anywhere, buttons too): the page follows the finger like pulling the video. The pad is two rows: time around the track with the speed pill, then
  * quality, transport and full screen in one row under the thumb.
  */
 @Composable
@@ -114,6 +115,10 @@ fun PlayerPad(
     onSpeed: () -> Unit,
     onBoost: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    /** When set, a downward swipe drags the whole page like pulling the video; otherwise it minimizes on release. */
+    pull: MinimizeDrag? = null,
+    /** Leaves the page once a pull has dropped it ([onMinimize] would start a second drop). */
+    onPulled: () -> Unit = onMinimize,
 ) {
     val progress = rememberProgress(player)
     val haptics = LocalHapticFeedback.current
@@ -149,12 +154,15 @@ fun PlayerPad(
         .clip(RoundedCornerShape(30.dp))
         .background(if (ui.active) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f) else Color.Transparent)
         .onGloballyPositioned { padCoords = it }
-        .pointerInput(player, live, durationMs) {
+        .pointerInput(player, live, durationMs, pull) {
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
                 val coords = padCoords ?: return@awaitEachGesture
                 val rootDown = coords.localToRoot(down.position)
-                if (buttons.values.any { it.contains(rootDown) }) return@awaitEachGesture
+                if (pull?.dismissing == true) return@awaitEachGesture
+                // A button keeps its tap; only a downward pull from it is the pad's (it then cancels the tap).
+                val onButton = buttons.values.any { it.contains(rootDown) }
+                if (onButton && pull == null) return@awaitEachGesture
                 val onTrackRow = rootDown.y in (trackBounds.top - 4.dp.toPx())..trackBounds.bottom
                 val onTrack = trackBounds.width > 0f && durationMs > 0 && onTrackRow &&
                     rootDown.x in (trackBounds.left - 10.dp.toPx())..(trackBounds.right + 10.dp.toPx())
@@ -165,20 +173,65 @@ fun PlayerPad(
                 var last = start
                 var move: PadMove? = null
                 var lifted: PointerInputChange? = null
-                ui.active = true
+                var flicked = false
+                var flickUpAt = 0L
+                var abandon = false
+                // The pull is measured on screen (root), since the page moves under the finger.
+                val tracker = VelocityTracker()
+                tracker.addPosition(down.uptimeMillis, rootDown)
+                if (!onButton) ui.active = true
                 // Phase 1: tap, hold or the start of a drag.
-                val decided = withTimeoutOrNull(if (onMain && !live) PadGestures.HOLD_MS else Long.MAX_VALUE) {
+                val decided = withTimeoutOrNull(if (onMain && !live && !onButton) PadGestures.HOLD_MS else Long.MAX_VALUE) {
                     while (true) {
-                        val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: return@withTimeoutOrNull true
-                        if (!change.pressed) { lifted = change; return@withTimeoutOrNull true }
+                        val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: run { abandon = onButton; return@withTimeoutOrNull true }
+                        tracker.addPosition(change.uptimeMillis, coords.localToRoot(change.position))
                         val d = change.position - start
+                        if (!change.pressed) {
+                            // So quick the finger was already up: a downward flick still pulls.
+                            if (pull != null && PadGestures.pullsDown(d.x / density, d.y / density)) { flicked = true; flickUpAt = change.uptimeMillis; change.consume(); last = change.position }
+                            else if (onButton) abandon = true
+                            else lifted = change
+                            return@withTimeoutOrNull true
+                        }
                         move = PadGestures.decide(d.x / density, d.y / density)
                         if (move == PadMove.Seek && live) move = null
                         if (move != null) {
+                            if (!PadGestures.allowedFrom(onButton, d.x / density, d.y / density)) { abandon = true; return@withTimeoutOrNull true }
                             if (move == PadMove.Seek) ui.scrubMs = startMs
                             change.consume(); last = change.position; return@withTimeoutOrNull true
                         }
                     }
+                }
+                if (abandon) { if (!onButton) ui.active = false; return@awaitEachGesture }
+                if (flicked && pull != null) {
+                    ui.active = false
+                    val distance = coords.localToRoot(last).y - rootDown.y
+                    val velocity = MinimizeDrag.flingVelocity(tracker.calculateVelocity().y, distance, flickUpAt - down.uptimeMillis)
+                    pull.release(distance, velocity, density, onPulled)
+                    return@awaitEachGesture
+                }
+                if (move == PadMove.Vertical && pull != null && last.y > start.y) {
+                    // Phase 2 of a pull: the whole page follows the finger, exactly as when pulling the video.
+                    ui.active = true
+                    var distance = coords.localToRoot(last).y - rootDown.y
+                    pull.follow(distance)
+                    var upAt = down.uptimeMillis
+                    var cancelled = false
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id }
+                        if (change == null || event.changes.size > 1) { cancelled = true; break }
+                        change.consume()
+                        val root = coords.localToRoot(change.position)
+                        distance = root.y - rootDown.y
+                        tracker.addPosition(change.uptimeMillis, root)
+                        if (change.pressed) pull.follow(distance) else { upAt = change.uptimeMillis; break }
+                    }
+                    ui.active = false
+                    if (cancelled) { pull.settle(); return@awaitEachGesture }
+                    val velocity = MinimizeDrag.flingVelocity(tracker.calculateVelocity().y, distance, upAt - down.uptimeMillis)
+                    pull.release(distance, velocity, density, onPulled)
+                    return@awaitEachGesture
                 }
                 if (decided == null) {
                     // Held still: 2× while the finger stays down.

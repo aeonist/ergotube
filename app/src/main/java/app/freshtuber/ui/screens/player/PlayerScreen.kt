@@ -310,7 +310,8 @@ fun PlayerScreen(
         if (!big) Box(Modifier.width(paneWidth).fillMaxHeight()) {
             if (classic) ClassicPortraitPage(details, state, navigation, listState, viewModel, now, videoHeight, { moreOpen = true }, related = !twoPane)
             else PortraitPage(details, state, navigation, listState, padHide, padUi, playerState, viewModel, now, left, pinned, scrolls, videoHeight,
-                captionsOn, minimize, onNext, onPrevious, enterFullscreen, onSpeed, onCaptions, onBoost, { qualityOpen = true }, { moreOpen = true }, pages, related = !twoPane)
+                captionsOn, minimize, onNext, onPrevious, enterFullscreen, onSpeed, onCaptions, onBoost, { qualityOpen = true }, { moreOpen = true }, pages, related = !twoPane,
+                pull = pull.takeIf { pullable }, onPulled = onBack)
         }
         if (twoPane && details != null) UpNextPane(details, navigation, Modifier.align(Alignment.TopEnd).width(maxWidth - paneWidth).fillMaxHeight())
         val fullControls: @Composable (Modifier, Boolean) -> Unit = { controlsModifier, below ->
@@ -427,6 +428,8 @@ private fun PortraitPage(
     captionsOn: Boolean, onBack: () -> Unit, onNext: () -> Unit, onPrevious: () -> Unit, onFullscreen: () -> Unit,
     onSpeed: () -> Unit, onCaptions: () -> Unit, onBoost: (Boolean) -> Unit, onQuality: () -> Unit, onMore: () -> Unit, pages: StoryboardPages,
     related: Boolean = true,
+    pull: app.freshtuber.ui.player.MinimizeDrag? = null,
+    onPulled: () -> Unit = onBack,
 ) {
     val statusBar = WindowInsets.statusBars
     val density = LocalDensity.current
@@ -480,6 +483,8 @@ private fun PortraitPage(
                     onQuality = onQuality,
                     onSpeed = onSpeed,
                     onBoost = onBoost,
+                    pull = pull,
+                    onPulled = onPulled,
                 )
             }
         }
