@@ -77,3 +77,6 @@ Build 34 with applicationId `app.ergotube` (Kotlin namespace and packages stay `
 
 ## Build 38 (16 Nov 2026)
 Fullscreen scrubbing is a fixed 1/3 of the finger (`SlowScrub`, replaces `GlideScrub` and the fullscreen fine mode). Fullscreen time sits at the start of the timeline arc. Channel header shows @handle, subscribers and videos (`ChannelHeaderParser`) and a bell for the local new-video notifications. Released from `main` as build38.
+
+## Build 39 (18 Nov 2026)
+Three evenly spaced bottom rows on Home and the channel page (Subscribe + bell in their own row, `Reach.RowGap`/`Reach.DockTopGap`). Pulling the portrait video or the pad down drags the whole player and drops it into the mini-player past 25% of the height or on a fast flick (`MinimizeDrag`). Test APK `apk/ErgoTube-build39-test-release.apk`, not run on a device, not released.

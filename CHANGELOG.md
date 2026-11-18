@@ -4,6 +4,11 @@ What changed in each ErgoTube build, newest first. Release APKs are on the [Rele
 
 Builds are numbered by `versionCode`. A release tag or APK name that contains `buildNN` is what the in-app update banner compares against.
 
+## Build 39 · 18 Nov 2026
+
+- Home and channel pages: the buttons at the bottom sit in **three evenly spaced rows**. On a channel page, **Subscribe and the bell** have a row of their own above the tabs.
+- The player **follows your finger when you pull it down** by the video or by the remote. Let go past a quarter of the screen, or flick down, and it collapses into the mini-player; otherwise it springs back.
+
 ## Build 38 · 16 Nov 2026
 
 - Full screen: dragging along the timeline always moves the marker at **one third of your finger's speed**, slow or fast, so you can land on the exact moment. The marker starts where it is.

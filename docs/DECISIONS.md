@@ -582,3 +582,9 @@ Build 32 plus the music pulse, in one build.
 - Channel header: `ChannelHeaderParser` reads the `pageHeaderViewModel` metadata rows (`@handle`, then subscribers and videos, already in the interface language), with `c4TabbedHeaderRenderer` as fallback. The header shows the name, the handle and «subscribers · videos»; Subscribe moves to its own row.
 - The bell beside Subscribe toggles ErgoTube's own new-video notifications for the channel, the same per-channel setting as the bell in the player's More sheet (`LocalSubscriptions.notify`, asks for notification permission first). Turning it on also follows the channel locally, as before. YouTube's own notification preference is not changed.
 - versionCode 38.
+
+## Build 39 — even bottom rows, pull the player down to minimize (18 November 2026)
+
+- Home and the channel page show their bottom controls as three rows with one even gap, set from `Reach.RowGap` (4 dp) and `Reach.DockTopGap` (2 dp); the dock drop is 52 dp instead of 68 dp. Home: Music ear, filter chips, dock. Channel page: Subscribe + bell in their own row at the hand end (always shown), tab chips (hide while reading), dock. Classic mode keeps the actions in the header.
+- Pulling the portrait video down, or a mostly vertical downward drag on the pad (also when it starts on a button, whose tap is cancelled), drives `MinimizeDrag`: the page follows the finger with slight resistance, shrinks to 0.9 and fades. On release it drops into the mini-player past 25% of the height or on a downward flick of 1200 dp/s, otherwise springs back. The minimize button uses the same 180 ms drop. The two-pane layout keeps the old one-shot swipe. Decision logic has JVM tests.
+- versionCode 39. Built as a signed test APK; not tried on a device.
