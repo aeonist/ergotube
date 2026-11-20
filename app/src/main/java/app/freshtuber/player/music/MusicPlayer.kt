@@ -252,6 +252,8 @@ class MusicPlayer @Inject constructor(
     /** Plays [tracks] from [start] as the collection («Перемешать» reorders only these). */
     fun playCollection(tracks: List<MusicTrack>, start: Int = 0, title: String? = null, shuffle: Boolean? = null) {
         if (tracks.isEmpty()) return
+        // Tapping the song that is already on, in the list it was started from, goes on with it.
+        if (shuffle == null && isCurrent(tracks.getOrNull(start), title)) { resume(); return }
         val next = MusicQueue.start(tracks, start, title, queue.takeIf { it.current != null }, shuffle ?: queue.shuffle)
         setQueue(next)
         loadCurrent(0, play = true)
@@ -259,8 +261,17 @@ class MusicPlayer @Inject constructor(
 
     /** One song and radio after it. */
     fun playRadio(track: MusicTrack, title: String? = null, startMs: Long = 0) {
+        if (startMs == 0L && queue.collectionAll.size == 1 && isCurrent(track, title)) { resume(); return }
         setQueue(MusicQueue.radio(track, title, queue.takeIf { it.current != null }))
         loadCurrent(startMs, play = true)
+    }
+
+    private fun isCurrent(track: MusicTrack?, title: String?): Boolean =
+        track != null && queue.track?.id == track.id && queue.title == title
+
+    /** The current song keeps its second: nothing happens while it plays, Play when it is paused. */
+    private fun resume() {
+        if (!_state.value.playing) play()
     }
 
     /**

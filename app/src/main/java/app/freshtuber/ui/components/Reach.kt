@@ -57,8 +57,11 @@ object Reach {
     /** Space above the dock drop: with the row's 3 dp and the icons' 1.5 dp, ~10 dp like [RowGap]. */
     val DockTopGap: Dp = 5.5.dp
 
-    /** Space under the dock drop, above whatever of the navigation bar it must stay clear of. */
-    val DockBottomGap: Dp = 4.dp
+    /**
+     * Space under the dock drop, above whatever of the navigation bar it must stay clear of.
+     * 12 dp lifts the drop's bottom edge ~15% of its height above where test5 had it (4 dp).
+     */
+    val DockBottomGap: Dp = 12.dp
 
     /**
      * Room under the dock drop down to the screen edge, for a navigation bar [navBottom] tall of

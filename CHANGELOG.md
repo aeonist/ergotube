@@ -4,15 +4,15 @@ What changed in each ErgoTube build, newest first. Release APKs are on the [Rele
 
 Builds are numbered by `versionCode`. A release tag or APK name that contains `buildNN` is what the in-app update banner compares against.
 
-## Build 39 · 18 Nov 2026
+## Build 39 · 20 Nov 2026
 
-- Home and channel pages: the buttons at the bottom sit in **three evenly spaced rows**. On a channel page, **Subscribe and the bell** have a row of their own above the tabs.
-- The player **follows your finger when you pull it down from anywhere** on its page: the video, the remote, the buttons, the description or the list (a list scrolls first and pulls from its top). Let go far enough, or flick down, and it collapses into the mini-player; otherwise it springs back. How far is enough depends on the room left below your finger, so a pull from the remote near the bottom works too.
-- The **music player closes when you pull it down from anywhere**, like in Yandex Music, with the same rule for how far, on the lyrics and queue pages too. Lists scroll first and pull only from their top; the timeline and cover swipes work as before. The music keeps playing in the dock line.
-- Pulling either player down now **goes out of focus instead of sliding**: the page follows your finger, shrinks a little and blurs as you pull; let go and it blurs away where it is while the mini-player or the song line comes into focus. If you don't pull far enough it sharpens back. The video moves together with the page and no longer jumps out of it into the mini-player.
-- Home and channel pages: the **dock sits lower**, much closer to the bottom edge, and the gaps between the rows above it are a little wider and even.
-- **«As music» under a video works again**: the song now really takes over from the same second, the video stops exactly when the song starts, and Play while it is still loading no longer restarts the song from the beginning. If the song can't be found, the video simply keeps playing.
-- **Videos start a little sooner.** While your finger rests on a card, ErgoTube already opens the connection to the video server and fetches the first bytes the player needs; the first Short in the Shorts tab gets the same head start.
+- Home and channel pages: the buttons at the bottom sit in **three evenly spaced rows** (the Music ear, the chips or Subscribe and the bell, the dock). On a channel page, **Subscribe and the bell** have a row of their own above the tabs.
+- The **dock sits lower**, closer to the bottom edge, with a little air under it, and the gaps between the rows above it are even.
+- **Pull the video player down from anywhere** on its page: the video, the remote, the buttons, the description or the list (a list scrolls first and pulls from its top). Let go far enough, or flick down, and it **blurs away into the mini-player**; otherwise it sharpens back. How far is enough depends on the room left below your finger, so a pull from the remote near the bottom works too.
+- The **music player closes the same way**, from anywhere, on the lyrics and queue pages too. The music keeps playing in the dock line.
+- **«As music» under a video** now continues the song from the same second, and the video stops exactly when the song starts. Play while it is still loading no longer restarts it from the beginning; if the song can't be found, the video simply keeps playing.
+- **Tapping the song that's already playing** in an album, playlist, Favourites or search results no longer restarts it: it just keeps going (or resumes if paused).
+- **Videos start sooner.** When you press a card, ErgoTube fetches the start of the file and opens the connection to the video server early; the first Short in the Shorts tab gets the same head start.
 
 ## Build 38 · 16 Nov 2026
 
