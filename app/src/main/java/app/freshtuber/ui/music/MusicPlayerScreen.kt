@@ -44,6 +44,9 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.onSizeChanged
+import app.freshtuber.ui.player.minimizeDrag
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
@@ -124,15 +127,23 @@ fun MusicPlayerScreen(onCollapse: () -> Unit, viewModel: MusicViewModel = hiltVi
     val downloaded by viewModel.downloaded.collectAsStateWithLifecycle()
     val download = downloaded[track.videoId]
 
-    Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+    // Pulling down anywhere on the page, as in Yandex Music: the whole page follows the finger,
+    // shrinks a little and fades, then closes into the dock line or springs back. Seek bars,
+    // cover swipes and list scrolling keep their own moves; a list pulls only from its top.
+    val pull = app.freshtuber.ui.player.rememberMinimizeDrag()
+    val density = androidx.compose.ui.platform.LocalDensity.current.density
+    val collapse by androidx.compose.runtime.rememberUpdatedState(onCollapse)
+    val pulled = remember(pull) { { haptics.performHapticFeedback(HapticFeedbackType.GestureEnd); collapse() } }
+    val listPull = remember(pull, density) { app.freshtuber.ui.player.MinimizeNestedScroll(pull, density, pulled) }
+    Column(Modifier.fillMaxSize()
+        .onSizeChanged { pull.heightPx = it.height.toFloat() }
+        .graphicsLayer { pull.apply(this) }
+        .minimizeDrag(pull, enabled = true, onMinimize = pulled)
+        .nestedScroll(listPull)
+        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
         .navigationBarsPadding()) {
-        // Top: what plays and where from (or the page's name). Swiping down here collapses into the dock line.
-        Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp).pointerInput(Unit) {
-            var drag = 0f
-            detectVerticalDragGestures(onDragStart = { drag = 0f }, onDragEnd = {
-                if (drag > 80.dp.toPx()) { haptics.performHapticFeedback(HapticFeedbackType.GestureEnd); onCollapse() }
-            }) { change, amount -> drag += amount; if (drag > 0) change.consume() }
-        }, verticalAlignment = Alignment.CenterVertically) {
+        // Top: what plays and where from (or the page's name).
+        Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             // On the lyrics and queue pages the arrow goes back to the cover, Back does the same.
             val collapse: @Composable () -> Unit = {
                 PadIcon(Icons.Rounded.KeyboardArrowDown, stringResource(R.string.music_collapse),
@@ -181,8 +192,9 @@ fun MusicPlayerScreen(onCollapse: () -> Unit, viewModel: MusicViewModel = hiltVi
             else LyricsView(track, viewModel, Modifier.weight(1f).fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp))
             Surface(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp), shape = RoundedCornerShape(24.dp),
                 color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.92f)) {
+                // Here a swipe down on the line closes the page like any pull, instead of stopping the music.
                 MusicLine(state, music.player, offline = !online, onOpen = { face = Face.Cover }, onToggle = music::toggle,
-                    onNext = next, onPrevious = previous, onStop = music::stop)
+                    onNext = next, onPrevious = previous, onStop = music::stop, onSwipeDown = { pull.dismiss(pulled) })
             }
         }
         }
@@ -322,10 +334,28 @@ private fun MusicPad(state: MusicState, player: androidx.media3.common.Player, l
     Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp)
         .onGloballyPositioned { light?.setDrop(1, it.boundsInRoot(), radius) }
         .pointerInput(Unit) {
-            var drag = 0f
-            detectVerticalDragGestures(onDragStart = { drag = 0f }, onDragEnd = {
-                if (drag < -36.dp.toPx()) { haptics.performHapticFeedback(HapticFeedbackType.GestureEnd); onQueue() }
-            }) { change, amount -> drag += amount; change.consume() }
+            // A swipe up opens the queue. A pull down is not taken here: it is the page's, which closes.
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                val slop = viewConfiguration.touchSlop
+                var claimed = false
+                while (true) {
+                    val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                    val dx = change.position.x - down.position.x
+                    val dy = change.position.y - down.position.y
+                    if (!change.pressed) {
+                        if (claimed && dy < -36.dp.toPx()) { haptics.performHapticFeedback(HapticFeedbackType.GestureEnd); onQueue() }
+                        break
+                    }
+                    if (!claimed) {
+                        if (change.isConsumed) break
+                        if (kotlin.math.abs(dx) > slop || kotlin.math.abs(dy) > slop) {
+                            if (dy < 0f && -dy > kotlin.math.abs(dx)) claimed = true else break
+                        }
+                    }
+                    if (claimed) change.consume()
+                }
+            }
         }
         .padding(horizontal = 6.dp, vertical = 4.dp)) {
         // Top: the named buttons.

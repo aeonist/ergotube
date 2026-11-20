@@ -54,4 +54,19 @@ class MinimizeDragTest {
         assertEquals(3000f, MinimizeDrag.flingVelocity(0f, 180f, 60), 0.1f)
         assertEquals(500f, MinimizeDrag.flingVelocity(500f, 180f, 900), 0.1f)
     }
+
+    @Test fun aListScrollsUntilItsTopThenThePageTakesTheRestDown() {
+        // Before the list: down is the list's.
+        assertEquals(0f, MinimizeDrag.listTakes(40f, pulledPx = 0f, afterList = false), 0f)
+        // After the list: what it could not scroll down pulls the page; up stays with the list.
+        assertEquals(25f, MinimizeDrag.listTakes(25f, pulledPx = 0f, afterList = true), 0f)
+        assertEquals(0f, MinimizeDrag.listTakes(-25f, pulledPx = 0f, afterList = true), 0f)
+    }
+
+    @Test fun movingUpLiftsAPulledPageBeforeTheListScrolls() {
+        assertEquals(-30f, MinimizeDrag.listTakes(-30f, pulledPx = 100f, afterList = false), 0f)
+        // Only as much as the page was pulled; the rest scrolls the list.
+        assertEquals(-20f, MinimizeDrag.listTakes(-50f, pulledPx = 20f, afterList = false), 0f)
+        assertEquals(0f, MinimizeDrag.listTakes(-50f, pulledPx = 0f, afterList = false), 0f)
+    }
 }

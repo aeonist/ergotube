@@ -342,8 +342,11 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
             composable<SettingsRoute> { Box(docked.then(transitionBlur())) { SettingsScreen() } }
             composable<MusicListenRoute> { Box(docked.then(transitionBlur())) { app.freshtuber.ui.music.MusicListenScreen() } }
             composable<MusicLibraryRoute> { entry -> Box(docked.then(transitionBlur())) { app.freshtuber.ui.music.MusicLibraryScreen(entry.toRoute<MusicLibraryRoute>().collection) } }
-            composable<MusicPlayerRoute> { Box(Modifier.fillMaxSize().then(transitionBlur(28.dp))) {
-                app.freshtuber.ui.music.MusicPlayerScreen(onCollapse = { if (!navController.popBackStack()) navController.navigate(MusicListenRoute) })
+            composable<MusicPlayerRoute> { entry -> Box(Modifier.fillMaxSize().then(transitionBlur(28.dp))) {
+                // Only while this page is on top: a pull that ends after the arrow was tapped must not close a second page.
+                app.freshtuber.ui.music.MusicPlayerScreen(onCollapse = {
+                    if (navController.currentBackStackEntry?.id == entry.id && !navController.popBackStack()) navController.navigate(MusicListenRoute)
+                })
             } }
             composable<PlayerRoute> { entry ->
                 Box(Modifier.fillMaxSize().then(transitionBlur(28.dp))) {
@@ -483,6 +486,8 @@ private object ScreenMotion {
     }
 
     fun exit(from: NavBackStackEntry, to: NavBackStackEntry): ExitTransition = when {
+        // A page pulled down that has nothing to go back to is replaced: it only finishes its fade too.
+        from.isPlayer() && app.freshtuber.ui.player.MinimizeDrag.recentlyDismissed() -> fadeOut(tween(120, easing = Motion.Accelerate))
         to.isPlayer() -> fadeOut(exitSpec()) + scaleOut(enterSpec(), 0.94f)
         from.isSection() && to.isSection() -> fadeOut(tween(170, easing = Motion.Accelerate))
         else -> fadeOut(exitSpec()) + scaleOut(enterSpec(), 1.04f)

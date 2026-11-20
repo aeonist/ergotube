@@ -149,6 +149,8 @@ class MusicPlayer @Inject constructor(
     /** The player holds [MusicQueue.current] (false after a restart until Play). */
     private var loaded = false
     private var loadJob: Job? = null
+    /** «Как музыку» until the song's sound plays; meanwhile the video goes on sounding. */
+    private var handOver: MusicHandOver? = null
     private var nextJob: Job? = null
     private var tickJob: Job? = null
     private var sleepJob: Job? = null
@@ -178,7 +180,8 @@ class MusicPlayer @Inject constructor(
         // Only one thing sounds: a video starting pauses the song, which waits in the dock.
         video.player.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
-                if (isPlaying && player.playWhenReady) player.pause()
+                // While «Как музыку» hands over, the video sounds until the song plays: it must not pause it.
+                if (isPlaying && player.playWhenReady && handOver == null) player.pause()
             }
         })
     }
@@ -188,7 +191,9 @@ class MusicPlayer @Inject constructor(
             refreshPlaying()
             if (isPlaying) {
                 startTicking()
-                if (video.player.isPlaying) video.player.pause()
+                // The song took over: the video it came from stops at this moment, not earlier.
+                if (handOver != null) { handOver = null; video.stop() }
+                else if (video.player.isPlaying) video.player.pause()
             } else saveSoon(immediate = true)
         }
 
@@ -223,12 +228,15 @@ class MusicPlayer @Inject constructor(
             val position = player.currentPosition
             if (BuildConfig.DEBUG) Log.w("MusicPlayer", "error ${error.errorCodeName} on ${track.id}")
             // Stream addresses expire after some hours: look the song up once more.
+            val pending = handOver?.takeIf { it.trackId == track.id }
             if (track.isYouTube && retried != track.id && error.errorCode in RETRYABLE) {
                 retried = track.id
                 resolver.invalidate(track.videoId)
-                loadCurrent(position, play = true)
+                loadCurrent(position, play = pending?.play ?: true, keepHandOver = pending != null)
                 return
             }
+            // The song never took over from the video: the video simply goes on.
+            if (pending != null) { abandonHandOver(pending); return }
             markUnavailable(track)
             skipUnavailable()
         }
@@ -257,25 +265,55 @@ class MusicPlayer @Inject constructor(
 
     /**
      * «Как музыку» on the watch page: the song goes on as audio from the same second, with
-     * radio after it. The video keeps playing until the audio is ready, then it stops.
+     * radio after it. Everything is read from the video at the tap, before the watch page goes,
+     * and the hand-over lives here, not on that page. The video keeps sounding until the song
+     * really plays, then it stops; if the song cannot be found the video goes on and the queue
+     * is put back as it was.
      */
     fun takeOverFromVideo(track: MusicTrack, title: String?) {
+        val holdsVideo = video.player.currentMediaItem?.mediaId == track.videoId
+        val tapPosition = if (holdsVideo) video.player.currentPosition.coerceAtLeast(0) else 0L
+        // The video's own audio stream: the song starts without a second lookup.
+        val streamUrl = if (holdsVideo) video.streamingAudioUrl(track.videoId) else null
+        val previous = queue.takeIf { it.current != null }?.let { it.copy(positionMs = if (loaded) player.currentPosition else it.positionMs) }
         clearPlayer()
-        // The song shows at once (dock line, player); the sound follows when it is found.
-        setQueue(MusicQueue.radio(track, title, queue.takeIf { it.current != null }))
+        val pending = MusicHandOver(track.id, track.videoId, tapPosition, previous)
+        handOver = pending
+        // The song shows at once (dock line, player) at the video's second, so Play resumes there.
+        setQueue(MusicQueue.radio(track, title, previous).copy(positionMs = tapPosition))
+        _state.update { it.copy(playing = true, buffering = true, chapters = emptyList()) }
+        ensureSession()
         loadJob = scope.launch {
-            val item = try { mediaItem(track) } catch (e: CancellationException) { throw e } catch (_: Exception) {
-                _events.tryEmit(MusicEvent.Failed); return@launch
+            val item = try { handOverItem(track, streamUrl) } catch (e: CancellationException) { throw e } catch (e: Exception) {
+                if (BuildConfig.DEBUG) Log.w("MusicPlayer", "hand-over failed ${track.id}: ${e.javaClass.simpleName}")
+                if (handOver === pending) abandonHandOver(pending)
+                return@launch
             }
-            val position = video.player.currentPosition.takeIf { video.player.currentMediaItem?.mediaId == track.videoId } ?: 0L
-            video.stop()
-            ensureSession()
-            player.setMediaItem(item, position)
+            if (handOver !== pending) return@launch
+            player.setMediaItem(item, pending.startMs(video.player.currentMediaItem?.mediaId, video.player.currentPosition))
             player.prepare()
-            player.playWhenReady = true
+            player.playWhenReady = pending.play
             loaded = true
+            // Paused meanwhile: nothing will take over by playing, so the video goes now.
+            if (!pending.play) { handOver = null; video.stop() }
             onSongStarted()
         }
+    }
+
+    private suspend fun handOverItem(track: MusicTrack, streamUrl: String?): MediaItem {
+        val quick = streamUrl?.takeIf {
+            downloads.localAudio(track.videoId) == null && settings.preferences.first().musicQuality(network.wifi.value) != MusicQuality.Economy
+        }
+        return if (quick != null) item(track, quick) else mediaItem(track)
+    }
+
+    /** The song could not take over: the video goes on, the queue is as before, and the listener is told. */
+    private fun abandonHandOver(pending: MusicHandOver) {
+        handOver = null
+        clearPlayer()
+        setQueue(pending.previous ?: MusicQueue(shuffle = queue.shuffle, repeat = queue.repeat, endless = queue.endless))
+        _state.update { it.copy(playing = false, buffering = false) }
+        _events.tryEmit(MusicEvent.Failed)
     }
 
     fun playNext(track: MusicTrack) {
@@ -292,6 +330,8 @@ class MusicPlayer @Inject constructor(
 
     fun play() {
         if (queue.current == null) return
+        // The hand-over is on its way: Play waits for it instead of loading the song again from 0.
+        handOver?.takeIf { !loaded }?.let { it.play = true; _state.update { s -> s.copy(playing = true) }; return }
         if (video.player.isPlaying) video.player.pause()
         ensureSession()
         if (!loaded) { loadCurrent(queue.positionMs, play = true); return }
@@ -300,12 +340,22 @@ class MusicPlayer @Inject constructor(
         player.play()
     }
 
-    fun pause() { player.pause() }
+    fun pause() {
+        handOver?.let { pending ->
+            // Paused before the song took over: both fall silent, the song waits at its second.
+            pending.play = false
+            video.player.pause()
+            if (!loaded) { _state.update { it.copy(playing = false) }; return }
+            handOver = null
+            video.stop()
+        }
+        player.pause()
+    }
 
     fun toggle() { if (_state.value.playing) pause() else play() }
 
     fun seekTo(ms: Long) {
-        if (!loaded) { setQueue(queue.copy(positionMs = ms)); return }
+        if (!loaded) { handOver?.seek(ms); setQueue(queue.copy(positionMs = ms)); return }
         player.seekTo(ms)
     }
 
@@ -436,8 +486,10 @@ class MusicPlayer @Inject constructor(
     }
 
     /** Loads the current song into the player and plays it from [startMs]. */
-    private fun loadCurrent(startMs: Long, play: Boolean) {
+    private fun loadCurrent(startMs: Long, play: Boolean, keepHandOver: Boolean = false) {
         val track = queue.track ?: return
+        // Another song (or a fresh start) replaces the hand-over; the video is paused once it plays.
+        if (!keepHandOver) handOver = null
         loadJob?.cancel()
         nextJob?.cancel()
         // The old song falls silent at once while the new one is looked up.
@@ -447,6 +499,7 @@ class MusicPlayer @Inject constructor(
             ensureSession()
             val item = try { mediaItem(track) } catch (e: CancellationException) { throw e } catch (e: Exception) {
                 if (BuildConfig.DEBUG) Log.w("MusicPlayer", "unavailable ${track.id}: ${e.javaClass.simpleName}")
+                handOver?.takeIf { keepHandOver && it.trackId == track.id }?.let { abandonHandOver(it); return@launch }
                 markUnavailable(track)
                 skipUnavailable()
                 return@launch
@@ -502,6 +555,7 @@ class MusicPlayer @Inject constructor(
     }
 
     private fun clearPlayer() {
+        handOver = null
         loadJob?.cancel(); nextJob?.cancel(); tickJob?.cancel(); scanJob?.cancel()
         player.stop()
         player.clearMediaItems()
@@ -520,6 +574,10 @@ class MusicPlayer @Inject constructor(
                 (if (economy) resolved.economyAudioUrl else null) ?: resolved.audioUrl ?: throw IllegalStateException("no audio")
             }
         }
+        return item(track, uri)
+    }
+
+    private fun item(track: MusicTrack, uri: String): MediaItem {
         val metadata = MediaMetadata.Builder()
             .setTitle(track.title)
             .setArtist(track.artist)

@@ -44,7 +44,9 @@ val MusicLineHeight = 58.dp
  */
 @Composable
 fun MusicLine(state: MusicState, player: Player, offline: Boolean, onOpen: () -> Unit, onToggle: () -> Unit,
-    onNext: () -> Unit, onPrevious: () -> Unit, onStop: () -> Unit, modifier: Modifier = Modifier) {
+    onNext: () -> Unit, onPrevious: () -> Unit, onStop: () -> Unit, modifier: Modifier = Modifier,
+    /** A swipe down on the line; in the dock it stops the music. */
+    onSwipeDown: () -> Unit = onStop) {
     val track = state.queue.track ?: return
     val haptics = LocalHapticFeedback.current
     val progress = rememberProgress(player)
@@ -74,7 +76,7 @@ fun MusicLine(state: MusicState, player: Player, offline: Boolean, onOpen: () ->
                     val threshold = 48.dp.toPx()
                     when {
                         abs(drag.y) > abs(drag.x) && drag.y < -threshold / 2 -> { haptics.performHapticFeedback(HapticFeedbackType.GestureEnd); onOpen() }
-                        abs(drag.y) > abs(drag.x) && drag.y > threshold / 2 -> { haptics.performHapticFeedback(HapticFeedbackType.GestureEnd); onStop() }
+                        abs(drag.y) > abs(drag.x) && drag.y > threshold / 2 -> { haptics.performHapticFeedback(HapticFeedbackType.GestureEnd); onSwipeDown() }
                         drag.x < -threshold -> { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onNext() }
                         drag.x > threshold -> { haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); onPrevious() }
                     }

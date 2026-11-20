@@ -80,3 +80,5 @@ Fullscreen scrubbing is a fixed 1/3 of the finger (`SlowScrub`, replaces `GlideS
 
 ## Build 39 (18 Nov 2026)
 Three evenly spaced bottom rows on Home and the channel page (Subscribe + bell in their own row, `Reach.RowGap`/`Reach.DockTopGap`). Pulling the portrait video or the pad down drags the whole player and drops it into the mini-player past 25% of the height or on a fast flick (`MinimizeDrag`). Test APK `apk/ErgoTube-build39-test-release.apk`, not run on a device, not released.
+- The music player closes by pulling it down from anywhere (`MinimizeDrag` on the page + `MinimizeNestedScroll` for the lyrics/queue lists, which pull only from their top).
+- «As music» hand-over fix: Play during the slow audio lookup restarted the song from 0 while the video kept playing; now `MusicHandOver` captures the second at the tap, reuses the video's audio URL, and the video stops exactly when the song sounds. Test APK `apk/ErgoTube-build39-test2-release.apk`.

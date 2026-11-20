@@ -259,6 +259,12 @@ class PlayerController @Inject constructor(
     }
 
     private var resolved: ResolvedVideo? = null
+
+    /**
+     * The audio stream of the video playing now when [videoId] plays from the network (null for
+     * downloads and live streams): «Как музыку» starts the song with it at once, no second lookup.
+     */
+    fun streamingAudioUrl(videoId: String): String? = resolved?.takeIf { it.videoId == videoId && !it.isLive }?.audio?.url
     private var segments: List<SkipSegment> = emptyList()
         set(value) { field = value; _state.update { it.copy(segments = value) } }
     private var sponsorEnabled = true

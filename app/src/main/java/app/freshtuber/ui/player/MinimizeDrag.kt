@@ -18,7 +18,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.GraphicsLayerScope
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.LayoutCoordinates
@@ -164,6 +168,18 @@ class MinimizeDrag internal constructor(private val scope: CoroutineScope) {
             return maxOf(trackedPxPerSec, distancePx * 1000f / durationMs)
         }
 
+        /**
+         * A list inside the page scrolled by the finger: how much of [availableY] (px, + is down)
+         * the page takes, given how far the finger has pulled it already ([pulledPx]). Down is
+         * the page's only once the list has nothing left to scroll (it is then "available");
+         * up first lifts a pulled page back before the list scrolls again.
+         */
+        fun listTakes(availableY: Float, pulledPx: Float, afterList: Boolean): Float = when {
+            afterList -> availableY.coerceAtLeast(0f)
+            pulledPx > 0f && availableY < 0f -> maxOf(availableY, -pulledPx)
+            else -> 0f
+        }
+
         /** Whether a movement of ([dx], [dy]) past touch slop starts the pull. */
         fun startsPull(dx: Float, dy: Float): Boolean = dy > 0f && dy > abs(dx) * 1.2f
     }
@@ -238,5 +254,45 @@ fun Modifier.minimizeDrag(drag: MinimizeDrag, enabled: Boolean, onMinimize: () -
             val velocity = MinimizeDrag.flingVelocity(tracker.calculateVelocity().y, distance, upAt - down.uptimeMillis)
             drag.release(distance, velocity, density, onMinimize)
         }
+    }
+}
+
+/**
+ * The pull for scrolling lists inside the page (lyrics, the queue): while a list is not at its
+ * top the finger scrolls it; once it is, the rest of a downward drag pulls the page, and the
+ * release decides as for [minimizeDrag]. Attach with `Modifier.nestedScroll` around the lists.
+ */
+class MinimizeNestedScroll(private val drag: MinimizeDrag, private val density: Float, private val onMinimize: () -> Unit) : NestedScrollConnection {
+    /** The finger's movement as the list saw it while pulling, px; the page's own offset is added back. */
+    private var local = 0f
+    private val pulled get() = if (local > 0f) local + drag.offsetPx else 0f
+
+    override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+        if (source != NestedScrollSource.UserInput || drag.dismissing) return Offset.Zero
+        val take = MinimizeDrag.listTakes(available.y, pulled, afterList = false)
+        if (take == 0f) return Offset.Zero
+        local = (local + take).coerceAtLeast(0f)
+        drag.follow(if (local > 0f) local + drag.offsetPx else 0f)
+        return Offset(0f, take)
+    }
+
+    override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+        if (source != NestedScrollSource.UserInput || drag.dismissing) return Offset.Zero
+        val take = MinimizeDrag.listTakes(available.y, pulled, afterList = true)
+        if (take == 0f) return Offset.Zero
+        // The list moves with the page, so it reports the finger less the page's own movement.
+        val finger = local + take + drag.offsetPx
+        local += take
+        drag.follow(finger)
+        return Offset(0f, take)
+    }
+
+    override suspend fun onPreFling(available: Velocity): Velocity {
+        if (local <= 0f) return Velocity.Zero
+        val distance = pulled
+        local = 0f
+        drag.release(distance, available.y, density, onMinimize)
+        // A page let go does not also fling the list.
+        return available
     }
 }

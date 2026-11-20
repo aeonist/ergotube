@@ -8,6 +8,8 @@ Builds are numbered by `versionCode`. A release tag or APK name that contains `b
 
 - Home and channel pages: the buttons at the bottom sit in **three evenly spaced rows**. On a channel page, **Subscribe and the bell** have a row of their own above the tabs.
 - The player **follows your finger when you pull it down** by the video or by the remote. Let go past a quarter of the screen, or flick down, and it collapses into the mini-player; otherwise it springs back.
+- The **music player closes when you pull it down from anywhere**, like in Yandex Music, on the lyrics and queue pages too. Lists scroll first and pull only from their top; the timeline and cover swipes work as before. The music keeps playing in the dock line.
+- **«As music» under a video works again**: the song now really takes over from the same second, the video stops exactly when the song starts, and Play while it is still loading no longer restarts the song from the beginning. If the song can't be found, the video simply keeps playing.
 
 ## Build 38 · 16 Nov 2026
 
