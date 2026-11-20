@@ -117,15 +117,6 @@ object PadGestures {
         abs(dy) > VERTICAL_SLOP_DP && abs(dy) > abs(dx) -> PadMove.Vertical
         else -> null
     }
-
-    /** A drag of ([dx], [dy]) dp that pulls the page down toward the mini-player, as the video does. */
-    fun pullsDown(dx: Float, dy: Float): Boolean = dy > 0f && decide(dx, dy) == PadMove.Vertical
-
-    /**
-     * What a gesture that starts on [onButton] may become: a button keeps its tap, but a downward
-     * pull from it still drags the page; seeking, holding and swiping up stay off buttons.
-     */
-    fun allowedFrom(onButton: Boolean, dx: Float, dy: Float): Boolean = !onButton || pullsDown(dx, dy)
 }
 
 /** "+20 с", "−1:20": signed seconds, minutes when it is a minute or more. */

@@ -18,11 +18,56 @@ class MinimizeDragTest {
 
     @Test fun fastShortFlickMinimizes() {
         assertTrue(MinimizeDrag.shouldMinimize(distanceDp = 40f, velocityDpPerSec = 1500f, heightDp = height))
+        // A fast fling counts from anywhere on the page, the bottom included.
+        assertTrue(MinimizeDrag.shouldMinimize(distanceDp = 20f, velocityDpPerSec = 950f, heightDp = height, roomDp = 60f))
+        assertTrue(MinimizeDrag.shouldMinimize(distanceDp = 20f, velocityDpPerSec = 950f, heightDp = height, roomDp = 700f))
+    }
+
+    @Test fun aPullFromNearTheBottomNeedsOnlyPartOfTheRoomBelowTheFinger() {
+        // Start at 85 % of the height: 120 dp below the finger, a quarter of the page (200 dp)
+        // would be out of reach. Half the room is 60 dp, raised to the 72 dp minimum.
+        val room = height * 0.15f
+        assertEquals(72f, MinimizeDrag.closeDistanceDp(height, room, 1f), 0.01f)
+        assertTrue(MinimizeDrag.shouldMinimize(distanceDp = 80f, velocityDpPerSec = 100f, heightDp = height, roomDp = room))
+        assertFalse(MinimizeDrag.shouldMinimize(distanceDp = 60f, velocityDpPerSec = 100f, heightDp = height, roomDp = room))
+    }
+
+    @Test fun aTinySlowDragNeverMinimizes() {
+        for (room in listOf(40f, 120f, 400f, 800f)) {
+            assertFalse(MinimizeDrag.shouldMinimize(distanceDp = 20f, velocityDpPerSec = 150f, heightDp = height, roomDp = room))
+        }
+    }
+
+    @Test fun aPullFromTheTopNeedsTheUsualQuarter() {
+        val room = height - 60f
+        assertEquals(200f, MinimizeDrag.closeDistanceDp(height, room, 1f), 0.01f)
+        assertFalse(MinimizeDrag.shouldMinimize(distanceDp = 150f, velocityDpPerSec = 0f, heightDp = height, roomDp = room))
+        assertTrue(MinimizeDrag.shouldMinimize(distanceDp = 205f, velocityDpPerSec = 0f, heightDp = height, roomDp = room))
+    }
+
+    @Test fun theCloseDistanceAlwaysFitsInTheRoom() {
+        // At the very bottom (50 dp left) the 72 dp minimum would be unreachable: 80 % of the room.
+        assertEquals(40f, MinimizeDrag.closeDistanceDp(height, 50f, 1f), 0.01f)
+        for (room in listOf(60f, 100f, 150f, 300f, 800f)) {
+            assertTrue(MinimizeDrag.closeDistanceDp(height, room, 1f) < room)
+        }
+        // In px the dp minimums scale with the density.
+        assertEquals(72f * 3f, MinimizeDrag.closeDistanceDp(height * 3f, 120f * 3f, 3f), 0.01f)
+    }
+
+    @Test fun thePageLooksAsPulledAtEveryCloseDistance() {
+        // Right at the release distance the page has the same shrink and fade, wherever it started.
+        assertEquals(MinimizeDrag.DISTANCE_SHARE, MinimizeDrag.progressFor(72f, 72f), 0.0001f)
+        assertEquals(MinimizeDrag.DISTANCE_SHARE, MinimizeDrag.progressFor(200f, 200f), 0.0001f)
+        assertEquals(MinimizeDrag.progressFor(36f, 72f), MinimizeDrag.progressFor(100f, 200f), 0.0001f)
+        assertEquals(1f, MinimizeDrag.progressFor(10_000f, 72f), 0f)
+        assertEquals(0f, MinimizeDrag.progressFor(10f, 0f), 0f)
     }
 
     @Test fun upwardNeverMinimizes() {
         assertFalse(MinimizeDrag.shouldMinimize(distanceDp = -200f, velocityDpPerSec = 3000f, heightDp = height))
         assertFalse(MinimizeDrag.shouldMinimize(distanceDp = 0f, velocityDpPerSec = 0f, heightDp = height))
+        assertFalse(MinimizeDrag.shouldMinimize(distanceDp = -100f, velocityDpPerSec = 2000f, heightDp = height, roomDp = 100f))
     }
 
     @Test fun flickingBackUpCancelsAFarDrag() {

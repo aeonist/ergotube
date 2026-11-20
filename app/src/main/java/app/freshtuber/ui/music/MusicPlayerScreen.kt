@@ -44,7 +44,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onSizeChanged
 import app.freshtuber.ui.player.minimizeDrag
 import androidx.compose.ui.layout.boundsInRoot
@@ -134,12 +133,11 @@ fun MusicPlayerScreen(onCollapse: () -> Unit, viewModel: MusicViewModel = hiltVi
     val density = androidx.compose.ui.platform.LocalDensity.current.density
     val collapse by androidx.compose.runtime.rememberUpdatedState(onCollapse)
     val pulled = remember(pull) { { haptics.performHapticFeedback(HapticFeedbackType.GestureEnd); collapse() } }
-    val listPull = remember(pull, density) { app.freshtuber.ui.player.MinimizeNestedScroll(pull, density, pulled) }
+    // The same page-wide pull and release rule as the video player (lists included).
     Column(Modifier.fillMaxSize()
         .onSizeChanged { pull.heightPx = it.height.toFloat() }
-        .graphicsLayer { pull.apply(this) }
         .minimizeDrag(pull, enabled = true, onMinimize = pulled)
-        .nestedScroll(listPull)
+        .graphicsLayer { pull.apply(this) }
         .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
         .navigationBarsPadding()) {
         // Top: what plays and where from (or the page's name).

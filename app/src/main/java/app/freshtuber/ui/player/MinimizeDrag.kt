@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -25,8 +26,10 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
-import androidx.compose.ui.layout.LayoutCoordinates
-import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.composed
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -49,11 +52,27 @@ class MinimizeDrag internal constructor(private val scope: CoroutineScope) {
     var dismissing by mutableStateOf(false)
         private set
     private var job: Job? = null
-    /** Where the dragged element sits, to measure the finger on screen while the page moves. */
-    internal var coords: LayoutCoordinates? = null
+    /** Room below the finger where the current gesture started, px (the whole page until known). */
+    private var roomPx by mutableFloatStateOf(Float.NaN)
+    private val room: Float get() = if (roomPx.isNaN()) heightPx else roomPx
+    /** One dp in px, known from the first gesture. */
+    private var dpPx = 1f
 
-    /** 0 at rest, 1 when pulled a whole page height. */
-    val progress: Float get() = if (heightPx <= 0f) 0f else (offsetPx / heightPx).coerceIn(0f, 1f)
+    /** The release distance for this gesture, px (see [closeDistanceDp]). */
+    private val closePx: Float get() = closeDistanceDp(heightPx, room, dpPx)
+
+    /**
+     * How far the page looks pulled: [DISTANCE_SHARE] exactly at the release distance, so a pull
+     * from near the bottom shrinks and fades as much at its (shorter) threshold as one from the top.
+     */
+    val progress: Float get() = if (heightPx <= 0f) 0f else progressFor(offsetPx, closePx)
+
+    /** A finger went down at [startYPx] on the page: the room below it sets the release distance. */
+    internal fun begin(startYPx: Float, density: Float) {
+        dpPx = density
+        if (dismissing || offsetPx != 0f) return
+        roomPx = (heightPx - startYPx).coerceIn(0f, heightPx)
+    }
 
     /** Applies the page transform (follow the finger, shrink toward the top centre, fade). */
     fun apply(layer: GraphicsLayerScope) {
@@ -85,7 +104,7 @@ class MinimizeDrag internal constructor(private val scope: CoroutineScope) {
     /** Finger lifted after a drag of [distancePx] at [velocityPxPerSec] downward. */
     internal fun release(distancePx: Float, velocityPxPerSec: Float, density: Float, onMinimize: () -> Unit) {
         if (dismissing) return
-        val minimize = heightPx > 0f && shouldMinimize(distancePx / density, velocityPxPerSec / density, heightPx / density)
+        val minimize = heightPx > 0f && shouldMinimize(distancePx / density, velocityPxPerSec / density, heightPx / density, room / density)
         if (minimize) dismiss(onMinimize, velocityPxPerSec) else settle()
     }
 
@@ -124,10 +143,17 @@ class MinimizeDrag internal constructor(private val scope: CoroutineScope) {
     }
 
     companion object {
-        /** A release past this share of the page height minimizes. */
+        /** A release past this share of the page height minimizes (from the top of the page). */
         const val DISTANCE_SHARE = 0.25f
+        /** ...or past this share of the room left below the finger, whichever is shorter. */
+        const val ROOM_SHARE = 0.5f
+        /** Never less than this, dp, so a small slip does not close the page... */
+        const val MIN_DISTANCE_DP = 72f
+        /** ...unless the room itself is that short: then this share of it, at least [FLOOR_DP]. */
+        const val MAX_ROOM_SHARE = 0.8f
+        const val FLOOR_DP = 40f
         /** A downward fling this fast (dp/s) minimizes whatever the distance. */
-        const val FLING_DP_S = 1200f
+        const val FLING_DP_S = 900f
         /** Flicking back up this fast (dp/s) cancels even past the distance. */
         const val CANCEL_DP_S = -600f
         /** The shortest movement a fling still counts for, dp. */
@@ -147,11 +173,28 @@ class MinimizeDrag internal constructor(private val scope: CoroutineScope) {
         /** The page has just been dragged off: its navigation exit should only finish a short fade. */
         fun recentlyDismissed(now: Long = SystemClock.uptimeMillis()): Boolean = now - lastDismissAt < 600
 
-        fun shouldMinimize(distanceDp: Float, velocityDpPerSec: Float, heightDp: Float): Boolean {
+        /**
+         * The release distance for a pull that started with [roomDp] of the page below the finger:
+         * min(a quarter of the page, half the room), never under [MIN_DISTANCE_DP], and never more
+         * than [MAX_ROOM_SHARE] of the room (at least [FLOOR_DP]) so it is always reachable.
+         * Works in any unit; [unit] is one dp in it (1 for dp, the density for px).
+         */
+        fun closeDistanceDp(heightDp: Float, roomDp: Float, unit: Float): Float {
+            if (heightDp <= 0f) return 0f
+            val room = roomDp.coerceIn(0f, heightDp)
+            val wanted = maxOf(minOf(heightDp * DISTANCE_SHARE, room * ROOM_SHARE), MIN_DISTANCE_DP * unit)
+            return minOf(wanted, maxOf(room * MAX_ROOM_SHARE, FLOOR_DP * unit))
+        }
+
+        /** The look of a page pulled [offset] when it closes at [close]: [DISTANCE_SHARE] right at it. */
+        fun progressFor(offset: Float, close: Float): Float =
+            if (close <= 0f) 0f else (offset / close * DISTANCE_SHARE).coerceIn(0f, 1f)
+
+        fun shouldMinimize(distanceDp: Float, velocityDpPerSec: Float, heightDp: Float, roomDp: Float = heightDp): Boolean {
             if (distanceDp <= 0f) return false
             if (velocityDpPerSec >= FLING_DP_S && distanceDp >= MIN_FLING_DP) return true
             if (velocityDpPerSec <= CANCEL_DP_S) return false
-            return heightDp > 0f && distanceDp >= heightDp * DISTANCE_SHARE
+            return heightDp > 0f && distanceDp >= closeDistanceDp(heightDp, roomDp, 1f)
         }
 
         /** Slight resistance: the page lags the finger more the further it goes. */
@@ -192,67 +235,74 @@ fun rememberMinimizeDrag(): MinimizeDrag {
 }
 
 /**
- * Lets a mostly vertical downward drag on this element pull the page (see [MinimizeDrag]).
- * Two fingers, events already used (zoom pan, seek bars) and sideways or upward moves are left alone.
+ * The whole-page pull: a mostly vertical downward drag that starts anywhere on this element
+ * pulls the page (see [MinimizeDrag]). Put it on the page root BEFORE the page's
+ * `graphicsLayer { drag.apply(this) }`, so positions here are screen positions.
+ *
+ * It watches the Main pass, after the page's own children: anything they already used (zoom pan,
+ * seek bars, pad scrubbing, a list scroll, two fingers) and sideways or upward moves are left
+ * alone. Once a downward move past touch slop is unclaimed, the pull takes it and consumes every
+ * later event in the Initial pass, so buttons cancel their press and the pad drops its gesture.
+ * Scrolling lists inside the page pull through the [MinimizeNestedScroll] attached here too:
+ * a list scrolls first and hands the rest of a downward drag to the page once it is at its top.
  */
 fun Modifier.minimizeDrag(drag: MinimizeDrag, enabled: Boolean, onMinimize: () -> Unit): Modifier {
     if (!enabled) return this
-    return onGloballyPositioned { drag.coords = it }.pointerInput(drag) {
-        awaitEachGesture {
-            val down = awaitFirstDown(requireUnconsumed = false)
-            if (drag.dismissing) return@awaitEachGesture
-            val coords = drag.coords ?: return@awaitEachGesture
-            val startRoot = coords.localToRoot(down.position)
-            val slop = viewConfiguration.touchSlop
-            val tracker = VelocityTracker()
-            tracker.addPosition(down.uptimeMillis, startRoot)
-            // Phase 1: wait until the finger has clearly moved, then decide whether it is ours.
-            while (true) {
-                val event = awaitPointerEvent()
-                if (event.changes.size > 1) return@awaitEachGesture
-                val change = event.changes.firstOrNull { it.id == down.id } ?: return@awaitEachGesture
-                if (change.isConsumed) return@awaitEachGesture
-                val now = coords.localToRoot(change.position)
-                val dx = now.x - startRoot.x
-                val dy = now.y - startRoot.y
-                tracker.addPosition(change.uptimeMillis, now)
-                if (!change.pressed) {
-                    // So quick that the finger was already up: a flick, judged by its speed alone.
-                    if ((abs(dx) > slop || abs(dy) > slop) && MinimizeDrag.startsPull(dx, dy)) {
-                        change.consume()
-                        val velocity = MinimizeDrag.flingVelocity(tracker.calculateVelocity().y, dy, change.uptimeMillis - down.uptimeMillis)
-                        drag.release(dy, velocity, density, onMinimize)
+    return composed {
+        val density = LocalDensity.current.density
+        val latest by rememberUpdatedState(onMinimize)
+        val lists = remember(drag, density) { MinimizeNestedScroll(drag, density) { latest() } }
+        nestedScroll(lists).pointerInput(drag) {
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                if (drag.dismissing) return@awaitEachGesture
+                val start = down.position
+                // The room below this finger sets how far it has to go (lists use it as well).
+                drag.begin(start.y, density)
+                val slop = viewConfiguration.touchSlop
+                val tracker = VelocityTracker()
+                tracker.addPosition(down.uptimeMillis, start)
+                // Phase 1: wait until the finger has clearly moved, then decide whether it is ours.
+                while (true) {
+                    val event = awaitPointerEvent()
+                    if (event.changes.size > 1) return@awaitEachGesture
+                    val change = event.changes.firstOrNull { it.id == down.id } ?: return@awaitEachGesture
+                    if (change.isConsumed) return@awaitEachGesture
+                    val dx = change.position.x - start.x
+                    val dy = change.position.y - start.y
+                    tracker.addPosition(change.uptimeMillis, change.position)
+                    if (!change.pressed) {
+                        // So quick that the finger was already up: a flick, judged by its speed alone.
+                        if ((abs(dx) > slop || abs(dy) > slop) && MinimizeDrag.startsPull(dx, dy)) {
+                            change.consume()
+                            val velocity = MinimizeDrag.flingVelocity(tracker.calculateVelocity().y, dy, change.uptimeMillis - down.uptimeMillis)
+                            drag.release(dy, velocity, density, latest)
+                        }
+                        return@awaitEachGesture
                     }
-                    return@awaitEachGesture
+                    if (abs(dx) > slop || abs(dy) > slop) {
+                        if (!MinimizeDrag.startsPull(dx, dy)) return@awaitEachGesture
+                        change.consume()
+                        drag.follow(dy)
+                        break
+                    }
                 }
-                if (abs(dx) > slop || abs(dy) > slop) {
-                    if (!MinimizeDrag.startsPull(dx, dy)) return@awaitEachGesture
-                    break
-                }
-            }
-            // Phase 2: the page follows the finger. Measured on screen, since the page itself moves.
-            var distance = 0f
-            var upAt = down.uptimeMillis
-            while (true) {
-                val event = awaitPointerEvent()
-                val change = event.changes.firstOrNull { it.id == down.id }
-                if (change == null || event.changes.size > 1) { drag.settle(); return@awaitEachGesture }
-                val root = coords.localToRoot(change.position)
-                distance = root.y - startRoot.y
-                if (change.pressed) {
+                // Phase 2: the page follows the finger; taken first so nothing under it acts as well.
+                var distance = 0f
+                var upAt = down.uptimeMillis
+                while (true) {
+                    val event = awaitPointerEvent(PointerEventPass.Initial)
+                    val change = event.changes.firstOrNull { it.id == down.id }
+                    if (change == null || event.changes.size > 1) { drag.settle(); return@awaitEachGesture }
                     change.consume()
-                    tracker.addPosition(change.uptimeMillis, root)
-                    drag.follow(distance)
-                } else {
-                    change.consume()
-                    tracker.addPosition(change.uptimeMillis, root)
-                    upAt = change.uptimeMillis
-                    break
+                    distance = change.position.y - start.y
+                    tracker.addPosition(change.uptimeMillis, change.position)
+                    if (change.pressed) drag.follow(distance) else { upAt = change.uptimeMillis; break }
                 }
+                // A very quick flick gives the tracker too few samples; its average speed stands in.
+                val velocity = MinimizeDrag.flingVelocity(tracker.calculateVelocity().y, distance, upAt - down.uptimeMillis)
+                drag.release(distance, velocity, density, latest)
             }
-            // A very quick flick gives the tracker too few samples; its average speed stands in.
-            val velocity = MinimizeDrag.flingVelocity(tracker.calculateVelocity().y, distance, upAt - down.uptimeMillis)
-            drag.release(distance, velocity, density, onMinimize)
         }
     }
 }

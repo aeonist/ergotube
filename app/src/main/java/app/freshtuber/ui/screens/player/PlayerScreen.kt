@@ -221,12 +221,18 @@ fun PlayerScreen(
     val density = LocalDensity.current
     val statusTop = WindowInsets.statusBars.getTop(density)
 
-    // Pulling the video down drags the whole page toward the mini-player, as in YouTube.
+    // A downward drag from anywhere on the portrait page drags the whole page toward the
+    // mini-player, as in YouTube. Off in full screen, picture-in-picture, tabletop and the two-pane page.
     val pull = app.freshtuber.ui.player.rememberMinimizeDrag()
     val minimize = { pull.dismiss(onBack) }
+    var widePage by remember { mutableStateOf(false) }
+    val pullable = !fullscreen && !inPip && !tabletop && !(large && widePage) && currentPage
+    LaunchedEffect(pullable) { if (!pullable) pull.reset() }
     CompositionLocalProvider(LocalQualityAnchor provides { qualityAnchor = it }) {
     BoxWithConstraints(Modifier.fillMaxSize().then(if (inPip || tabletop) Modifier.background(Color.Black) else Modifier)
-        .onSizeChanged { pull.heightPx = it.height.toFloat() }
+        .onSizeChanged { pull.heightPx = it.height.toFloat(); widePage = it.width > it.height }
+        // Before the page's transform, so the finger is measured on screen while the page moves.
+        .minimizeDrag(pull, enabled = pullable, onMinimize = onBack)
         .graphicsLayer { pull.apply(this) }) {
         val details = state.details
         val pageHeight = maxHeight - with(density) { statusTop.toDp() }
@@ -267,8 +273,6 @@ fun PlayerScreen(
             if (!scrolls) 0 else if (listState.firstVisibleItemIndex == 0) -listState.firstVisibleItemScrollOffset else -videoHeightPx
         } }
         val big = fullscreen || inPip || tabletop
-        val pullable = !big && !twoPane && currentPage
-        LaunchedEffect(pullable) { if (!pullable) pull.reset() }
         val zoom = remember(videoId, big) { VideoZoom() }
         // Where the picture sits on screen, for pictures flying in and out.
         val videoRect = if (tabletop && !inPip) {
@@ -310,8 +314,7 @@ fun PlayerScreen(
         if (!big) Box(Modifier.width(paneWidth).fillMaxHeight()) {
             if (classic) ClassicPortraitPage(details, state, navigation, listState, viewModel, now, videoHeight, { moreOpen = true }, related = !twoPane)
             else PortraitPage(details, state, navigation, listState, padHide, padUi, playerState, viewModel, now, left, pinned, scrolls, videoHeight,
-                captionsOn, minimize, onNext, onPrevious, enterFullscreen, onSpeed, onCaptions, onBoost, { qualityOpen = true }, { moreOpen = true }, pages, related = !twoPane,
-                pull = pull.takeIf { pullable }, onPulled = onBack)
+                captionsOn, minimize, onNext, onPrevious, enterFullscreen, onSpeed, onCaptions, onBoost, { qualityOpen = true }, { moreOpen = true }, pages, related = !twoPane)
         }
         if (twoPane && details != null) UpNextPane(details, navigation, Modifier.align(Alignment.TopEnd).width(maxWidth - paneWidth).fillMaxHeight())
         val fullControls: @Composable (Modifier, Boolean) -> Unit = { controlsModifier, below ->
@@ -348,7 +351,6 @@ fun PlayerScreen(
             .offset { androidx.compose.ui.unit.IntOffset(0, videoOffset) }.clipToBounds())
             // Hidden while its picture is still flying in, or once it has flown off to the floating window.
             .graphicsLayer { alpha = if (handoff != null && (handoff.awaiting(videoId, FlightTarget.Page) || handoff.departed(videoId, FlightTarget.Mini))) 0f else 1f }
-            .minimizeDrag(pull, enabled = pullable, onMinimize = onBack)
             .clipToBounds().videoZoom(zoom, enabled = !inPip && !tabletop, aspect = videoAspect, panAllowed = { point, viewport ->
                 if (classic || (tapControls && !fullscreen)) point.y < viewport.y - with(density) { 72.dp.toPx() } else !fullscreen || !FanGeometry(viewport.x / density.density, viewport.y / density.density, left)
                     .inFan(point.x / density.density, point.y / density.density)
@@ -428,8 +430,6 @@ private fun PortraitPage(
     captionsOn: Boolean, onBack: () -> Unit, onNext: () -> Unit, onPrevious: () -> Unit, onFullscreen: () -> Unit,
     onSpeed: () -> Unit, onCaptions: () -> Unit, onBoost: (Boolean) -> Unit, onQuality: () -> Unit, onMore: () -> Unit, pages: StoryboardPages,
     related: Boolean = true,
-    pull: app.freshtuber.ui.player.MinimizeDrag? = null,
-    onPulled: () -> Unit = onBack,
 ) {
     val statusBar = WindowInsets.statusBars
     val density = LocalDensity.current
@@ -478,13 +478,10 @@ private fun PortraitPage(
                     onNext = onNext,
                     hasPrevious = playerState.history.isNotEmpty(),
                     onPrevious = onPrevious,
-                    onMinimize = onBack,
                     onFullscreen = onFullscreen,
                     onQuality = onQuality,
                     onSpeed = onSpeed,
                     onBoost = onBoost,
-                    pull = pull,
-                    onPulled = onPulled,
                 )
             }
         }
