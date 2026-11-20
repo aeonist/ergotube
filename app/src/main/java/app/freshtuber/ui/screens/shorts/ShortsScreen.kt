@@ -137,7 +137,8 @@ class ShortsViewModel @Inject constructor(
         _state.value = ShortsUiState()
         refreshJob = viewModelScope.launch {
             try {
-                val page = shorts.first(accounts.state.value is AccountState.SignedIn, controller::warmShort)
+                // The first Short gets its first bytes and connection ready while the sequence loads.
+                val page = shorts.first(accounts.state.value is AccountState.SignedIn) { controller.warmStart(it, isShort = true) }
                 _state.value = ShortsUiState(items = page.items, loading = false, next = page.next)
             } catch (e: CancellationException) {
                 throw e

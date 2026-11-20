@@ -12,6 +12,7 @@ Builds are numbered by `versionCode`. A release tag or APK name that contains `b
 - Pulling either player down now **goes out of focus instead of sliding**: the page follows your finger, shrinks a little and blurs as you pull; let go and it blurs away where it is while the mini-player or the song line comes into focus. If you don't pull far enough it sharpens back. The video moves together with the page and no longer jumps out of it into the mini-player.
 - Home and channel pages: the **dock sits lower**, much closer to the bottom edge, and the gaps between the rows above it are a little wider and even.
 - **«As music» under a video works again**: the song now really takes over from the same second, the video stops exactly when the song starts, and Play while it is still loading no longer restarts the song from the beginning. If the song can't be found, the video simply keeps playing.
+- **Videos start a little sooner.** While your finger rests on a card, ErgoTube already opens the connection to the video server and fetches the first bytes the player needs; the first Short in the Shorts tab gets the same head start.
 
 ## Build 38 · 16 Nov 2026
 

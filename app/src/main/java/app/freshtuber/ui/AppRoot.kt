@@ -246,7 +246,12 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     LaunchedEffect(musicInApp, inMusic, onMusicPlayer) {
         if (!musicInApp && (inMusic || onMusicPlayer)) navController.navigateToTopLevel(HomeRoute)
     }
-    val warmVideo: (String) -> Unit = remember(viewModel) { { id -> viewModel.player.warmShort(id) } }
+    val warmVideo = remember(viewModel) {
+        object : app.freshtuber.ui.player.VideoWarmUp {
+            override fun start(videoId: String, isShort: Boolean) = viewModel.player.warmStart(videoId, isShort)
+            override fun cancel(videoId: String) = viewModel.player.cancelWarmStart(videoId)
+        }
+    }
 
     CompositionLocalProvider(LocalInPictureInPicture provides inPictureInPicture, LocalAppMessages provides messages,
         LocalBottomBarSpace provides barSpace, app.freshtuber.ui.components.LocalLeftHanded provides leftHanded, app.freshtuber.ui.feed.LocalFanHost provides fanHost, app.freshtuber.ui.feed.LocalFeedBottomClearance provides 16.dp,

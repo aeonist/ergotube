@@ -141,14 +141,22 @@ fun VideoCard(
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
                     var rested = true
+                    var lifted = false
                     withTimeoutOrNull(70) {
                         while (true) {
                             val change = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial).changes.firstOrNull { it.id == down.id }
                             if (change == null || (change.pressed && (change.position - down.position).getDistance() > viewConfiguration.touchSlop)) { rested = false; break }
-                            if (!change.pressed) break
+                            if (!change.pressed) { lifted = true; break }
                         }
                     }
-                    if (rested) warm(video.id)
+                    if (!rested || warm == null) return@awaitEachGesture
+                    warm.start(video.id, video.isShort)
+                    // A rest that turns into a scroll: the first bytes are not needed after all.
+                    while (!lifted) {
+                        val change = awaitPointerEvent(androidx.compose.ui.input.pointer.PointerEventPass.Initial).changes.firstOrNull { it.id == down.id } ?: break
+                        if (!change.pressed) break
+                        if ((change.position - down.position).getDistance() > viewConfiguration.touchSlop) { warm.cancel(video.id); break }
+                    }
                 }
             } else Modifier)
             .clickable(onClick = open)

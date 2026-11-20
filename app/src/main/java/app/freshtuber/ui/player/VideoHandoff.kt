@@ -137,8 +137,13 @@ class VideoHandoff {
 
 val LocalVideoHandoff = staticCompositionLocalOf<VideoHandoff?> { null }
 
-/** Starts looking up a video's streams as soon as its card is pressed. */
-val LocalWarmVideo = staticCompositionLocalOf<(String) -> Unit> { {} }
+/** Warms a video up as soon as its card is pressed, and drops the warm-up when the press turns into a scroll. */
+interface VideoWarmUp {
+    fun start(videoId: String, isShort: Boolean)
+    fun cancel(videoId: String)
+}
+
+val LocalWarmVideo = staticCompositionLocalOf<VideoWarmUp?> { null }
 
 /** Points at a [VideoSurface]'s view so its current picture can be copied. */
 class VideoSurfaceHandle {

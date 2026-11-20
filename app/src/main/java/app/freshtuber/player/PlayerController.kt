@@ -64,6 +64,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -296,6 +297,11 @@ class PlayerController @Inject constructor(
     private var nextWarmed: String? = null
     private var prefetchIds: List<String> = emptyList()
     private var preloadJob: Job? = null
+    /** The press warm-up's byte prefetch (one video at a time) and the hosts already opened. */
+    private val startSlot = StartSlot()
+    private val hostGate = HostGate(PRECONNECT_WINDOW_MS)
+    @Volatile private var warmedAt: Pair<String, Long>? = null
+    @Volatile private var prefetched: Pair<String, List<StartPrefetch.Range>>? = null
     private var loadJob: Job? = null
     private var requestedId: String? = null
     private var requestedShort = false
@@ -425,6 +431,7 @@ class PlayerController @Inject constructor(
         }
         if (leaving != videoId) recoveryAttempt = 0
         recoveryJob?.cancel()
+        startSlot.cancelOthers(videoId)
         requestedId = videoId
         requestedShort = isShort
         startedAt = SystemClock.elapsedRealtime()
@@ -472,6 +479,7 @@ class PlayerController @Inject constructor(
                 val handed = pendingStart?.takeIf { it.first == videoId }?.second
                 pendingStart = null
                 val resumeAt = if (video.isLive || isShort) null else startAt ?: handed ?: resumePosition(videoId)
+                awaitStartPrefetch(videoId, isShort)
                 val source = buildSource(video, nowPlaying)
                 limitQuality()
                 _state.update { it.copy(nowPlaying = nowPlaying.copy(qualityAuto = dashActive), loadingId = null) }
@@ -527,18 +535,119 @@ class PlayerController @Inject constructor(
         nextWarmed = next
         scope.launch {
             if (!settings.autoplayNext.first()) return@launch
-            try { resolver.resolve(next, allowAccount = false) }
+            try { preconnect(resolver.resolve(next, allowAccount = false)) }
             catch (e: CancellationException) { throw e }
             catch (_: Exception) { /* Optional lookahead. */ }
         }
     }
 
+    /** Looks up a video's streams ahead (anonymous) and opens the connection to their host. */
     fun warmShort(videoId: String?) {
         if (videoId == null) return
         scope.launch {
-            try { resolver.resolve(videoId, allowAccount = false) }
+            try { preconnect(resolver.resolve(videoId, allowAccount = false)) }
             catch (e: CancellationException) { throw e }
             catch (_: Exception) { /* Optional anonymous lookahead. */ }
+        }
+    }
+
+    /**
+     * A finger resting on a card, or the first Short of the tab: looks up the streams, then
+     * fetches the first bytes the player will read (DASH header + index of the likely first
+     * qualities and the audio, or the first bytes of a Short) into the playback cache. That
+     * request also opens the connection to the video host, which the player then reuses from
+     * the pool. Anonymous only; never plays, never reports history.
+     */
+    fun warmStart(videoId: String?, isShort: Boolean = false) {
+        if (videoId == null) return
+        startSlot.start(videoId) {
+            val began = SystemClock.elapsedRealtime()
+            warmedAt = videoId to began
+            scope.launch {
+                try {
+                    if (downloads.localVideo(videoId) != null) return@launch
+                    val video = resolver.resolve(videoId, allowAccount = false)
+                    if (!network.online.value || video.isLive) return@launch
+                    val ranges = startRanges(video, isShort)
+                    if (ranges.isEmpty()) { preconnect(video); return@launch }
+                    // The byte request is the pre-opened connection: no separate ping races it.
+                    ranges.mapNotNull { StartPrefetch.host(it.url) }.distinct().forEach(hostGate::claim)
+                    prefetched = videoId to ranges
+                    coroutineScope {
+                        ranges.map { range -> async(Dispatchers.IO) { cacheRange(range) } }.awaitAll()
+                    }
+                    if (BuildConfig.DEBUG) Log.d(if (isShort) "ShortsTiming" else "PlaybackTiming",
+                        "prefetch_ms=${SystemClock.elapsedRealtime() - began} ranges=${ranges.size} bytes=${ranges.sumOf { it.length }}")
+                } catch (e: CancellationException) {
+                    if (BuildConfig.DEBUG) Log.d(if (isShort) "ShortsTiming" else "PlaybackTiming", "prefetch cancelled")
+                    throw e
+                } catch (_: Exception) { /* Optional: the player reads the bytes itself. */ }
+            }
+        }
+    }
+
+    /** The press turned into a scroll: the bytes are not needed (the cheap lookup stays). */
+    fun cancelWarmStart(videoId: String) {
+        if (requestedId == videoId) return
+        startSlot.cancel(videoId)
+    }
+
+    /** The same choice of files [play] makes: the DASH set for regular videos, one file for Shorts. */
+    private suspend fun startRanges(video: ResolvedVideo, isShort: Boolean): List<StartPrefetch.Range> {
+        val tracks = tracksOf(video)
+        val cap = settings.preferences.first().playbackQuality(network.wifi.value).takeIf { it > 0 } ?: 4320
+        val adaptive = StreamChoice.adaptiveSet(tracks)
+        if (!isShort && YoutubeDash.usable(adaptive, video.audio)) {
+            return StartPrefetch.dash(adaptive, checkNotNull(video.audio), cap, bandwidthMeter.bitrateEstimate)
+        }
+        return StartPrefetch.progressive(tracks.getOrNull(StreamChoice.pick(tracks, cap))?.url, video.audioUrl, video.muxedUrl)
+    }
+
+    /** Writes [range] through the player's own data source, so it lands under the player's cache key. */
+    private suspend fun cacheRange(range: StartPrefetch.Range) {
+        val job = currentCoroutineContext()
+        val spec = DataSpec.Builder().setUri(range.url).setPosition(range.position).setLength(range.length).build()
+        CacheWriter(dataSourceFactory.createDataSource(), spec, null) { _, _, _ -> job.ensureActive() }.cache()
+    }
+
+    /**
+     * A start prefetch for this video still running: the player would only request the same
+     * bytes a second time (a cache span being written is not shared), so wait for it briefly.
+     */
+    private suspend fun awaitStartPrefetch(videoId: String, isShort: Boolean) {
+        val tag = if (isShort) "ShortsTiming" else "PlaybackTiming"
+        val warm = warmedAt?.takeIf { it.first == videoId }
+        val pending = startSlot.active(videoId)
+        val waitBegan = SystemClock.elapsedRealtime()
+        val finished = pending == null || withTimeoutOrNull(START_PREFETCH_WAIT_MS) { pending.join() } != null
+        if (!finished) startSlot.cancel(videoId)
+        if (!BuildConfig.DEBUG || warm == null) return
+        val ranges = prefetched?.takeIf { it.first == videoId }?.second.orEmpty()
+        val cached = ranges.count { streamCache.isCached(it.url, it.position, it.length) }
+        Log.d(tag, "warm_lead_ms=${startedAt - warm.second} prefetch_wait_ms=${SystemClock.elapsedRealtime() - waitBegan} " +
+            "finished=$finished cached=$cached/${ranges.size}")
+    }
+
+    /**
+     * Opens the TLS connection to the hosts that will serve [video], once per host within
+     * [PRECONNECT_WINDOW_MS], through the player's own client so the player reuses it from
+     * the pool. Used where nothing is fetched ahead (lookups of later Shorts, the next video).
+     */
+    private fun preconnect(video: ResolvedVideo) {
+        if (!network.online.value || video.isLive) return
+        val tracks = tracksOf(video)
+        val urls = listOfNotNull(tracks.firstOrNull()?.url, video.audioUrl, video.muxedUrl)
+        urls.mapNotNull(StartPrefetch::host).distinct().filter(hostGate::claim).forEach { host ->
+            scope.launch(Dispatchers.IO) {
+                val began = SystemClock.elapsedRealtime()
+                try {
+                    val request = okhttp3.Request.Builder().url("https://$host/generate_204").build()
+                    playbackClient.newCall(request).execute().use { it.body.bytes() }
+                    if (BuildConfig.DEBUG) Log.d("PlaybackTiming", "preconnect_ms=${SystemClock.elapsedRealtime() - began}")
+                } catch (_: java.io.IOException) {
+                    hostGate.forget(host)
+                }
+            }
         }
     }
 
@@ -701,6 +810,7 @@ class PlayerController @Inject constructor(
         preloadJob?.cancel()
         extrasJob?.cancel()
         recoveryJob?.cancel()
+        startSlot.cancelAll()
         dashActive = false
         requestedId = null
         prefetchIds = emptyList()
@@ -879,6 +989,10 @@ class PlayerController @Inject constructor(
     private companion object {
         const val MAX_HISTORY = 50
         const val WARM_NEXT_MS = 25_000L
+        /** How long a start waits for its own prefetch still in flight before reading the bytes itself. */
+        const val START_PREFETCH_WAIT_MS = 800L
+        /** A googlevideo host is opened ahead at most once in this time. */
+        const val PRECONNECT_WINDOW_MS = 60_000L
         /** Network types whose speed is remembered between launches. */
         val NETWORK_TYPES = intArrayOf(C.NETWORK_TYPE_WIFI, C.NETWORK_TYPE_ETHERNET, C.NETWORK_TYPE_4G, C.NETWORK_TYPE_5G_SA, C.NETWORK_TYPE_5G_NSA, C.NETWORK_TYPE_3G)
         val DECODER_ERRORS = setOf(
