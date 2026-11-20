@@ -130,6 +130,8 @@ fun MusicPlayerScreen(onCollapse: () -> Unit, viewModel: MusicViewModel = hiltVi
     // shrinks a little and fades, then closes into the dock line or springs back. Seek bars,
     // cover swipes and list scrolling keep their own moves; a list pulls only from its top.
     val pull = app.freshtuber.ui.player.rememberMinimizeDrag()
+    // Collapsing always leaves this page (back, or to «Музыка»), so it never comes back into focus.
+    pull.stillShown = { false }
     val density = androidx.compose.ui.platform.LocalDensity.current.density
     val collapse by androidx.compose.runtime.rememberUpdatedState(onCollapse)
     val pulled = remember(pull) { { haptics.performHapticFeedback(HapticFeedbackType.GestureEnd); collapse() } }

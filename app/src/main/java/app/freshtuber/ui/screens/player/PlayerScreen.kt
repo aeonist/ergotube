@@ -225,9 +225,21 @@ fun PlayerScreen(
     // mini-player, as in YouTube. Off in full screen, picture-in-picture, tabletop and the two-pane page.
     val pull = app.freshtuber.ui.player.rememberMinimizeDrag()
     val minimize = { pull.dismiss(onBack) }
+    val stillCurrent by rememberUpdatedState(currentPage)
+    pull.stillShown = { stillCurrent }
     var widePage by remember { mutableStateOf(false) }
     val pullable = !fullscreen && !inPip && !tabletop && !(large && widePage) && currentPage
-    LaunchedEffect(pullable) { if (!pullable) pull.reset() }
+    // Full screen and the like put the page back at once; leaving (no longer the current page) does
+    // not, or a page that has just blurred away would flash back sharp during its exit.
+    val bigPage = fullscreen || inPip || tabletop || (large && widePage)
+    LaunchedEffect(bigPage) { if (bigPage) pull.reset() }
+    // Blurring away, the page turns translucent: the light behind it leaves the player at the same
+    // time, so the video's own glow does not show through as a second, bigger picture.
+    LaunchedEffect(pull.dismissing) {
+        if (pull.dismissing && light != null && !lightLeft) { lightLeft = true; light.setPlayerCovered(false); light.exitPlayer() }
+        // Nothing to go back to: the page came back into focus, and so does its light.
+        else if (!pull.dismissing && light != null && lightLeft && currentPage && !departureCommitted) { lightLeft = false; light.enterPlayer() }
+    }
     CompositionLocalProvider(LocalQualityAnchor provides { qualityAnchor = it }) {
     BoxWithConstraints(Modifier.fillMaxSize().then(if (inPip || tabletop) Modifier.background(Color.Black) else Modifier)
         .onSizeChanged { pull.heightPx = it.height.toFloat(); widePage = it.width > it.height }
@@ -288,7 +300,9 @@ fun PlayerScreen(
         LaunchedEffect(fullscreen, inPip, videoRect) {
             if (fullscreen && !inPip) light?.setVideoRect(videoRect)
         }
-        val currentRect by rememberUpdatedState(pull.transform(videoRect.translate(0f, if (big) 0f else videoOffset.toFloat()), widthPx))
+        // Read only when leaving (not in composition), so a drag never recomposes the page per frame.
+        val latestVideoRect by rememberUpdatedState(videoRect)
+        val currentRect = { pull.transform(latestVideoRect.translate(0f, if (big) 0f else videoOffset.toFloat()), widthPx) }
         LaunchedEffect(handoff, videoRect, handoff?.flight) { handoff?.land(videoId, FlightTarget.Page, videoRect, 0f) }
         LaunchedEffect(settled) {
             if (settled) {
@@ -301,8 +315,11 @@ fun PlayerScreen(
         LaunchedEffect(departureCommitted) {
             if (!departureCommitted) return@LaunchedEffect
             if (light != null && !lightLeft) { lightLeft = true; light.setPlayerCovered(false); light.exitPlayer() }
-            val toMini = handoff?.miniExpected == true && viewModel.player.currentMediaItem?.mediaId == videoId
-            val from = currentRect
+            // Pulled down by the finger, the page has already blurred away in place and the
+            // mini-player comes into focus by itself: no picture flies between them.
+            val pulledOff = app.freshtuber.ui.player.MinimizeDrag.recentlyDismissed()
+            val toMini = handoff?.miniExpected == true && viewModel.player.currentMediaItem?.mediaId == videoId && !pulledOff
+            val from = currentRect()
             val frame = surface.capture()
             frame?.let { handoff?.setPoster(videoId, it) }
             surfaceOff = true
@@ -357,7 +374,8 @@ fun PlayerScreen(
             })
             .background(if (inPip || tabletop) Color.Black else Color.Transparent)
             .onGloballyPositioned { c ->
-                if (!fullscreen && !inPip) {
+                // Not while the page is pulled: the light behind the page would chase the video every frame.
+                if (!fullscreen && !inPip && pull.offsetPx == 0f && pull.exit == 0f) {
                     val p = c.positionInRoot()
                     light?.setVideoRect(androidx.compose.ui.geometry.Rect(p.x, p.y, p.x + c.size.width, p.y + c.size.height))
                 }

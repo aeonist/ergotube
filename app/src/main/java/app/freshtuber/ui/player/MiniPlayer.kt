@@ -127,7 +127,8 @@ fun FloatingMiniPlayer(
     val handoff = LocalVideoHandoff.current
     val videoId = nowPlaying.videoId
     // Coming from the watch page, the window stays hidden while the picture flies into it.
-    var arriving by remember { mutableStateOf(handoff != null && handoff.pageVideoId == videoId) }
+    // After a pull-down the page has blurred away by itself: the window just comes into focus.
+    var arriving by remember { mutableStateOf(handoff != null && handoff.pageVideoId == videoId && !MinimizeDrag.recentlyDismissed()) }
     val appear = remember { Animatable(if (arriving) 1f else 0f) }
     val miniHandle = remember { VideoSurfaceHandle() }
     var origin by remember { mutableStateOf(Offset.Zero) }

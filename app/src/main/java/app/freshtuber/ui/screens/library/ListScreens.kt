@@ -289,6 +289,8 @@ fun ListScreen(
                 horizontalArrangement = if (left) Arrangement.Start else Arrangement.End) {
                 ChannelActions(channel.subscribed == true, viewModel::toggleSubscription, bellOn, left, onBell)
             }
+            // The buttons sit 4 dp in from their row and the chips 3 dp: this brings the gap to ~RowGap + 3 dp.
+            if (channel != null && tabChips.size > 1) androidx.compose.foundation.layout.Spacer(Modifier.heightIn(min = app.freshtuber.ui.components.Reach.RowGap - 4.dp))
             if (tabChips.size > 1) app.freshtuber.ui.motion.BlurVisibility(hide.visible, collapse = true) {
                 HandChips(tabChips, left, natural = true, rowMinHeight = 42.dp,
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp))

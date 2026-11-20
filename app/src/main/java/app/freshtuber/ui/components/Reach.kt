@@ -50,18 +50,36 @@ object Reach {
     /**
      * Padding between stacked bottom rows (Music ear, chips, actions, dock). A 42 dp chip row
      * holds a 36 dp chip and a 48 dp button row a 40 dp button, each 3-4 dp in from its edge, so
-     * every visible gap between rows comes out at about RowGap + 3 dp (~7 dp).
+     * every visible gap between rows comes out at about RowGap + 3 dp (~10 dp).
      */
-    val RowGap: Dp = 4.dp
+    val RowGap: Dp = 7.dp
 
-    /** Space above the dock drop: with the row's 3 dp and the icons' 1.5 dp, ~7 dp like [RowGap]. */
-    val DockTopGap: Dp = 2.dp
+    /** Space above the dock drop: with the row's 3 dp and the icons' 1.5 dp, ~10 dp like [RowGap]. */
+    val DockTopGap: Dp = 5.5.dp
 
-    /** Space under the dock drop, above the navigation bar. */
-    val DockBottomGap: Dp = 14.dp
+    /** Space under the dock drop, above whatever of the navigation bar it must stay clear of. */
+    val DockBottomGap: Dp = 4.dp
+
+    /**
+     * Room under the dock drop down to the screen edge, for a navigation bar [navBottom] tall of
+     * which [tappableBottom] takes touches. With gesture navigation (nothing tappable) the drop
+     * may overlap the upper half of the bar: the handle sits in its lower half, and the icons and
+     * labels stay ~[DockBottomGap] above it. Three-button navigation keeps its whole bar.
+     */
+    fun dockBottomSpace(navBottom: Dp, tappableBottom: Dp): Dp =
+        maxOf(tappableBottom, navBottom / 2) + DockBottomGap
 
     /** The slim dock drawn over a Short: icons only. */
     val CompactDockHeight: Dp = 50.dp
+}
+
+/** [Reach.dockBottomSpace] for this window's navigation bar. */
+@Composable
+fun dockBottomSpace(): Dp {
+    val density = LocalDensity.current
+    val nav = with(density) { androidx.compose.foundation.layout.WindowInsets.navigationBars.getBottom(this).toDp() }
+    val tappable = with(density) { androidx.compose.foundation.layout.WindowInsets.tappableElement.getBottom(this).toDp() }
+    return Reach.dockBottomSpace(nav, tappable)
 }
 
 /** The classic layout: the interface repeats YouTube's own (top bar, bottom tabs, overlay controls). */

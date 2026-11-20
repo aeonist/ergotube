@@ -127,7 +127,7 @@ private fun DockDrop(left: Boolean, modifier: Modifier, line: (@Composable () ->
     Column(modifier.fillMaxWidth(), horizontalAlignment = if (left) Alignment.Start else Alignment.End) {
         ear?.invoke()
         BoxWithConstraints(Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Horizontal))
-            .padding(start = 14.dp, end = 14.dp, top = Reach.DockTopGap, bottom = Reach.DockBottomGap).fillMaxWidth(),
+            .padding(start = 14.dp, end = 14.dp, top = Reach.DockTopGap, bottom = app.freshtuber.ui.components.dockBottomSpace()).fillMaxWidth(),
             contentAlignment = if (left) Alignment.CenterStart else Alignment.CenterEnd) {
         val width = DockLayout.width(maxWidth.value, preferences.dockWidth, expanded).dp
         Column(Modifier.width(width).onGloballyPositioned { light?.setDrop(0, it.boundsInRoot(), radius) }) {
@@ -135,7 +135,6 @@ private fun DockDrop(left: Boolean, modifier: Modifier, line: (@Composable () ->
             Row(Modifier.fillMaxWidth().height(Reach.DockHeight).padding(horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically, content = buttons)
         }
         }
-        Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
     }
 }
 

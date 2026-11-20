@@ -267,7 +267,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     // is, so nothing jumps while two screens cross-fade.
     // While music is on, its song line sits in the dock drop above the buttons.
     val musicLine = musicInApp && musicState.active && !onShorts
-    val dockSpace = (if (classic) compactDockSpace else Reach.DockHeight + Reach.DockTopGap + Reach.DockBottomGap + navBottom) + if (musicLine) app.freshtuber.ui.music.MusicLineHeight else 0.dp
+    val dockSpace = (if (classic) compactDockSpace else Reach.DockHeight + Reach.DockTopGap + app.freshtuber.ui.components.dockBottomSpace()) + if (musicLine) app.freshtuber.ui.music.MusicLineHeight else 0.dp
     // The «Музыка» ear stands on top of Home's bottom chip row (right above the dock when Home
     // has no chips). It folds away with the chips when scrolling hides them, so the feed reaches
     // the dock. The classic layout keeps it in the dock column.
@@ -487,20 +487,23 @@ private object ScreenMotion {
 
     fun exit(from: NavBackStackEntry, to: NavBackStackEntry): ExitTransition = when {
         // A page pulled down that has nothing to go back to is replaced: it only finishes its fade too.
-        from.isPlayer() && app.freshtuber.ui.player.MinimizeDrag.recentlyDismissed() -> fadeOut(tween(120, easing = Motion.Accelerate))
+        from.isPlayer() && app.freshtuber.ui.player.MinimizeDrag.recentlyDismissed() -> ExitTransition.None
         to.isPlayer() -> fadeOut(exitSpec()) + scaleOut(enterSpec(), 0.94f)
         from.isSection() && to.isSection() -> fadeOut(tween(170, easing = Motion.Accelerate))
         else -> fadeOut(exitSpec()) + scaleOut(enterSpec(), 1.04f)
     }
 
     fun popEnter(from: NavBackStackEntry, to: NavBackStackEntry): EnterTransition = when {
+        // After a pull-down the page has already blurred away: what was under it comes into focus at once.
+        from.isPlayer() && app.freshtuber.ui.player.MinimizeDrag.recentlyDismissed() ->
+            fadeIn(tween(280, easing = Motion.Decelerate)) + scaleIn(tween(320, easing = Motion.Decelerate), 0.96f)
         from.isPlayer() -> fadeIn(enterSpec(60)) + scaleIn(enterSpec(), 0.94f)
         else -> fadeIn(enterSpec(40)) + scaleIn(enterSpec(), 1.04f)
     }
 
     fun popExit(from: NavBackStackEntry, to: NavBackStackEntry): ExitTransition = when {
-        // Pulled down by the finger, the page is already low and faint: only finish the fade.
-        from.isPlayer() && app.freshtuber.ui.player.MinimizeDrag.recentlyDismissed() -> fadeOut(tween(120, easing = Motion.Accelerate))
+        // Pulled down by the finger, the page has already blurred away: no second exit on top.
+        from.isPlayer() && app.freshtuber.ui.player.MinimizeDrag.recentlyDismissed() -> ExitTransition.None
         from.isPlayer() -> fadeOut(exitSpec()) + slideOutVertically(tween(Motion.EXIT_MS + 60, easing = Motion.Accelerate)) { (it * 0.08f).toInt() }
         else -> fadeOut(exitSpec()) + scaleOut(exitSpec(), 0.95f)
     }
