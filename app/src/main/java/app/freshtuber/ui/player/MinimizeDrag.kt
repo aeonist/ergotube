@@ -142,13 +142,16 @@ class MinimizeDrag internal constructor(private val scope: CoroutineScope) {
         if (heightPx <= 0f) { onMinimize(); return }
         dismissing = true
         job?.cancel()
+        // Leave at once: the screen below and the mini-player come into focus while this page
+        // blurs away on top of them. Leaving only after the blur showed an empty background for
+        // a moment and then popped the feed in, which read as a stutter.
+        lastDismissAt = SystemClock.uptimeMillis()
+        onMinimize()
         job = scope.launch {
             // The page stays where the finger left it and blurs away there; it does not fly off.
             animate(exit, 1f, animationSpec = tween(DISMISS_MS, easing = Motion.Decelerate)) { v, _ -> exit = v }
-            lastDismissAt = SystemClock.uptimeMillis()
-            onMinimize()
             // Normally the page is gone by now. If it stayed (nothing to go back to), bring it back into focus.
-            delay(700)
+            delay(460)
             if (!stillShown()) return@launch
             dismissing = false
             val from = offsetPx

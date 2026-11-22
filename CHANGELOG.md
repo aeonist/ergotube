@@ -13,6 +13,7 @@ Builds are numbered by `versionCode`. A release tag or APK name that contains `b
 - **«As music» under a video** now continues the song from the same second, and the video stops exactly when the song starts. Play while it is still loading no longer restarts it from the beginning; if the song can't be found, the video simply keeps playing.
 - **Tapping the song that's already playing** in an album, playlist, Favourites or search results no longer restarts it: it just keeps going (or resumes if paused).
 - **Videos start sooner.** When you press a card, ErgoTube fetches the start of the file and opens the connection to the video server early; the first Short in the Shorts tab gets the same head start.
+- test6: collapsing no longer stutters: the page leaves at once and blurs away over the feed while the mini-player comes in (no empty frame, no double blur)
 
 ## Build 38 · 16 Nov 2026
 

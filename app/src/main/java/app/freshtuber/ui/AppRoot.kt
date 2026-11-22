@@ -347,14 +347,14 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
             composable<SettingsRoute> { Box(docked.then(transitionBlur())) { SettingsScreen() } }
             composable<MusicListenRoute> { Box(docked.then(transitionBlur())) { app.freshtuber.ui.music.MusicListenScreen() } }
             composable<MusicLibraryRoute> { entry -> Box(docked.then(transitionBlur())) { app.freshtuber.ui.music.MusicLibraryScreen(entry.toRoute<MusicLibraryRoute>().collection) } }
-            composable<MusicPlayerRoute> { entry -> Box(Modifier.fillMaxSize().then(transitionBlur(28.dp))) {
+            composable<MusicPlayerRoute> { entry -> Box(Modifier.fillMaxSize().then(playerBlur())) {
                 // Only while this page is on top: a pull that ends after the arrow was tapped must not close a second page.
                 app.freshtuber.ui.music.MusicPlayerScreen(onCollapse = {
                     if (navController.currentBackStackEntry?.id == entry.id && !navController.popBackStack()) navController.navigate(MusicListenRoute)
                 })
             } }
             composable<PlayerRoute> { entry ->
-                Box(Modifier.fillMaxSize().then(transitionBlur(28.dp))) {
+                Box(Modifier.fillMaxSize().then(playerBlur())) {
                     PlayerScreen(
                         navigation,
                         onBack = { navController.popBackStack() },
@@ -467,6 +467,16 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     }
     }
     }
+}
+
+/**
+ * The player pages' own enter/exit blur. A page pulled down already blurs itself away on top of
+ * the screen below, so its exit adds no second full-screen blur (that doubled the work mid-exit).
+ */
+@Composable
+private fun androidx.compose.animation.AnimatedVisibilityScope.playerBlur(): Modifier {
+    val leaving = transition.targetState == androidx.compose.animation.EnterExitState.PostExit
+    return if (leaving && app.freshtuber.ui.player.MinimizeDrag.recentlyDismissed()) Modifier else transitionBlur(28.dp)
 }
 
 /**
