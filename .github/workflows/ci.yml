@@ -22,7 +22,7 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4.0.4
 
       - name: Install Android platform 37
         run: sdkmanager "platforms;android-37.0" "build-tools;37.0.0"
