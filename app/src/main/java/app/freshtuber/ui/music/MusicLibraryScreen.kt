@@ -48,18 +48,13 @@ import app.freshtuber.ui.components.MessageState
 import app.freshtuber.ui.components.ScreenHeader
 import kotlinx.coroutines.launch
 
-/**
- * «Любимое», the one library: every song in one list, each with a small mark of where it lives
- * (downloaded, on the phone, or only online). [collection] is `fav` (or null) or `playlist:<id>`;
- * the old `downloads` and `phone` shelves open the same list with the matching filter. Without a
- * network the songs that are not on the phone are hidden and a note says how many. The list
- * grows from the bottom like the others; its panel keeps play, shuffle, sort and «⋯».
- */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MusicLibraryScreen(collection: String?, viewModel: MusicViewModel = hiltViewModel()) {
     MusicNotes(viewModel)
-    MusicFolderAccess(viewModel)
+    if (collection == "playlists") { MusicPlaylists(viewModel); return }
+    val device = collection in listOf("device", "phone", "downloads")
+    if (device) MusicFolderAccess(viewModel)
     val left = LocalLeftHanded.current
     val navigation = LocalMusicNavigation.current
     val context = LocalContext.current
@@ -87,35 +82,66 @@ fun MusicLibraryScreen(collection: String?, viewModel: MusicViewModel = hiltView
     val showFolder = preferences.enabled(AppFeature.MusicShowFolder)
     val askAudio = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) viewModel.showFolder(true) }
     val toggleFolder = { if (showFolder) viewModel.showFolder(false) else if (viewModel.folderReadable) viewModel.showFolder(true) else askAudio.launch(app.freshtuber.data.music.MusicFolder.readPermission) }
-    LaunchedEffect(showFolder) { if (showFolder) viewModel.rescanFolder() }
+    LaunchedEffect(showFolder) { if (device && showFolder) viewModel.rescanFolder() }
 
     // Downloaded songs that are not in the library rows still belong in the list.
     val downloadedIds = remember(downloaded) { downloaded.values.filter { it.state == DownloadStatus.Complete }.map { it.videoId }.toSet() }
+    val localById = remember(tracks) { tracks.associateBy { it.id } }
     val all = remember(tracks, downloaded) {
-        val known = tracks.associateBy { it.id }
+        val known = localById
         val extra = downloaded.values.filter { it.state == DownloadStatus.Complete }.map { known["yt:${it.videoId}"] ?: viewModel.downloadedTrack(it) }
         (tracks + extra).distinctBy { it.id }
     }
-    val playlistTracks by (playlistId?.let { viewModel.playlistTracks(it) } ?: kotlinx.coroutines.flow.flowOf(emptyList())).collectAsStateWithLifecycle(emptyList())
+    val playlistSource = remember(playlistId) { playlistId?.let(viewModel::playlistTracks) ?: kotlinx.coroutines.flow.flowOf(emptyList()) }
+    val playlistTracks by playlistSource.collectAsStateWithLifecycle(emptyList())
     var playlistName by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(playlistId, playlists) { playlistName = playlistId?.let { viewModel.playlistName(it) } }
 
-    val base: List<MusicTrack> = if (playlistId != null) playlistTracks else MusicLibraryLogic.filter(all, filter, downloadedIds)
+    val favoritesPage = !device && playlistId == null
+    val split = favoritesPage && preferences.enabled(AppFeature.SeparateFavorites)
+    var chosen by rememberSaveable(collection) { mutableStateOf(if (collection == "video-fav") FavoriteSection.Video else FavoriteSection.Music) }
+    val section = if (split) chosen else FavoriteSection.All
+    val videoMode = favoritesPage && (section == FavoriteSection.Video || (section == FavoriteSection.All && collection == "video-fav"))
+    val localMusic = remember(tracks) { tracks.filter { it.favorite } }
+    val videoMarks by viewModel.videoFavorites.collectAsStateWithLifecycle(emptyList())
+    val account by viewModel.account.collectAsStateWithLifecycle(null)
+    var retry by remember { mutableIntStateOf(0) }
+    val likes = key(account, online, retry) {
+        val profile = account
+        if (favoritesPage && profile != null && section != FavoriteSection.Video) {
+            val source = remember { viewModel.likedSongs(profile, online) }
+            source.collectAsStateWithLifecycle(app.freshtuber.data.music.LikedSongs(loading = online)).value
+        } else app.freshtuber.data.music.LikedSongs()
+    }
+    val base = remember(playlistTracks, collection, all, filter, downloadedIds, section, videoMarks, likes.tracks) { when {
+        playlistId != null -> playlistTracks
+        device -> MusicLibraryLogic.filter(all.filter { MusicLibraryLogic.isLocal(it, downloadedIds) }, filter, downloadedIds)
+        else -> MusicLibraryLogic.favorites(localMusic, videoMarks, likes.tracks, section).map { mark ->
+            // Preserve the downloaded URI when the account also contains this recording.
+            localById[mark.id]?.let { local -> mark.copy(uri = local.uri ?: mark.uri) } ?: mark
+        }
+    }
+    }
     val visible = remember(base, online, downloadedIds) { MusicLibraryLogic.visible(base, online, downloadedIds) }
-    val shown = remember(visible, sort, playlistId) { if (playlistId != null) visible.tracks else MusicLibraryLogic.sort(visible.tracks, sort) }
-    val title = if (playlistId != null) playlistName.orEmpty() else stringResource(R.string.music_favorites)
+    val shown = remember(visible, playlistId, sort) { if (playlistId != null) visible.tracks else MusicLibraryLogic.sort(visible.tracks, sort) }
+    val title = if (playlistId != null) playlistName.orEmpty() else stringResource(if (device) R.string.music_on_device else R.string.music_favorites)
     val play: (Int) -> Unit = { index ->
-        viewModel.music.playCollection(shown, index, title)
-        navigation?.openPlayer()
+        if (videoMode && shown[index].isYouTube) navigation?.watchVideo(shown[index], shown)
+        else {
+            viewModel.music.playCollection(shown, index, title)
+            navigation?.openPlayer()
+        }
     }
     val bytes = downloaded.values.filter { it.state == DownloadStatus.Complete }.sumOf { it.bytesTotal }
-    val subtitle = if (playlistId == null) stringResource(R.string.music_library_summary, songsCount(all.size),
-        android.text.format.Formatter.formatShortFileSize(context, bytes)) else songsAndMinutes(shown.size, shown.sumOf { it.durationMs })
+    val subtitle = if (device) stringResource(R.string.music_library_summary, songsCount(base.size),
+        android.text.format.Formatter.formatShortFileSize(context, bytes)) else songsCount(shown.size)
 
     val list = rememberLazyListState()
     // The four big buttons step aside while the list is read and come back on the way back.
     val hide = app.freshtuber.ui.components.rememberScrollHide(inverted = fromBottom)
     Column(Modifier.fillMaxSize()) {
+        ScreenHeader(title, subtitle)
+        if (likes.failed) TextButton(onClick = { retry++ }) { Text(stringResource(R.string.music_likes_retry)) }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             LazyColumn(Modifier.fillMaxSize().nestedScroll(hide.connection), state = list, reverseLayout = fromBottom, contentPadding = PaddingValues(vertical = 8.dp)) {
                 // In a bottom-up list the first item sits lowest, by the thumb.
@@ -129,20 +155,33 @@ fun MusicLibraryScreen(collection: String?, viewModel: MusicViewModel = hiltView
                         onClick = { play(index) }, onMore = { menu = track },
                         onFlick = { viewModel.flick(it, track, context, shareTitle) })
                 }
-                if (shown.isEmpty()) item(key = "empty") { Box(Modifier.height(220.dp)) { MessageState(stringResource(R.string.music_library_empty)) } }
-                item(key = "header") { ScreenHeader(title, subtitle) }
+                if (shown.isEmpty() && likes.loading) item(key = "loading") {
+                    Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+                }
+                if (shown.isEmpty() && !likes.loading && !likes.failed) item(key = "empty") { Box(Modifier.height(220.dp)) { MessageState(stringResource(if (favoritesPage) R.string.favorites_empty else R.string.music_library_empty)) } }
             }
             if (shown.size > 30) FastScroll(list, shown.size, fromBottom, left, Modifier.align(if (left) Alignment.CenterStart else Alignment.CenterEnd))
         }
-        // Controls by the thumb, right above the dock.
+        // Filters and playback controls stay above the dock.
+        if (split) app.freshtuber.ui.components.HandChips(listOf(
+            app.freshtuber.ui.components.ChipItem(stringResource(R.string.search_source_music), chosen == FavoriteSection.Music) { chosen = FavoriteSection.Music },
+            app.freshtuber.ui.components.ChipItem(stringResource(R.string.search_source_video), chosen == FavoriteSection.Video) { chosen = FavoriteSection.Video },
+        ), left)
+        if (device) app.freshtuber.ui.components.HandChips(LibraryFilter.entries.map { option ->
+            app.freshtuber.ui.components.ChipItem(stringResource(option.labelRes), option == filter) { filter = option }
+        }, left)
         val actions = buildList {
             add(ContextAction(Icons.Rounded.PlayArrow, stringResource(R.string.music_play_all), primary = true, enabled = shown.isNotEmpty()) { play(0) })
             add(ContextAction(Icons.Rounded.Shuffle, stringResource(R.string.music_shuffle), enabled = shown.isNotEmpty()) {
-                viewModel.music.playCollection(shown, shown.indices.random(), title, shuffle = true)
-                navigation?.openPlayer()
+                val index = shown.indices.random()
+                if (videoMode && shown[index].isYouTube) navigation?.watchVideo(shown[index], listOf(shown[index]) + shown.filterIndexed { i, _ -> i != index }.shuffled())
+                else {
+                    viewModel.music.playCollection(shown, index, title, shuffle = true)
+                    navigation?.openPlayer()
+                }
             })
             if (playlistId == null) add(ContextAction(Icons.Rounded.Sort, stringResource(R.string.music_sort)) { sortOpen = true })
-            add(ContextAction(Icons.Rounded.MoreHoriz, stringResource(R.string.music_more)) { moreOpen = true })
+            if (device || playlistId != null) add(ContextAction(Icons.Rounded.MoreHoriz, stringResource(R.string.music_more)) { moreOpen = true })
         }
         app.freshtuber.ui.motion.BlurVisibility(hide.visible, collapse = true) { ContextBar(actions, left) }
     }
@@ -158,9 +197,6 @@ fun MusicLibraryScreen(collection: String?, viewModel: MusicViewModel = hiltView
                 MenuRow(Icons.Rounded.Edit, stringResource(R.string.music_rename)) { moreOpen = false; renaming = true }
                 MenuRow(Icons.Rounded.DeleteOutline, stringResource(R.string.music_delete_playlist)) { moreOpen = false; confirmDelete = true }
             } else {
-                Text(stringResource(R.string.music_show), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp))
-                ChoiceRows(LibraryFilter.entries.map { stringResource(it.labelRes) }, filter.ordinal) { filter = LibraryFilter.entries[it]; moreOpen = false }
-                HorizontalDivider()
                 MenuRow(Icons.Rounded.AudioFile, stringResource(R.string.music_add_files)) { moreOpen = false; pickFiles.launch(arrayOf("audio/*", "application/ogg")) }
                 MenuRow(Icons.Rounded.Folder, stringResource(R.string.music_add_folder)) { moreOpen = false; pickFolder.launch(null) }
                 MenuRow(if (showFolder) Icons.Rounded.CheckBox else Icons.Rounded.CheckBoxOutlineBlank, stringResource(R.string.music_show_folder)) { toggleFolder() }

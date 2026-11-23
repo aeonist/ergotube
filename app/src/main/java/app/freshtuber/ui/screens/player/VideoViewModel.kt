@@ -120,7 +120,7 @@ class VideoViewModel @Inject constructor(
         val current = player.currentMediaItem?.mediaId == videoId && player.playbackState != Player.STATE_IDLE && playerState.value.error == null
         if (!current) {
             controller.play(videoId)
-            _state.value.details?.let { controller.setQueue(it.related) }
+            _state.value.details?.let { controller.setQueue(videoId, it.related) }
         }
     }
 
@@ -175,7 +175,7 @@ class VideoViewModel @Inject constructor(
                     it.copy(details = details, loading = false, likeStatus = details.likeStatus, subscribed = if (signedIn) details.subscribed else it.localSubscribed)
                 }
                 if (controller.state.value.nowPlaying?.videoId == videoId || controller.state.value.loadingId == videoId) {
-                    controller.setQueue(details.related)
+                    controller.setQueue(videoId, details.related)
                 }
                 if (local == null && settings.dislikesEnabled.first()) {
                     extras.dislikes(videoId)?.let { count -> _state.update { it.copy(dislikes = count) } }

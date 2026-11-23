@@ -35,6 +35,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.freshtuber.ui.player.playerUnderlay
 import app.freshtuber.R
 import app.freshtuber.domain.model.VideoDetails
 import app.freshtuber.player.PlayerEvent
@@ -178,6 +179,12 @@ fun PlayerScreen(
         light?.enterPlayer()
         onDispose { light?.setPlayerCovered(false); if (!lightLeft) light?.exitPlayer() }
     }
+    // Fullscreen is lit like a Short, in night tones whatever the theme. On a screen longer than
+    // 16:9 the light shows at the sides of the picture, and a day-lit one left pale bars there.
+    DisposableEffect(light, fullscreen) {
+        light?.setImmersive(fullscreen)
+        onDispose { if (fullscreen) light?.setImmersive(false) }
+    }
     val grab: ((android.graphics.Bitmap) -> Unit)? = light?.let { l -> { bitmap -> l.pushVideoFrame(bitmap) } }
 
     val inPip = LocalInPictureInPicture.current
@@ -245,6 +252,7 @@ fun PlayerScreen(
         .onSizeChanged { pull.heightPx = it.height.toFloat(); widePage = it.width > it.height }
         // Before the page's transform, so the finger is measured on screen while the page moves.
         .minimizeDrag(pull, enabled = pullable, onMinimize = onBack)
+        .playerUnderlay(pull)
         .graphicsLayer { pull.apply(this) }) {
         val details = state.details
         val pageHeight = maxHeight - with(density) { statusTop.toDp() }
@@ -286,6 +294,7 @@ fun PlayerScreen(
         } }
         val big = fullscreen || inPip || tabletop
         val zoom = remember(videoId, big) { VideoZoom() }
+        val zoomHaptics = androidx.compose.ui.platform.LocalHapticFeedback.current
         // Where the picture sits on screen, for pictures flying in and out.
         val videoRect = if (tabletop && !inPip) {
             val areaH = fold.hingeTop.toFloat()
@@ -371,7 +380,7 @@ fun PlayerScreen(
             .clipToBounds().videoZoom(zoom, enabled = !inPip && !tabletop, aspect = videoAspect, panAllowed = { point, viewport ->
                 if (classic || (tapControls && !fullscreen)) point.y < viewport.y - with(density) { 72.dp.toPx() } else !fullscreen || !FanGeometry(viewport.x / density.density, viewport.y / density.density, left)
                     .inFan(point.x / density.density, point.y / density.density)
-            })
+            }, onStick = { zoomHaptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.SegmentTick) })
             .background(if (inPip || tabletop) Color.Black else Color.Transparent)
             .onGloballyPositioned { c ->
                 // Not while the page is pulled: the light behind the page would chase the video every frame.

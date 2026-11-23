@@ -35,7 +35,8 @@ class DockLayoutTest {
         for (showShorts in listOf(false, true)) {
             val rightGrid = app.freshtuber.ui.components.handGrid(DockLayout.mineItems(false, showShorts), 2, left = false)
             val leftGrid = app.freshtuber.ui.components.handGrid(DockLayout.mineItems(true, showShorts), 2, left = true)
-            val accountRow = if (showShorts) 2 else 0
+            val accountRow = 2
+            assertEquals(true, rightGrid.contains(MineItem.Favorites))
             assertEquals(listOf(MineItem.Account, MineItem.Settings), rightGrid.subList(accountRow, accountRow + 2))
             assertEquals(listOf(MineItem.Account, MineItem.Settings), leftGrid.subList(accountRow, accountRow + 2))
             assertEquals(listOf(MineItem.Downloads, MineItem.WatchLater), rightGrid.takeLast(2))

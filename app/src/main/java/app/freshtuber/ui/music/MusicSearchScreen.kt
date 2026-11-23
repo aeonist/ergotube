@@ -31,21 +31,12 @@ import app.freshtuber.ui.components.LocalLeftHanded
 import app.freshtuber.ui.components.MessageState
 import app.freshtuber.ui.components.ScreenHeader
 
-/** The «Музыка / Видео» switch shown with the search field. */
-@Composable
-fun SearchSourceSwitch(music: Boolean, left: Boolean, onChange: (Boolean) -> Unit) {
-    app.freshtuber.ui.components.HandChips(listOf(
-        app.freshtuber.ui.components.ChipItem(stringResource(R.string.search_source_music), music) { onChange(true) },
-        app.freshtuber.ui.components.ChipItem(stringResource(R.string.search_source_video), !music) { onChange(false) },
-    ), left, natural = true)
-}
-
 /**
  * Song search inside the common Search: the field at the bottom like the video search.
  * «У тебя» (phone and library) first, then «В YouTube»; offline only what is on the phone.
  */
 @Composable
-fun MusicSearchScreen(sourceSwitch: (@Composable () -> Unit)? = null, viewModel: MusicViewModel = hiltViewModel()) {
+fun MusicSearchScreen(viewModel: MusicViewModel = hiltViewModel()) {
     MusicNotes(viewModel)
     val left = LocalLeftHanded.current
     val navigation = LocalMusicNavigation.current
@@ -104,7 +95,6 @@ fun MusicSearchScreen(sourceSwitch: (@Composable () -> Unit)? = null, viewModel:
             }
         }
         BottomBar {
-            sourceSwitch?.invoke()
             val leading: @Composable () -> Unit = { Icon(Icons.Rounded.Search, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
             val trailing: @Composable () -> Unit = {
                 if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Icon(Icons.Rounded.Close, stringResource(R.string.action_clear)) }

@@ -16,6 +16,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.GraphicsLayerScope
@@ -39,6 +41,18 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+
+internal val LocalPlayerUnderlay = androidx.compose.runtime.staticCompositionLocalOf<ImageBitmap?> { null }
+
+@Composable
+internal fun Modifier.playerUnderlay(pull: MinimizeDrag): Modifier {
+    val page = LocalPlayerUnderlay.current
+    return drawBehind {
+        if (page != null && pull.offsetPx > 0f && page.width == size.width.toInt() && page.height == size.height.toInt()) {
+            drawImage(page, alpha = (pull.pull * 3f).coerceIn(0f, 1f) * (1f - pull.exit))
+        }
+    }
+}
 
 /**
  * Pulling the portrait video down, as in YouTube: the whole watch page follows the finger,
@@ -133,11 +147,11 @@ class MinimizeDrag internal constructor(private val scope: CoroutineScope) {
     internal fun release(distancePx: Float, velocityPxPerSec: Float, density: Float, onMinimize: () -> Unit) {
         if (dismissing) return
         val minimize = heightPx > 0f && shouldMinimize(distancePx / density, velocityPxPerSec / density, heightPx / density, room / density)
-        if (minimize) dismiss(onMinimize, velocityPxPerSec) else settle()
+        if (minimize) dismiss(onMinimize, velocityPxPerSec) else settle(velocityPxPerSec)
     }
 
     /** Sends the page down into the mini-player, then hands over to [onMinimize] (the pad swipe and buttons use this too). */
-    fun dismiss(onMinimize: () -> Unit, @Suppress("UNUSED_PARAMETER") velocityPxPerSec: Float = 0f) {
+    fun dismiss(onMinimize: () -> Unit, velocityPxPerSec: Float = 0f) {
         if (dismissing) return
         if (heightPx <= 0f) { onMinimize(); return }
         dismissing = true
@@ -148,8 +162,12 @@ class MinimizeDrag internal constructor(private val scope: CoroutineScope) {
         lastDismissAt = SystemClock.uptimeMillis()
         onMinimize()
         job = scope.launch {
-            // The page stays where the finger left it and blurs away there; it does not fly off.
-            animate(exit, 1f, animationSpec = tween(DISMISS_MS, easing = Motion.Decelerate)) { v, _ -> exit = v }
+            val start = offsetPx
+            val travel = minOf(heightPx - start, heightPx * 0.18f + velocityPxPerSec.coerceAtLeast(0f) * 0.07f).coerceAtLeast(0f)
+            animate(0f, 1f, animationSpec = tween(DISMISS_MS, easing = Motion.Decelerate)) { fraction, _ ->
+                exit = fraction
+                offsetPx = start + travel * fraction
+            }
             // Normally the page is gone by now. If it stayed (nothing to go back to), bring it back into focus.
             delay(460)
             if (!stillShown()) return@launch
@@ -160,12 +178,12 @@ class MinimizeDrag internal constructor(private val scope: CoroutineScope) {
     }
 
     /** Springs back to rest. */
-    fun settle() {
+    fun settle(velocity: Float = 0f) {
         if (dismissing || offsetPx == 0f) return
         job?.cancel()
         job = scope.launch {
             // Critically damped: back into focus without a visible bounce.
-            animate(offsetPx, 0f, animationSpec = spring(dampingRatio = 1f, stiffness = 520f, visibilityThreshold = 0.5f)) { v, _ -> offsetPx = v }
+            animate(offsetPx, 0f, initialVelocity = velocity, animationSpec = spring(dampingRatio = 1f, stiffness = 520f, visibilityThreshold = 0.5f)) { v, _ -> offsetPx = v.coerceAtLeast(0f) }
         }
     }
 

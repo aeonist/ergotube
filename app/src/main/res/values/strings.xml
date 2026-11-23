@@ -301,8 +301,8 @@
     <string name="music_channel">Music</string>
     <string name="music_previous">Previous song</string>
     <string name="music_next">Next song</string>
-    <string name="music_favorite">Add to Favourites</string>
-    <string name="music_unfavorite">Remove from Favourites</string>
+    <string name="music_favorite">Add to favourites</string>
+    <string name="music_unfavorite">Remove from favourites</string>
     <string name="music_repeat">Repeat</string>
     <string name="nav_music">Music</string>
     <string name="music_tab_video">Video</string>
@@ -377,8 +377,8 @@
     <string name="music_library">Library</string>
     <string name="music_library_summary">%1$s · %2$s on the phone</string>
     <string name="music_favorites">Favourites</string>
-    <string name="music_downloads">Downloaded</string>
-    <string name="music_phone">From the phone</string>
+    <string name="music_downloads">ErgoTube downloads</string>
+    <string name="music_phone">Phone files</string>
     <string name="music_playlist_add">Playlist</string>
     <string name="music_filter_all">All</string>
     <string name="music_sort_new">Newest</string>
@@ -393,7 +393,7 @@
         <item quantity="other">Added %d songs</item>
     </plurals>
     <string name="music_import_failed">Some files could not be read</string>
-    <string name="music_library_empty">The library is empty. Add files from the phone or keep songs from YouTube with ♥ or Download.</string>
+    <string name="music_library_empty">Nothing here yet</string>
     <string name="music_new_playlist">New playlist</string>
     <string name="music_playlist_name">Name</string>
     <string name="action_create">Create</string>
@@ -519,4 +519,11 @@
     <string name="channel_tab_podcasts">Podcasts</string>
     <string name="channel_tab_playlists">Playlists</string>
     <string name="channel_tab_courses">Courses</string>
+    <string name="music_on_device">On device</string>
+    <string name="separate_favorites">Separate music and video favourites</string>
+    <string name="separate_favorites_hint">Show separate music and video tabs in Favourites</string>
+    <string name="favorites_hint">Saved videos and music</string>
+    <string name="music_find">Search music</string>
+    <string name="music_likes_retry">Could not load YouTube Music likes. Retry</string>
+    <string name="favorites_empty">No favourites yet</string>
 </resources>

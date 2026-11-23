@@ -9,6 +9,7 @@ import app.freshtuber.domain.model.PlaylistSummary
 import app.freshtuber.domain.model.VideoSummary
 import app.freshtuber.innertube.CallAs
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -30,6 +31,11 @@ data class MusicAccount(val id: String, val channel: String?) {
 data class MusicJamCursor(val mix: PlaylistSummary, val account: MusicAccount?, val continuation: String? = null)
 
 data class MusicJamPage(val tracks: List<MusicTrack>, val next: MusicJamCursor?)
+
+data class LikedSongs(val tracks: List<MusicTrack> = emptyList(), val failed: Boolean = false, val loading: Boolean = false)
+
+@Serializable
+private data class LikesSnapshot(val songs: List<MusicTrack>, val syncedAt: Long)
 
 @Serializable
 data class DailyMusicMix(val date: String, val personalized: Boolean, val tracks: List<MusicTrack>)
@@ -64,6 +70,36 @@ class MusicDiscovery @Inject constructor(
         val tracks = musicTracks(page.items.filterIsInstance<FeedItem.Video>().map { it.video })
         if (profile != null && MusicAccount.from(accountState.value) != profile) return MusicJamPage(emptyList(), null)
         return MusicJamPage(tracks, page.continuation?.takeIf { it != cursor.continuation }?.let { cursor.copy(continuation = it) })
+    }
+
+    /** Keep a completed snapshot per account and brand channel, including an empty playlist. */
+    fun likedSongs(account: MusicAccount, online: Boolean) = flow {
+        val key = "music-likes:" + kotlinx.serialization.json.Json.encodeToString(account)
+        val snapshot = library.readState<LikesSnapshot>(key)
+        val cached = snapshot?.songs.orEmpty()
+        val fresh = snapshot != null && System.currentTimeMillis() - snapshot.syncedAt in 0 until 5 * 60_000L
+        val refresh = online && !fresh && MusicAccount.from(accountState.value) == account
+        emit(LikedSongs(cached, loading = refresh))
+        if (!refresh) return@flow
+        val tracks = linkedMapOf<String, MusicTrack>()
+        val seen = mutableSetOf<String>()
+        var next: String? = null
+        try {
+            do {
+                val page = feeds.likedSongs(account.id, next)
+                if (MusicAccount.from(accountState.value) != account) return@flow
+                page.items.filterIsInstance<FeedItem.Video>().forEach { tracks[it.video.id] = MusicTrack.youtube(it.video) }
+                next = page.continuation
+                if (next != null && !seen.add(next)) throw java.io.IOException("Repeated music continuation")
+                if (cached.isEmpty() && next != null) emit(LikedSongs(tracks.values.toList(), loading = true))
+            } while (next != null)
+        } catch (e: CancellationException) { throw e } catch (_: Exception) {
+            emit(LikedSongs(cached.ifEmpty { tracks.values.toList() }, failed = true))
+            return@flow
+        }
+        val songs = tracks.values.toList()
+        library.writeState(key, LikesSnapshot(songs, System.currentTimeMillis()))
+        emit(LikedSongs(songs))
     }
 
     suspend fun daily(): DailyMusicMix = mixLock.withLock {

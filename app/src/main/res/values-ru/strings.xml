@@ -299,8 +299,8 @@
     <string name="music_channel">Музыка</string>
     <string name="music_previous">Предыдущая песня</string>
     <string name="music_next">Следующая песня</string>
-    <string name="music_favorite">В любимое</string>
-    <string name="music_unfavorite">Убрать из любимого</string>
+    <string name="music_favorite">В избранное</string>
+    <string name="music_unfavorite">Убрать из избранного</string>
     <string name="music_repeat">Повтор</string>
     <string name="nav_music">Музыка</string>
     <string name="music_tab_video">Видео</string>
@@ -378,9 +378,9 @@
     <string name="music_drag">Перетащить</string>
     <string name="music_library">Библиотека</string>
     <string name="music_library_summary">%1$s · %2$s на телефоне</string>
-    <string name="music_favorites">Любимое</string>
-    <string name="music_downloads">Скачанное</string>
-    <string name="music_phone">С телефона</string>
+    <string name="music_favorites">Избранное</string>
+    <string name="music_downloads">Скачано в ErgoTube</string>
+    <string name="music_phone">Файлы телефона</string>
     <string name="music_playlist_add">Плейлист</string>
     <string name="music_filter_all">Всё</string>
     <string name="music_sort_new">Новые</string>
@@ -397,7 +397,7 @@
         <item quantity="other">Добавлено %d песни</item>
     </plurals>
     <string name="music_import_failed">Часть файлов не прочиталась</string>
-    <string name="music_library_empty">Библиотека пуста. Добавь файлы с телефона или сохрани песни с YouTube через ♥ или «Скачать».</string>
+    <string name="music_library_empty">Здесь пока ничего нет</string>
     <string name="music_new_playlist">Новый плейлист</string>
     <string name="music_playlist_name">Название</string>
     <string name="action_create">Создать</string>
@@ -446,7 +446,7 @@
     <string name="settings_music_lyrics_hint">Из LRCLIB: туда уходят только исполнитель, название, альбом и длина</string>
     <string name="settings_music_auto_daily">Скачивать «Микс дня»</string>
     <string name="settings_music_auto_daily_hint">По Wi-Fi; чтобы освободить место, первыми удаляются старые миксы</string>
-    <string name="settings_music_auto_fav">Скачивать «Любимое»</string>
+    <string name="settings_music_auto_fav">Скачивать музыку, отмеченную сердцем</string>
     <string name="settings_music_auto_fav_hint">По Wi-Fi; само не удаляется никогда</string>
     <string name="settings_music_limit">Место под музыку</string>
     <string name="settings_music_gb">%d ГБ</string>
@@ -488,7 +488,7 @@
     <string name="music_show">Показывать</string>
     <string name="music_sort">Сортировка</string>
     <string name="music_mode">Режим</string>
-    <string name="music_menu_more">Меню «Любимого»</string>
+    <string name="music_menu_more">Меню избранного</string>
     <string name="music_playlist_menu">Меню плейлиста</string>
     <string name="search_source_music">Музыка</string>
     <string name="search_source_video">Видео</string>
@@ -525,4 +525,11 @@
     <string name="channel_tab_podcasts">Подкасты</string>
     <string name="channel_tab_playlists">Плейлисты</string>
     <string name="channel_tab_courses">Курсы</string>
+    <string name="music_on_device">На устройстве</string>
+    <string name="separate_favorites">Разделять музыку и видео в избранном</string>
+    <string name="separate_favorites_hint">Показывать две вкладки в избранном</string>
+    <string name="favorites_hint">Сохранённые видео и музыка</string>
+    <string name="music_find">Поиск музыки</string>
+    <string name="music_likes_retry">Не удалось загрузить лайки YouTube Music. Повторить</string>
+    <string name="favorites_empty">В избранном пока ничего нет</string>
 </resources>

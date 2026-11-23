@@ -50,6 +50,7 @@ enum class AppFeature(val key: String, val default: Boolean) {
     MusicInApp("music_in_app", true),
     /** The «Музыка» ear above Home's chips; off hides only the ear, music stays in the app. */
     MusicEar("music_ear", true),
+    SeparateFavorites("separate_favorites", false),
 }
 
 /** Audio quality for music: the best stream, or a small one (about 50 kbps) that saves data. */

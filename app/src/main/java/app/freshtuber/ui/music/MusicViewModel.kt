@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -127,16 +128,15 @@ class MusicViewModel @Inject constructor(
         viewModelScope.launch { music.playCollection(mix.tracks.map { library.known(it) }, 0, title, shuffle = shuffle) }
     }
 
-    /** The ids of the one library («Любимое»); the heart is on for these. */
-    val libraryIds: StateFlow<Set<String>> = library.tracks.map { list -> list.map { it.id }.toSet() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptySet())
-
-    /** The heart: adds the song to «Любимое», or takes it out of the one library again. */
-    fun toggleHeart(track: MusicTrack) {
-        viewModelScope.launch {
-            if (MusicLibraryLogic.hearted(track, libraryIds.value)) library.remove(track) else music.toggleFavorite(track.copy(favorite = false))
-        }
+    val videoFavorites = library.videoFavorites
+    fun videoFavorite(id: String) = library.videoFavorite(id)
+    fun toggleVideoFavorite(video: app.freshtuber.domain.model.VideoSummary) {
+        viewModelScope.launch { library.toggleVideoFavorite(MusicTrack.youtube(video)) }
     }
+    val account = accounts.state.map(MusicAccount::from).distinctUntilChanged()
+    fun likedSongs(account: MusicAccount, online: Boolean) = discovery.likedSongs(account, online)
+
+    fun toggleHeart(track: MusicTrack) = toggleFavorite(track)
 
     fun toggleFavorite(track: MusicTrack) { viewModelScope.launch { music.toggleFavorite(track) } }
     fun save(track: MusicTrack) { viewModelScope.launch { library.save(track) } }
@@ -300,6 +300,7 @@ class MusicViewModel @Inject constructor(
 
     fun search(query: String) {
         val q = query.trim()
+        if (q.isNotEmpty() && q == _search.value.query && !_search.value.failed) return
         searchJob?.cancel()
         if (q.isEmpty()) { _search.value = SearchResults(); return }
         _search.value = SearchResults(q, loading = true)

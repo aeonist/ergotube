@@ -4,6 +4,16 @@ What changed in each ErgoTube build, newest first. Release APKs are on the [Rele
 
 Builds are numbered by `versionCode`. A release tag or APK name that contains `buildNN` is what the in-app update banner compares against.
 
+## Build 40 · 1.2.1 · 23 Nov 2026
+
+- Favourites opens from Music and Mine. Music hearts, saved videos and the signed-in YouTube Music account’s liked songs share one list. Settings → Music can split it into Music and Video. A recording saved twice appears once in the combined list.
+- Music opens with Favourites, On device, Playlists and Search music. Local files and completed audio downloads have their own filters. The music heart records an explicit favourite.
+- The music player buffers the beginning of the next two songs in queue order. Search in Music opens song results. Video search opens from video sections.
+- Home retains the loaded feed, filter and scroll position across a visit to the player. A second tap on Home scrolls to the top.
+- Music and video follow a downward drag and continue moving after release. The screen underneath is visible during the gesture.
+- Fullscreen video on a screen longer than 16:9 no longer has pale bars at the sides in the light theme: fullscreen is lit in night tones, as Shorts are.
+- Pinching a fullscreen video sticks the picture to the left and right edges of the screen, with a light tick. Pinch further to zoom past it.
+
 ## Build 39 · 20 Nov 2026
 
 - Home and channel pages: the buttons at the bottom sit in **three evenly spaced rows** (the Music ear, the chips or Subscribe and the bell, the dock). On a channel page, **Subscribe and the bell** have a row of their own above the tabs.

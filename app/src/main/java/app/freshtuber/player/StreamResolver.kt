@@ -243,7 +243,7 @@ class StreamResolver @Inject constructor(
  * v0.26.5) without its visitor-data request before every video: the visitor id lives for hours,
  * so it is fetched once, ahead of time, and reused. Same URL, headers and body as the original.
  */
-private class VisionOsPlayer {
+internal class VisionOsPlayer {
     private val lock = Any()
     @Volatile private var visitor: String? = null
     @Volatile private var fetchedAt = 0L

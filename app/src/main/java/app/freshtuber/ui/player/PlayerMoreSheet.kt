@@ -70,6 +70,9 @@ fun sleepLabel(timer: SleepTimer): String = when (timer) {
 @Composable
 fun PlayerMoreSheet(state: PlayerState, video: VideoUiState, controller: PlayerController, viewModel: VideoViewModel,
     openChannel: (String) -> Unit, onDismiss: () -> Unit) {
+    val music: app.freshtuber.ui.music.MusicViewModel = androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel()
+    val marks = remember(viewModel.videoId, music) { music.videoFavorite(viewModel.videoId) }
+    val favorited by marks.collectAsState(initial = false)
     var pick by remember { mutableStateOf<MorePick?>(null) }
     val now = state.nowPlaying
     val left = LocalLeftHanded.current
@@ -136,6 +139,15 @@ fun PlayerMoreSheet(state: PlayerState, video: VideoUiState, controller: PlayerC
             // Lowest, under the thumb: most used actions; the first sits on the hand side.
             val actions = listOf(
                 TileItem(Icons.Rounded.Headphones, stringResource(R.string.player_audio_only)) { onDismiss(); activity?.playInBackground() },
+                TileItem(if (favorited) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                    stringResource(if (favorited) R.string.music_unfavorite else R.string.music_favorite), selected = favorited,
+                    enabled = video.details != null || now?.videoId == viewModel.videoId) {
+                    val playing = now?.takeIf { it.videoId == viewModel.videoId }
+                    val title = video.details?.title ?: playing?.title
+                    if (title != null) music.toggleVideoFavorite(app.freshtuber.domain.model.VideoSummary(viewModel.videoId, title,
+                        channelName = video.details?.channel?.name ?: playing?.channelName, thumbnailUrl = playing?.thumbnailUrl))
+                    onDismiss()
+                },
                 TileItem(Icons.AutoMirrored.Rounded.PlaylistAdd, stringResource(R.string.video_save)) { onDismiss(); viewModel.openPlaylistPicker() },
                 TileItem(Icons.Rounded.Download, stringResource(R.string.feed_download)) { downloadNotifications(); viewModel.download(); onDismiss() },
                 TileItem(Icons.Rounded.Share, shareTitle) { onDismiss(); shareVideo(context, viewModel.videoId, shareTitle) },

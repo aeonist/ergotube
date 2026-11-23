@@ -58,6 +58,7 @@ enum class MineItem(val icon: ImageVector, @param:StringRes val labelRes: Int, @
     Playlists(Icons.AutoMirrored.Rounded.PlaylistPlay, R.string.library_playlists, R.string.mine_playlists_hint),
     Settings(Icons.Rounded.Settings, R.string.nav_settings, R.string.mine_settings_hint),
     Account(Icons.Rounded.AccountCircle, R.string.nav_account, R.string.settings_account_signed_out),
+    Favorites(Icons.Rounded.Favorite, R.string.music_favorites, R.string.favorites_hint),
     /** Only while Music has Shorts' place in the dock. */
     Shorts(Icons.Rounded.Slideshow, R.string.nav_shorts, R.string.mine_shorts_hint),
 }

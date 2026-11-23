@@ -58,13 +58,14 @@ import kotlin.math.abs
 
 /** Where music screens can go; provided by the app root. */
 interface MusicNavigation {
+    fun search()
     fun openPlayer()
     /** A library collection: `fav` or `playlist:<id>`. */
     fun openCollection(collection: String)
     /** The «Музыка» page. */
     fun openMusicHome()
     /** «Смотреть клип»: the video opens at the song's current second; the song pauses. */
-    fun watchVideo(track: MusicTrack)
+    fun watchVideo(track: MusicTrack, playlist: List<MusicTrack>? = null)
 }
 
 val LocalMusicNavigation = staticCompositionLocalOf<MusicNavigation?> { null }
@@ -334,9 +335,9 @@ fun TrackMenu(track: MusicTrack, viewModel: MusicViewModel, onDismiss: () -> Uni
     val left = LocalLeftHanded.current
     val context = LocalContext.current
     val navigation = LocalMusicNavigation.current
-    val libraryIds by viewModel.libraryIds.collectAsState()
+    val favoriteIds by viewModel.favorites.collectAsState()
     val downloaded by viewModel.downloaded.collectAsState()
-    val favorite = MusicLibraryLogic.hearted(track, libraryIds)
+    val favorite = MusicLibraryLogic.hearted(track, favoriteIds)
     val download = downloaded[track.videoId]
     var picker by remember { mutableStateOf(false) }
     val shareTitle = stringResource(R.string.music_share)
@@ -376,11 +377,11 @@ fun TrackMenu(track: MusicTrack, viewModel: MusicViewModel, onDismiss: () -> Uni
 @Composable
 fun PlaylistPicker(track: MusicTrack?, viewModel: MusicViewModel, onDismiss: () -> Unit) {
     val playlists by viewModel.playlists.collectAsState()
-    var naming by remember { mutableStateOf(playlists.isEmpty() && track == null) }
+    var naming by remember { mutableStateOf(track == null) }
     var name by remember { mutableStateOf("") }
     app.freshtuber.ui.components.BlurSheet(onDismissRequest = onDismiss) {
         Column(Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
-            playlists.forEach { playlist ->
+            if (track != null) playlists.forEach { playlist ->
                 Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable { track?.let { viewModel.addToPlaylist(playlist, it) }; onDismiss() }
                     .padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.AutoMirrored.Rounded.QueueMusic, null)

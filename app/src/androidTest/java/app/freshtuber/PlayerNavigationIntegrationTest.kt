@@ -59,12 +59,17 @@ class FullscreenNavigationIntegrationTest {
                     }
                     node(R.string.player_fullscreen).performClick()
                     node(R.string.player_exit_fullscreen).assertExists()
+                    var current = first
                     for (id in listOf(second, third)) {
-                        scenario.onActivity { it.playerController.setQueue(listOf(VideoSummary(id, id))) }
+                        scenario.onActivity {
+                            check(it.playerController.isRequested(current))
+                            it.playerController.setQueue(current, listOf(VideoSummary(id, id)))
+                        }
                         node(R.string.player_next).performClick()
                         waitForVideo(id)
                         node(R.string.player_fullscreen).assertDoesNotExist()
                         node(R.string.player_exit_fullscreen).assertExists()
+                        current = id
                     }
                     scenario.onActivity { media.seekToPrevious() }
                     waitForVideo(second)

@@ -37,6 +37,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 
@@ -86,7 +87,7 @@ class HomeViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             kotlinx.coroutines.flow.combine(settings.shortsInFeeds, settings.deArrowEnabled) { shorts, branding -> shorts to branding }
-                .drop(1).collect { feed.refresh() }
+                .distinctUntilChanged().drop(1).collect { feed.refresh() }
         }
     }
 
@@ -110,6 +111,7 @@ fun HomeScreen(
     scrollToTop: Boolean = false,
     onScrolledToTop: () -> Unit = {},
     ear: (@Composable () -> Unit)? = null,
+    listState: androidx.compose.foundation.lazy.LazyListState = androidx.compose.foundation.lazy.rememberLazyListState(),
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.feed.state.collectAsStateWithLifecycle()
@@ -117,7 +119,6 @@ fun HomeScreen(
     val selected = state.filters.firstOrNull { it.selected }?.title
     // Categories slide away while reading down, like the channel strip in Subscriptions.
     val hide = rememberScrollHide()
-    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
     androidx.compose.runtime.LaunchedEffect(scrollToTop) {
         if (scrollToTop) {
             listState.scrollToItem(0)

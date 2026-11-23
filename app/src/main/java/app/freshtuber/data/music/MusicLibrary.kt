@@ -24,6 +24,7 @@ import app.freshtuber.domain.model.VideoSummary
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -150,6 +151,15 @@ interface MusicDao {
     @Query("SELECT value FROM music_state WHERE `key` = :key")
     suspend fun readState(key: String): String?
 
+    @Query("SELECT value FROM music_state WHERE `key` GLOB 'video-favorite:*'")
+    fun videoFavorites(): Flow<List<String>>
+
+    @Query("SELECT EXISTS(SELECT 1 FROM music_state WHERE `key` = :key)")
+    fun hasState(key: String): Flow<Boolean>
+
+    @Query("DELETE FROM music_state WHERE `key` = :key")
+    suspend fun deleteState(key: String)
+
     @Upsert suspend fun putState(state: MusicStoredState)
 }
 
@@ -164,6 +174,14 @@ class MusicLibrary @Inject constructor(
     private val resolver get() = context.contentResolver
     val tracks get() = dao.library()
     val favorites get() = dao.favorites()
+    val videoFavorites get() = dao.videoFavorites().map { rows -> rows.map { Json.decodeFromString<MusicTrack>(it) } }
+    fun videoFavorite(id: String) = dao.hasState("video-favorite:$id")
+    suspend fun toggleVideoFavorite(track: MusicTrack) = database.withTransaction {
+        val key = "video-favorite:${track.videoId}"
+        if (dao.readState(key) == null) writeState(key, track.copy(addedAt = System.currentTimeMillis()))
+        else dao.deleteState(key)
+    }
+
     val playlists get() = dao.playlists()
     fun recentlyPlayed(limit: Int = 30) = dao.recentlyPlayed(limit)
 

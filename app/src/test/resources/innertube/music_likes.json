@@ -1,0 +1,109 @@
+{
+  "contents": {
+    "sectionListRenderer": {
+      "contents": [
+        {
+          "musicPlaylistShelfRenderer": {
+            "contents": [
+              {
+                "musicResponsiveListItemRenderer": {
+                  "playlistItemData": {
+                    "videoId": "song-id"
+                  },
+                  "flexColumns": [
+                    {
+                      "musicResponsiveListItemFlexColumnRenderer": {
+                        "text": {
+                          "runs": [
+                            {
+                              "text": "First song"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "musicResponsiveListItemFlexColumnRenderer": {
+                        "text": {
+                          "runs": [
+                            {
+                              "text": "Artist"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ],
+                  "fixedColumns": [
+                    {
+                      "musicResponsiveListItemFixedColumnRenderer": {
+                        "text": {
+                          "simpleText": "3:04"
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "continuationItemRenderer": {
+                  "continuationEndpoint": {
+                    "continuationCommand": {
+                      "token": "next-page"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "musicShelfRenderer": {
+            "contents": [
+              {
+                "musicResponsiveListItemRenderer": {
+                  "playlistItemData": {
+                    "videoId": "song-id"
+                  },
+                  "flexColumns": [
+                    {
+                      "musicResponsiveListItemFlexColumnRenderer": {
+                        "text": {
+                          "runs": [
+                            {
+                              "text": "First song"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    {
+                      "musicResponsiveListItemFlexColumnRenderer": {
+                        "text": {
+                          "runs": [
+                            {
+                              "text": "Artist"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ],
+                  "fixedColumns": [
+                    {
+                      "musicResponsiveListItemFixedColumnRenderer": {
+                        "text": {
+                          "simpleText": "3:04"
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

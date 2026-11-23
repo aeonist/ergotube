@@ -10,6 +10,18 @@ class MusicQueueTest {
     private fun song(n: Int) = MusicTrack("yt:song$n", MusicSource.YouTube, "Song $n", durationMs = 60_000)
     private val album = (1..6).map(::song)
 
+    @Test fun preloadFollowsTheActualNextTwoIncludingManualChangesAndRepeat() {
+        val queue = MusicQueue.start(album, 0, null, null)
+        assertEquals(album.slice(1..2), queue.upcomingPair())
+        assertEquals(listOf(song(9), song(2)), queue.playNext(song(9)).upcomingPair())
+        val shuffled = queue.withShuffle(true)
+        assertEquals(listOf(shuffled.next, shuffled.advance()!!.next), shuffled.upcomingPair())
+        assertTrue(queue.copy(repeat = RepeatMode.One).upcomingPair().isEmpty())
+        val end = MusicQueue.start(album, album.lastIndex, null, null)
+        assertTrue(end.upcomingPair().isEmpty())
+        assertEquals(album.take(2), end.copy(repeat = RepeatMode.All).upcomingPair())
+    }
+
     @Test fun startCountsEarlierSongsAsPlayedAndQueuesTheRest() {
         val q = MusicQueue.start(album, 2, "Album", null)
         assertEquals("yt:song3", q.track?.id)

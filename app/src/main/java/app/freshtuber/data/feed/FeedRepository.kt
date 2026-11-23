@@ -112,6 +112,12 @@ class FeedRepository @Inject constructor(
         }
     }
 
+    suspend fun likedSongs(profileId: String, token: String?): FeedPage {
+        val body = token?.let(::continuation) ?: buildJsonObject { put("browseId", "VLLM") }
+        val response = innerTube.post("browse", body, CallAs.Profile(profileId), client = app.freshtuber.innertube.BrowseClient.Music)
+        return app.freshtuber.innertube.parse.LikedSongsParser.parse(response)
+    }
+
     suspend fun musicMix(mix: PlaylistSummary, token: String?, callAs: CallAs): FeedPage {
         val body = if (token != null) kotlinx.serialization.json.Json.parseToJsonElement(token) as JsonObject
         else buildJsonObject {

@@ -44,8 +44,9 @@ android {
         minSdk = 26
         targetSdk = 37
         // Test build number: bump with every build handed to the user (file name and Settings show it).
-        versionCode = 39
-        versionName = "1.2 · " + gitShortHash()
+        versionCode = 40
+        // Release builds show a plain version (4PDA wants it exactly as in the manifest); debug adds the commit.
+        versionName = "1.2.1"
         // Public GitHub repository whose releases the app checks for updates ("owner/name").
         buildConfigField("String", "UPDATE_REPO", "\"aeonist/ergotube\"")
 
@@ -55,6 +56,7 @@ android {
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
+            versionNameSuffix = " · " + gitShortHash()
         }
         release {
             // Own release key from keystore.properties; the debug key only when that file is missing.

@@ -4,6 +4,8 @@ import app.freshtuber.data.music.MusicSource
 import app.freshtuber.data.music.MusicTrack
 
 /** What «Любимое» shows: everything, only downloaded songs, or only files from the phone. */
+enum class FavoriteSection { All, Music, Video }
+
 enum class LibraryFilter { All, Downloaded, Phone }
 
 enum class LibrarySort { New, Title, Artist }
@@ -25,7 +27,7 @@ object MusicLibraryLogic {
 
     fun filter(tracks: List<MusicTrack>, filter: LibraryFilter, downloadedIds: Set<String>): List<MusicTrack> = when (filter) {
         LibraryFilter.All -> tracks
-        LibraryFilter.Downloaded -> tracks.filter { it.isYouTube && it.videoId in downloadedIds }
+        LibraryFilter.Downloaded -> tracks.filter { it.isYouTube && (it.uri != null || it.videoId in downloadedIds) }
         LibraryFilter.Phone -> tracks.filter { it.source == MusicSource.Phone }
     }
 
@@ -35,6 +37,13 @@ object MusicLibraryLogic {
         LibrarySort.Artist -> tracks.sortedBy { (it.artist ?: "").lowercase() }
     }
 
-    /** The heart is on while the song is in the one library. */
+    fun favorites(music: List<MusicTrack>, videos: List<MusicTrack>, liked: List<MusicTrack>, section: FavoriteSection): List<MusicTrack> =
+        when (section) {
+            FavoriteSection.Music -> music + liked
+            FavoriteSection.Video -> videos
+            FavoriteSection.All -> music + videos + liked
+        }.distinctBy(MusicTrack::id)
+
+    /** The music heart reflects the local music mark. */
     fun hearted(track: MusicTrack, libraryIds: Set<String>): Boolean = track.id in libraryIds
 }

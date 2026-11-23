@@ -49,6 +49,7 @@ import app.freshtuber.ui.feed.toLoadError
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -149,11 +150,11 @@ class PlayerController @Inject constructor(
     private val streamCache by lazy {
         SimpleCache(File(context.cacheDir, "playback"), LeastRecentlyUsedCacheEvictor(64L * 1024 * 1024), StandaloneDatabaseProvider(context))
     }
-    private val dataSourceFactory by lazy {
-        CacheDataSource.Factory().setCache(streamCache)
-            .setUpstreamDataSourceFactory(ChunkedDataSource.Factory(OkHttpDataSource.Factory(playbackClient)))
+    internal fun cachedPlayback(upstream: androidx.media3.datasource.DataSource.Factory): CacheDataSource.Factory =
+        CacheDataSource.Factory().setCache(streamCache).setUpstreamDataSourceFactory(upstream)
             .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
-    }
+
+    private val dataSourceFactory by lazy { cachedPlayback(ChunkedDataSource.Factory(OkHttpDataSource.Factory(playbackClient))) }
 
     /**
      * The connection speed the player starts each video's quality from. It is remembered per
@@ -425,6 +426,11 @@ class PlayerController @Inject constructor(
         }
         if (!isShort) parked = null
         if (requestedId == videoId && (_state.value.nowPlaying?.videoId == videoId || _state.value.loadingId == videoId) && _state.value.error == null) return
+        if (playlistVideo != null && playlistVideo != videoId) {
+            playlist = emptyList()
+            playlistVideo = null
+            _state.update { it.copy(queue = emptyList()) }
+        }
         val leaving = requestedId
         if (!goingBack && leaving != null && leaving != videoId && !requestedShort && !isShort) {
             _state.update { it.copy(history = (it.history - leaving + leaving).takeLast(MAX_HISTORY)) }
@@ -603,6 +609,10 @@ class PlayerController @Inject constructor(
         return StartPrefetch.progressive(tracks.getOrNull(StreamChoice.pick(tracks, cap))?.url, video.audioUrl, video.muxedUrl)
     }
 
+    internal suspend fun preloadAudio(url: String) = withContext(Dispatchers.IO) {
+        cacheRange(StartPrefetch.first(url, 192L * 1024))
+    }
+
     /** Writes [range] through the player's own data source, so it lands under the player's cache key. */
     private suspend fun cacheRange(range: StartPrefetch.Range) {
         val job = currentCoroutineContext()
@@ -779,14 +789,34 @@ class PlayerController @Inject constructor(
         }
     }
 
+    private var playlist = emptyList<VideoSummary>()
+    private var playlistVideo: String? = null
+
+    fun selectPlaylist(id: String, list: List<VideoSummary>) {
+        playlist = list
+        selectPlaylistVideo(id)
+    }
+
+    private fun selectPlaylistVideo(id: String) {
+        val index = playlist.indexOfFirst { it.id == id }
+        if (index < 0) {
+            playlist = emptyList()
+            playlistVideo = null
+        } else {
+            playlistVideo = id
+            _state.update { it.copy(queue = playlist.drop(index + 1)) }
+        }
+    }
+
     /** Videos to continue with when this one ends (the page's suggestions). */
-    fun setQueue(videos: List<VideoSummary>) {
+    fun setQueue(videoId: String, videos: List<VideoSummary>) {
+        if (playlistVideo != null || requestedId != videoId) return
         _state.update { it.copy(queue = videos.filterNot { v -> v.isLive || v.isShort }) }
     }
 
     fun playNext() {
         val next = _state.value.queue.firstOrNull() ?: return
-        _state.update { it.copy(queue = it.queue.drop(1)) }
+        if (playlistVideo != null) selectPlaylistVideo(next.id) else _state.update { it.copy(queue = it.queue.drop(1)) }
         play(next.id)
         _events.tryEmit(PlayerEvent.Advanced(next.id))
     }
@@ -795,6 +825,7 @@ class PlayerController @Inject constructor(
     fun playPrevious() {
         val previous = _state.value.history.lastOrNull() ?: return
         _state.update { it.copy(history = it.history.dropLast(1)) }
+        if (playlistVideo != null) selectPlaylistVideo(previous)
         goingBack = true
         try { play(previous) } finally { goingBack = false }
         _events.tryEmit(PlayerEvent.Advanced(previous))
@@ -813,6 +844,8 @@ class PlayerController @Inject constructor(
         startSlot.cancelAll()
         dashActive = false
         requestedId = null
+        playlist = emptyList()
+        playlistVideo = null
         prefetchIds = emptyList()
         parked = null
         sleepJob?.cancel()

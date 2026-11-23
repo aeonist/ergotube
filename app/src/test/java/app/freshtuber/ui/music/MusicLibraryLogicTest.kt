@@ -31,6 +31,16 @@ class MusicLibraryLogicTest {
         assertEquals(all, MusicLibraryLogic.filter(all, LibraryFilter.All, emptySet()))
     }
 
+    @Test fun sharedFavoritesDeduplicateWithoutChangingTheTwoSections() {
+        val music = listOf(phone, cloud)
+        val videos = listOf(saved, cloud)
+        val likes = listOf(cloud, saved)
+        assertEquals(listOf(phone, cloud, saved), MusicLibraryLogic.favorites(music, videos, likes, FavoriteSection.All))
+        assertEquals(listOf(phone, cloud, saved), MusicLibraryLogic.favorites(music, videos, likes, FavoriteSection.Music))
+        assertEquals(videos, MusicLibraryLogic.favorites(music, videos, likes, FavoriteSection.Video))
+        assertTrue(MusicLibraryLogic.favorites(emptyList(), emptyList(), emptyList(), FavoriteSection.All).isEmpty())
+    }
+
     @Test fun sortsByTitleArtistAndNewest() {
         assertEquals(listOf(saved, cloud, phone), MusicLibraryLogic.sort(all, LibrarySort.Title))
         assertEquals(listOf(phone, saved, cloud), MusicLibraryLogic.sort(all, LibrarySort.Artist))

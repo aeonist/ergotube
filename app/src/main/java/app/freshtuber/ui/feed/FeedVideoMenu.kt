@@ -4,6 +4,8 @@ import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
@@ -169,6 +171,13 @@ fun FeedVideoMenu(video: VideoSummary, recommendation: Boolean, act: (FanAction)
             add(tile(FanAction.WatchLater))
             add(tile(FanAction.Download))
             add(tile(FanAction.Share))
+            val music: app.freshtuber.ui.music.MusicViewModel = hiltViewModel()
+            val mark = remember(video.id, music) { music.videoFavorite(video.id) }
+            val favorite by mark.collectAsStateWithLifecycle(false)
+            add(TileItem(if (favorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                stringResource(if (favorite) R.string.music_unfavorite else R.string.music_favorite), selected = favorite) {
+                music.toggleVideoFavorite(video); onDismiss()
+            })
             add(TileItem(Icons.AutoMirrored.Rounded.PlaylistAdd, saveLabel) { sheetOpen = false; actions.openPlaylistPicker() })
             val channelId = video.channelId
             if (channelId != null && onChannel != null) add(TileItem(Icons.Rounded.AccountCircle, channelLabel) { onDismiss(); onChannel(channelId) })

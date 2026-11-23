@@ -14,6 +14,13 @@ object WebClient {
     const val USER_AGENT = UserAgents.DESKTOP_BROWSER
 }
 
+internal const val MUSIC_ORIGIN = "https://music.youtube.com"
+
+enum class BrowseClient(val clientName: String, val id: String, val version: String, val origin: String) {
+    Web(WebClient.NAME, WebClient.ID, WebClient.VERSION, WebClient.ORIGIN),
+    Music("WEB_REMIX", "67", "1.20260121.03.00", MUSIC_ORIGIN),
+}
+
 /**
  * Builds request headers. Pure, so it can be unit-tested.
  *
@@ -26,14 +33,15 @@ object InnerTubeHeaders {
         visitorData: String?,
         language: String,
         timestampSeconds: Long,
+        client: BrowseClient = BrowseClient.Web,
     ): Map<String, String> = buildMap {
         put("Content-Type", "application/json")
         put("User-Agent", WebClient.USER_AGENT)
         put("Accept-Language", language)
-        put("X-YouTube-Client-Name", WebClient.ID)
-        put("X-YouTube-Client-Version", WebClient.VERSION)
-        put("Origin", WebClient.ORIGIN)
-        put("Referer", WebClient.REFERER)
+        put("X-YouTube-Client-Name", client.id)
+        put("X-YouTube-Client-Version", client.version)
+        put("Origin", client.origin)
+        put("Referer", "${client.origin}/")
         visitorData?.takeIf { it.isNotBlank() }?.let { put("X-Goog-Visitor-Id", it) }
 
         if (profile == null || profile.cookies.isEmpty()) return@buildMap
@@ -42,12 +50,12 @@ object InnerTubeHeaders {
         val sync = DataSyncId.parse(profile.dataSyncId)
         SapisidHash.header(
             cookies = profile.cookies,
-            origin = WebClient.ORIGIN,
+            origin = client.origin,
             timestampSeconds = timestampSeconds,
             userSessionId = sync.userSessionId,
         )?.let {
             put("Authorization", it)
-            put("X-Origin", WebClient.ORIGIN)
+            put("X-Origin", client.origin)
         }
         put("X-Goog-AuthUser", profile.sessionIndex.toString())
         profile.activePageId?.let { put("X-Goog-PageId", it) }

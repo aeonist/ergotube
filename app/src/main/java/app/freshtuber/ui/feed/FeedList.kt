@@ -116,7 +116,7 @@ fun FeedList(
 ) {
     val nearEnd by remember {
         derivedStateOf {
-            val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            val last = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: return@derivedStateOf false
             last >= listState.layoutInfo.totalItemsCount - 4
         }
     }

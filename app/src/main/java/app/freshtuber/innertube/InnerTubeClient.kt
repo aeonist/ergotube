@@ -67,9 +67,10 @@ class InnerTubeClient @Inject constructor(
         body: JsonObject = JsonObject(emptyMap()),
         callAs: CallAs = CallAs.ActiveAccount,
         asChannel: Boolean = true,
+        client: BrowseClient = BrowseClient.Web,
     ): JsonObject = withContext(Dispatchers.IO) {
         sessions.load()
-        val url = (WebClient.API_BASE + endpoint).toHttpUrl().newBuilder()
+        val url = ("${client.origin}/youtubei/v1/$endpoint").toHttpUrl().newBuilder()
             .addQueryParameter("prettyPrint", "false")
             .build()
         val profile = resolveProfile(callAs, url)?.let { if (asChannel) it else it.copy(activePageId = null) }
@@ -77,10 +78,11 @@ class InnerTubeClient @Inject constructor(
         val locale = Locale.getDefault()
 
         val payload = buildJsonObject {
-            put("context", context(locale, visitorData, profile?.activePageId))
+            put("context", context(locale, visitorData, profile?.activePageId, client))
             body.forEach { (key, value) -> put(key, value) }
         }
         val headers = InnerTubeHeaders.build(
+            client = client,
             profile = profile,
             visitorData = visitorData,
             language = locale.toLanguageTag(),
@@ -167,16 +169,16 @@ class InnerTubeClient @Inject constructor(
         }
     }
 
-    private fun context(locale: Locale, visitorData: String?, onBehalfOfUser: String?) = buildJsonObject {
+    private fun context(locale: Locale, visitorData: String?, onBehalfOfUser: String?, client: BrowseClient) = buildJsonObject {
         putJsonObject("client") {
-            put("clientName", WebClient.NAME)
-            put("clientVersion", WebClient.VERSION)
+            put("clientName", client.clientName)
+            put("clientVersion", client.version)
             put("hl", locale.language.ifEmpty { "en" })
             put("gl", locale.country.takeIf { it.length == 2 } ?: "US")
             visitorData?.let { put("visitorData", it) }
             put("userAgent", WebClient.USER_AGENT)
             put("platform", "DESKTOP")
-            put("originalUrl", WebClient.REFERER)
+            put("originalUrl", "${client.origin}/")
             put("utcOffsetMinutes", TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 60_000)
         }
         putJsonObject("user") {

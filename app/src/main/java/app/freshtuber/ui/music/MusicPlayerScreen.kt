@@ -60,6 +60,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import app.freshtuber.ui.player.playerUnderlay
 import app.freshtuber.R
 import app.freshtuber.data.music.MusicTrack
 import app.freshtuber.player.Chapter
@@ -90,7 +91,7 @@ private enum class Face { Cover, Lyrics, Queue }
 fun MusicPlayerScreen(onCollapse: () -> Unit, viewModel: MusicViewModel = hiltViewModel()) {
     MusicNotes(viewModel)
     val state by viewModel.state.collectAsStateWithLifecycle()
-    val libraryIds by viewModel.libraryIds.collectAsStateWithLifecycle()
+    val favoriteIds by viewModel.favorites.collectAsStateWithLifecycle()
     val online by viewModel.online.collectAsStateWithLifecycle()
     val track = state.queue.track
     val left = LocalLeftHanded.current
@@ -121,7 +122,7 @@ fun MusicPlayerScreen(onCollapse: () -> Unit, viewModel: MusicViewModel = hiltVi
     val next = { direction = 1; haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); music.next() }
     val previous = { direction = -1; haptics.performHapticFeedback(HapticFeedbackType.SegmentTick); music.previous() }
     val long = track.durationMs > 20 * 60_000L || state.chapters.isNotEmpty()
-    val hearted = MusicLibraryLogic.hearted(track, libraryIds)
+    val hearted = MusicLibraryLogic.hearted(track, favoriteIds)
 
     val downloaded by viewModel.downloaded.collectAsStateWithLifecycle()
     val download = downloaded[track.videoId]
@@ -139,6 +140,7 @@ fun MusicPlayerScreen(onCollapse: () -> Unit, viewModel: MusicViewModel = hiltVi
     Column(Modifier.fillMaxSize()
         .onSizeChanged { pull.heightPx = it.height.toFloat() }
         .minimizeDrag(pull, enabled = true, onMinimize = pulled)
+        .playerUnderlay(pull)
         .graphicsLayer { pull.apply(this) }
         .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
         .navigationBarsPadding()) {

@@ -50,7 +50,6 @@ import app.freshtuber.ui.feed.FeedNavigation
 fun SearchScreen(
     navigation: FeedNavigation,
     onSignIn: () -> Unit,
-    sourceSwitch: (@Composable () -> Unit)? = null,
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
     val left = LocalLeftHanded.current
@@ -62,7 +61,7 @@ fun SearchScreen(
     var focused by remember { mutableStateOf(false) }
     val preferences = app.freshtuber.ui.theme.LocalAppPreferences.current
     val fromBottom = !preferences.enabled(app.freshtuber.data.settings.AppFeature.TraditionalScroll)
-    // The category chips (and «Музыка / Видео») fold away bit by bit while results are read
+    // The category chips fold away bit by bit while results are read
     // downward and open again on the way up; the field itself stays.
     val fold = rememberScrollFold(inverted = fromBottom)
     LaunchedEffect(submitted) { fold.open() }
@@ -178,7 +177,6 @@ fun SearchScreen(
         field()
         Column(Modifier.foldAway(fold)) {
             if (!suggestionsVisible && hasQuery && state.filters.size > 1) chips()
-            sourceSwitch?.invoke()
         }
         if (suggestionsVisible) Box(Modifier.weight(1f)) { suggestionRows() }
         else results(Modifier.weight(1f).nestedScroll(fold.connection))
@@ -188,7 +186,6 @@ fun SearchScreen(
             if (showSuggestions) suggestionRows()
             Column(Modifier.foldAway(fold)) {
                 if (!showSuggestions && hasQuery && state.filters.size > 1) chips()
-                sourceSwitch?.invoke()
             }
             field()
         }

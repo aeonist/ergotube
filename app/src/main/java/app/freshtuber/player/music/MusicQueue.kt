@@ -51,6 +51,12 @@ data class MusicQueue(
             else -> advance(explicit = false)?.track
         }
 
+    fun upcomingPair(): List<MusicTrack> {
+        if (repeat == RepeatMode.One) return emptyList()
+        val following = advance(explicit = false) ?: return emptyList()
+        return listOfNotNull(following.track, following.next)
+    }
+
     /** 1-based place of [current] in the collection, or null when it is not from it. */
     val collectionPosition: Pair<Int, Int>?
         get() {

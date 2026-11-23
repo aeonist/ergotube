@@ -13,7 +13,6 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
-import androidx.media3.datasource.okhttp.OkHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -28,9 +27,7 @@ import app.freshtuber.data.music.MusicSource
 import app.freshtuber.data.music.MusicTrack
 import app.freshtuber.data.settings.AppSettings
 import app.freshtuber.data.settings.MusicQuality
-import app.freshtuber.player.ChunkedDataSource
 import app.freshtuber.player.Chapter
-import app.freshtuber.player.GoogleVideoInterceptor
 import app.freshtuber.player.PlayerController
 import app.freshtuber.player.StreamResolver
 import com.google.common.util.concurrent.ListenableFuture
@@ -54,7 +51,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import okhttp3.OkHttpClient
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -93,14 +89,14 @@ sealed interface MusicEvent {
 /**
  * The music player: its own ExoPlayer for audio only, apart from the video player, so a video
  * can start while a song waits paused in the dock. Only one of them sounds at a time. The
- * player holds the current song and, from 30 s before its end, the next one, so songs follow
+ * player holds the current song and up to two prepared successors, so songs follow
  * each other without a gap; the rest of the queue lives in [MusicQueue].
  */
 @OptIn(UnstableApi::class)
 @Singleton
 class MusicPlayer @Inject constructor(
     @param:ApplicationContext private val context: Context,
-    okHttp: OkHttpClient,
+    okHttp: okhttp3.OkHttpClient,
     private val resolver: StreamResolver,
     private val downloads: Downloads,
     private val library: MusicLibrary,
@@ -113,7 +109,6 @@ class MusicPlayer @Inject constructor(
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
-    private val playbackClient = okHttp.newBuilder().apply { interceptors().clear() }.addInterceptor(GoogleVideoInterceptor()).build()
 
     val player: ExoPlayer by lazy {
         // Whole songs: the buffer takes up to 15 minutes, so a song arrives in one or two
@@ -123,7 +118,9 @@ class MusicPlayer @Inject constructor(
             .setTargetBufferBytes(48 * 1024 * 1024)
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
-        val sources = DefaultMediaSourceFactory(DefaultDataSource.Factory(context, ChunkedDataSource.Factory(OkHttpDataSource.Factory(playbackClient))))
+        val upstream = okHttp.newBuilder().apply { interceptors().clear() }.addInterceptor(app.freshtuber.player.GoogleVideoInterceptor()).build()
+        val audioSource = app.freshtuber.player.ChunkedDataSource.Factory(androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(upstream))
+        val sources = DefaultMediaSourceFactory(DefaultDataSource.Factory(context, video.cachedPlayback(audioSource)))
         // The pulse tap sits in the audio chain: it reads the sound on its way out, unchanged.
         ExoPlayer.Builder(context, pulse.renderers(context))
             .setMediaSourceFactory(sources)
@@ -490,7 +487,7 @@ class MusicPlayer @Inject constructor(
     private fun setQueue(next: MusicQueue) {
         val before = queue
         _state.update { it.copy(queue = next) }
-        if (before.next?.id != next.next?.id || before.repeat != next.repeat) syncNext()
+        if (before.upcomingPair() != next.upcomingPair() || before.track?.id != next.track?.id) syncNext()
         player.repeatMode = if (next.repeat == RepeatMode.One) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
         fillRadio()
         saveSoon()
@@ -604,13 +601,15 @@ class MusicPlayer @Inject constructor(
     suspend fun unplayableOffline(track: MusicTrack): Boolean =
         track.isYouTube && !network.online.value && downloads.localAudio(track.videoId) == null && !library.readable(track.uri)
 
-    /** The player's second item must be the queue's next song. */
+    /** Keep the matching prefix, including the already buffered first successor. */
     private fun syncNext() {
-        if (!loaded) return
         nextJob?.cancel()
-        if (player.mediaItemCount > 1 && player.getMediaItemAt(1).mediaId != queue.next?.id) {
-            player.removeMediaItems(1, player.mediaItemCount)
-        }
+        if (!loaded || player.currentMediaItem?.mediaId != queue.track?.id) return
+        val first = player.currentMediaItemIndex + 1
+        val expected = queue.upcomingPair()
+        var index = first
+        while (index < player.mediaItemCount && player.getMediaItemAt(index).mediaId == expected.getOrNull(index - first)?.id) index++
+        if (index < player.mediaItemCount) player.removeMediaItems(index, player.mediaItemCount)
     }
 
     private fun startTicking() {
@@ -620,7 +619,9 @@ class MusicPlayer @Inject constructor(
             while (isActive && (player.isPlaying || player.playbackState == Player.STATE_BUFFERING)) {
                 val duration = player.duration
                 val position = player.currentPosition
-                if (duration > 0 && duration - position <= PREFETCH_MS) prefetchNext()
+                val buffered = player.bufferedPosition - position
+                val ready = player.isPlaying && (buffered >= 8_000L || (duration > 0 && player.bufferedPosition >= duration - 250))
+                if (ready) prefetchNext() else nextJob?.cancel()
                 if (_state.value.sleep == MusicSleep.EndOfSong && duration > 0) {
                     player.volume = ((duration - position).toFloat() / FADE_MS).coerceIn(0f, 1f)
                 }
@@ -630,35 +631,30 @@ class MusicPlayer @Inject constructor(
         }
     }
 
-    /** About 30 s before the end the next song is looked up and queued in the player. */
     private fun prefetchNext() {
-        if (nextJob?.isActive == true || queue.repeat == RepeatMode.One) return
-        if (player.mediaItemCount > 1) return
-        val next = queue.next ?: return
+        if (nextJob?.isActive == true || !loaded || player.mediaItemCount >= 3) return
+        val expected = queue.upcomingPair()
+        val offset = player.mediaItemCount - player.currentMediaItemIndex - 1
+        if (offset !in expected.indices) return
+        val currentId = queue.track?.id ?: return
         nextJob = scope.launch {
-            var candidate = next
-            var lookahead = queue
-            repeat(4) {
-                if (candidate.id !in _state.value.unavailable && !unplayableOffline(candidate)) {
-                    val item = try { mediaItem(candidate) } catch (e: CancellationException) { throw e } catch (_: Exception) { null }
-                    if (item != null) {
-                        if (queue.next?.id == candidate.id && player.mediaItemCount == 1) player.addMediaItem(item)
-                        return@launch
-                    }
-                    markUnavailable(candidate)
+            for (index in offset until expected.size) {
+                val track = expected[index]
+                try {
+                    val item = mediaItem(track)
+                    val uri = item.localConfiguration?.uri
+                    if (uri?.scheme == "https") video.preloadAudio(uri.toString())
+                    if (player.currentMediaItem?.mediaId != currentId || queue.upcomingPair().getOrNull(index)?.id != track.id) return@launch
+                    player.addMediaItem(item)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    // A speculative read can fail on a weak connection. Keep the song in the queue.
+                    delay(15_000)
+                    return@launch
                 }
-                // Skip it in the queue so the player can go on to a playable one.
-                lookahead = lookahead.withoutUpcoming(setOf(candidate.id))
-                skippedInRow++
-                setQueueQuietly(lookahead)
-                candidate = lookahead.next ?: return@launch
             }
         }
-    }
-
-    private fun setQueueQuietly(next: MusicQueue) {
-        _state.update { it.copy(queue = next) }
-        saveSoon()
     }
 
     private fun onEnded() {
@@ -715,7 +711,6 @@ class MusicPlayer @Inject constructor(
 
     private companion object {
         const val STATE_KEY = "queue_v2"
-        const val PREFETCH_MS = 30_000L
         const val FADE_MS = 30_000L
         const val MAX_SKIPS = 6
         /** Longer than this, a song is a mix: chapters and ±10 s. */

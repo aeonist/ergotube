@@ -46,6 +46,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.layer.drawLayer
+import androidx.compose.ui.graphics.rememberGraphicsLayer
 import app.freshtuber.R
 import app.freshtuber.ui.components.AppMessages
 import app.freshtuber.ui.components.BottomBarSpace
@@ -101,6 +104,10 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
             navController.navigateToTopLevel(MusicListenRoute)
         }
     }
+    val homeOwner = checkNotNull(androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner.current)
+    val homeAccount by viewModel.accountState.collectAsStateWithLifecycle()
+    val profile = (homeAccount as? app.freshtuber.data.account.AccountState.SignedIn)?.active
+    val homeList = key(profile?.id, profile?.activePageId) { androidx.compose.foundation.lazy.rememberLazyListState() }
     val music = viewModel.music
     val musicState by music.state.collectAsStateWithLifecycle()
     val musicTabSetting by viewModel.musicTab.collectAsStateWithLifecycle()
@@ -126,9 +133,22 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     val backStackEntry by navController.currentBackStackEntryAsState()
     val destination = backStackEntry?.destination
     val onMusicPlayer = destination?.hasRoute<MusicPlayerRoute>() == true
-    val inMusic = destination?.let { it.hasRoute<MusicListenRoute>() || it.hasRoute<MusicLibraryRoute>() } == true
+    val videoFavorites = destination?.hasRoute<MusicLibraryRoute>() == true && backStackEntry?.toRoute<MusicLibraryRoute>()?.collection == "video-fav"
+    val inMusic = !videoFavorites && destination?.let { it.hasRoute<MusicListenRoute>() || it.hasRoute<MusicLibraryRoute>() || it.hasRoute<MusicSearchRoute>() } == true
     val onPlayer = destination?.hasRoute<PlayerRoute>() == true || onMusicPlayer
     val inFlow = destination == null || destination.hasRoute<WelcomeRoute>() || destination.hasRoute<LoginRoute>()
+    val pageLayer = rememberGraphicsLayer()
+    var recordedPage by remember(profile?.id, profile?.activePageId) { mutableStateOf<String?>(null) }
+    var underlay by remember(profile?.id, profile?.activePageId) { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
+    LaunchedEffect(onPlayer, profile?.id, profile?.activePageId) {
+        if (!onPlayer) {
+            kotlinx.coroutines.delay(app.freshtuber.ui.player.MinimizeDrag.DISMISS_MS.toLong())
+            underlay = null
+        }
+        if (onPlayer && recordedPage != null && recordedPage == navController.previousBackStackEntry?.id && pageLayer.size.width > 0) {
+            underlay = pageLayer.toImageBitmap()
+        }
+    }
     val keyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     val dockVisible = !inPictureInPicture && !onPlayer && !inFlow && !keyboardVisible
     val onShorts = destination?.hasRoute<ShortsRoute>() == true || destination?.hasRoute<ShortsViewerRoute>() == true
@@ -147,7 +167,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     // Its width in dp; pinching or dragging the grip changes it, like YouTube's floating window.
     var miniWidth by rememberSaveable { mutableFloatStateOf(0f) }
     var currentTab by rememberSaveable { mutableStateOf(DockTab.Home) }
-    LaunchedEffect(destination) { destination?.dockTab()?.let { currentTab = it } }
+    LaunchedEffect(destination, videoFavorites) { if (videoFavorites) currentTab = DockTab.Mine else destination?.dockTab()?.let { currentTab = it } }
     LaunchedEffect(dockVisible) { if (!dockVisible) mineOpen = false }
 
     val signIn: () -> Unit = { navController.navigate(LoginRoute) }
@@ -165,15 +185,14 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     var homeScrollPending by remember { mutableStateOf(false) }
     // The «Музыка» ear above the dock leaves while Home is read down and returns on the way up.
     val earHide = app.freshtuber.ui.components.rememberScrollHide()
-    // Search by source: songs or videos, switched in the search field's bar.
-    var searchMusic by rememberSaveable { mutableStateOf(false) }
-    val searchSwitch: @Composable () -> Unit = { app.freshtuber.ui.music.SearchSourceSwitch(searchMusic, leftHanded) { searchMusic = it } }
     val musicNavigation = remember(navController, music) {
         object : app.freshtuber.ui.music.MusicNavigation {
+            override fun search() = navController.navigate(MusicSearchRoute) { launchSingleTop = true }
             override fun openPlayer() = navController.navigate(MusicPlayerRoute) { launchSingleTop = true }
             override fun openCollection(collection: String) = navController.navigate(MusicLibraryRoute(collection))
             override fun openMusicHome() = navController.navigateToTopLevel(MusicListenRoute)
-            override fun watchVideo(track: app.freshtuber.data.music.MusicTrack) {
+            override fun watchVideo(track: app.freshtuber.data.music.MusicTrack, playlist: List<app.freshtuber.data.music.MusicTrack>?) {
+                playlist?.let { tracks -> viewModel.player.selectPlaylist(track.videoId, tracks.filter { it.isYouTube }.map { it.videoSummary() }) }
                 val position = music.player.currentPosition.takeIf { music.player.currentMediaItem?.mediaId == track.id } ?: 0L
                 music.pause()
                 viewModel.player.startNextAt(track.videoId, position)
@@ -198,10 +217,14 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     } }
     val selectTab: (DockTab) -> Unit = { tab ->
         if (tab == DockTab.Mine) mineOpen = !mineOpen
+        else if (tab == DockTab.Search && inMusic && musicInApp) {
+            mineOpen = false
+            navController.navigate(MusicSearchRoute) { launchSingleTop = true }
+        }
         else if (tab == DockTab.Music) { mineOpen = false; openSection(MusicListenRoute) }
         else {
             mineOpen = false
-            if (tab == DockTab.Home) homeScrollPending = true
+            if (tab == DockTab.Home) homeScrollPending = destination?.hasRoute<HomeRoute>() == true
             if (tab != DockTab.Home || destination?.hasRoute<HomeRoute>() != true) openSection(when (tab) {
                 DockTab.Home -> HomeRoute
                 DockTab.Subscriptions -> SubscriptionsRoute
@@ -253,7 +276,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
         }
     }
 
-    CompositionLocalProvider(LocalInPictureInPicture provides inPictureInPicture, LocalAppMessages provides messages,
+    CompositionLocalProvider(app.freshtuber.ui.player.LocalPlayerUnderlay provides underlay, LocalInPictureInPicture provides inPictureInPicture, LocalAppMessages provides messages,
         LocalBottomBarSpace provides barSpace, app.freshtuber.ui.components.LocalLeftHanded provides leftHanded, app.freshtuber.ui.feed.LocalFanHost provides fanHost, app.freshtuber.ui.feed.LocalFeedBottomClearance provides 16.dp,
         app.freshtuber.ui.player.LocalVideoHandoff provides handoff, app.freshtuber.ui.player.LocalWarmVideo provides warmVideo,
         app.freshtuber.ui.music.LocalMusicNavigation provides musicNavigation, app.freshtuber.ui.music.LocalFlickHost provides flickHost,
@@ -289,7 +312,13 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
         if (keyboardVisible) 0.dp else dockSpace + bannerHeight, label = "screenBottom")
     val fullDock = dockVisible && !onShorts
     androidx.compose.material3.Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-    Box(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize().drawWithContent {
+        if (dockVisible && !onShorts && !inFlow && !mineOpen) {
+            pageLayer.record { this@drawWithContent.drawContent() }
+            drawLayer(pageLayer)
+            recordedPage = backStackEntry?.id
+        } else drawContent()
+    }) {
     if (light != null) app.freshtuber.ui.liquid.LiquidBackground(light)
     Box(Modifier.fillMaxSize()
         .then(if (onPlayer || inPictureInPicture) Modifier else Modifier.windowInsetsPadding(WindowInsets.ime.only(WindowInsetsSides.Bottom)))) {
@@ -329,15 +358,15 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
                     )
                 }
             }
-            composable<HomeRoute> { Box(docked.then(transitionBlur()).nestedScroll(earHide.connection)) { ClassicTop(classic, { openSection(SearchRoute) }, { openSection(SettingsRoute) }) { HomeScreen(navigation, onSignIn = signIn, scrollToTop = homeScrollPending, onScrolledToTop = { homeScrollPending = false }, ear = homeEar) } } }
+            composable<HomeRoute> { Box(docked.then(transitionBlur()).nestedScroll(earHide.connection)) { ClassicTop(classic, { openSection(SearchRoute) }, { openSection(SettingsRoute) }) { HomeScreen(navigation, onSignIn = signIn, scrollToTop = homeScrollPending, onScrolledToTop = { homeScrollPending = false }, ear = homeEar, listState = homeList, viewModel = hiltViewModel(homeOwner)) } } }
             composable<ShortsRoute> { Box(Modifier.fillMaxSize().then(transitionBlur())) { ShortsScreen(navigation, onSignIn = signIn, settled = settled) } }
             composable<ShortsViewerRoute> { Box(Modifier.fillMaxSize().then(transitionBlur())) { ShortsScreen(navigation, onSignIn = signIn, settled = settled) } }
             composable<SubscriptionsRoute> { Box(docked.then(transitionBlur())) { ClassicTop(classic, { openSection(SearchRoute) }, { openSection(SettingsRoute) }) {
                 SubscriptionsScreen(navigation, onSignIn = signIn, onSearch = { openSection(SearchRoute) }) } } }
             composable<SearchRoute> { Box(docked.then(transitionBlur())) {
-                if (searchMusic && musicInApp) app.freshtuber.ui.music.MusicSearchScreen(sourceSwitch = searchSwitch)
-                else SearchScreen(navigation, onSignIn = signIn, sourceSwitch = if (musicInApp) searchSwitch else null)
+                SearchScreen(navigation, onSignIn = signIn)
             } }
+            composable<MusicSearchRoute> { Box(docked.then(transitionBlur())) { app.freshtuber.ui.music.MusicSearchScreen() } }
             composable<DownloadsRoute> { Box(docked.then(transitionBlur())) { DownloadsScreen(onVideo = { navController.navigate(PlayerRoute(it)) }, onSearch = { openSection(SearchRoute) }) } }
             composable<LibraryListRoute> { Box(docked.then(transitionBlur())) { ListScreen(navigation, onSignIn = signIn,
                 onLiked = { navController.navigate(LibraryListRoute(LibrarySection.Liked.name)) }) } }
@@ -419,6 +448,7 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
                 ?.active?.let { it.name ?: it.email }, onPick = { item ->
             mineOpen = false
             openSection(when (item) {
+                MineItem.Favorites -> MusicLibraryRoute("video-fav")
                 MineItem.WatchLater -> LibraryListRoute(LibrarySection.WatchLater.name)
                 MineItem.Shorts -> ShortsRoute
                 MineItem.Downloads -> DownloadsRoute
@@ -502,7 +532,7 @@ private object ScreenMotion {
 
     fun exit(from: NavBackStackEntry, to: NavBackStackEntry): ExitTransition = when {
         // A page pulled down that has nothing to go back to is replaced: it only finishes its fade too.
-        from.isPlayer() && app.freshtuber.ui.player.MinimizeDrag.recentlyDismissed() -> ExitTransition.None
+        from.isPlayer() && app.freshtuber.ui.player.MinimizeDrag.recentlyDismissed() -> fadeOut(tween(app.freshtuber.ui.player.MinimizeDrag.DISMISS_MS), targetAlpha = 1f)
         to.isPlayer() -> fadeOut(exitSpec()) + scaleOut(enterSpec(), 0.94f)
         from.isSection() && to.isSection() -> fadeOut(tween(170, easing = Motion.Accelerate))
         else -> fadeOut(exitSpec()) + scaleOut(enterSpec(), 1.04f)
@@ -511,14 +541,14 @@ private object ScreenMotion {
     fun popEnter(from: NavBackStackEntry, to: NavBackStackEntry): EnterTransition = when {
         // After a pull-down the page has already blurred away: what was under it comes into focus at once.
         from.isPlayer() && app.freshtuber.ui.player.MinimizeDrag.recentlyDismissed() ->
-            fadeIn(tween(280, easing = Motion.Decelerate)) + scaleIn(tween(320, easing = Motion.Decelerate), 0.96f)
+            fadeIn(tween(120, easing = Motion.Decelerate))
         from.isPlayer() -> fadeIn(enterSpec(60)) + scaleIn(enterSpec(), 0.94f)
         else -> fadeIn(enterSpec(40)) + scaleIn(enterSpec(), 1.04f)
     }
 
     fun popExit(from: NavBackStackEntry, to: NavBackStackEntry): ExitTransition = when {
         // Pulled down by the finger, the page has already blurred away: no second exit on top.
-        from.isPlayer() && app.freshtuber.ui.player.MinimizeDrag.recentlyDismissed() -> ExitTransition.None
+        from.isPlayer() && app.freshtuber.ui.player.MinimizeDrag.recentlyDismissed() -> fadeOut(tween(app.freshtuber.ui.player.MinimizeDrag.DISMISS_MS), targetAlpha = 1f)
         from.isPlayer() -> fadeOut(exitSpec()) + slideOutVertically(tween(Motion.EXIT_MS + 60, easing = Motion.Accelerate)) { (it * 0.08f).toInt() }
         else -> fadeOut(exitSpec()) + scaleOut(exitSpec(), 0.95f)
     }
@@ -545,7 +575,7 @@ private fun NavDestination.dockTab(): DockTab? = when {
     hasRoute<SubscriptionsRoute>() -> DockTab.Subscriptions
     hasRoute<ShortsRoute>() -> DockTab.Shorts
     hasRoute<ShortsViewerRoute>() -> null
-    hasRoute<SearchRoute>() -> DockTab.Search
+    hasRoute<SearchRoute>() || hasRoute<MusicSearchRoute>() -> DockTab.Search
     hasRoute<LibraryListRoute>() || hasRoute<DownloadsRoute>() || hasRoute<SettingsRoute>() || hasRoute<AccountRoute>() -> DockTab.Mine
     hasRoute<MusicListenRoute>() || hasRoute<MusicLibraryRoute>() -> DockTab.Music
     else -> null
@@ -561,6 +591,7 @@ private fun NavHostController.openVideoPage(videoId: String) {
 }
 
 private fun NavHostController.navigateToTopLevel(route: Any) {
+    if (route == HomeRoute && (currentDestination?.hasRoute<HomeRoute>() == true || popBackStack<HomeRoute>(inclusive = false))) return
     navigate(route) {
         popUpTo<HomeRoute> { saveState = false }
         launchSingleTop = true

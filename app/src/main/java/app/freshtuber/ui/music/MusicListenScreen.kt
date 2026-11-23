@@ -36,11 +36,7 @@ import app.freshtuber.ui.util.formatDuration
 import java.time.LocalDateTime
 import java.time.format.TextStyle
 
-/**
- * The one «Музыка» page, read from the top like Home: jams from the Music filter, jams from the
- * Home page, the «Моё» row (Любимое, playlists, + Плейлист), and at the thumb the two things that
- * play at once: «Микс дня» and «Мой джем». Without a network the jams pale and cannot start.
- */
+/** Personal collections first, followed by jams and daily mixes. */
 @Composable
 fun MusicListenScreen(viewModel: MusicViewModel = hiltViewModel()) {
     MusicNotes(viewModel)
@@ -48,17 +44,30 @@ fun MusicListenScreen(viewModel: MusicViewModel = hiltViewModel()) {
     LaunchedEffect(Unit) { viewModel.loadHome() }
     val home by viewModel.home.collectAsStateWithLifecycle()
     val online by viewModel.online.collectAsStateWithLifecycle()
-    val libraryIds by viewModel.libraryIds.collectAsStateWithLifecycle()
-    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
     val navigation = LocalMusicNavigation.current
     val left = app.freshtuber.ui.components.LocalLeftHanded.current
     val dailyTitle = stringResource(R.string.music_daily_mix)
     val jamTitle = stringResource(R.string.music_my_jam)
-    var newPlaylist by remember { mutableStateOf(false) }
-    if (newPlaylist) PlaylistPicker(null, viewModel) { newPlaylist = false }
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
         item(key = "header") { ScreenHeader(stringResource(R.string.nav_music), dayPart()) }
+        item(key = "collections") {
+            Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                val links = listOf(
+                    R.string.music_favorites to { navigation?.openCollection("fav"); Unit },
+                    R.string.music_on_device to { navigation?.openCollection("device"); Unit },
+                    R.string.music_playlists to { navigation?.openCollection("playlists"); Unit },
+                    R.string.music_find to { navigation?.search(); Unit },
+                )
+                links.chunked(2).forEach { row ->
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        row.forEach { (label, open) ->
+                            FilledTonalButton(onClick = open, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text(stringResource(label)) }
+                        }
+                    }
+                }
+            }
+        }
         // Two labelled shelves of jams; both stay, each says where YouTube showed it.
         listOf(
             Triple("jamsMusic", home.jams.music, R.string.music_jams_music),
@@ -78,10 +87,6 @@ fun MusicListenScreen(viewModel: MusicViewModel = hiltViewModel()) {
                     }
                 }
             }
-        }
-        item(key = "mine") {
-            Label(stringResource(R.string.music_mine))
-            MineRow(libraryIds.size, playlists, left, onOpen = { navigation?.openCollection(it) }, onNewPlaylist = { newPlaylist = true })
         }
         item(key = "playNow") {
             Label(stringResource(R.string.music_play_now))
@@ -107,27 +112,22 @@ private fun Label(text: String) {
         modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 6.dp))
 }
 
-/** «Моё»: «Любимое», the playlists, then «+ Плейлист». */
 @Composable
-private fun MineRow(favorites: Int, playlists: List<app.freshtuber.data.music.PlaylistCount>, left: Boolean,
-    onOpen: (String) -> Unit, onNewPlaylist: () -> Unit) {
-    data class Tile(val icon: androidx.compose.ui.graphics.vector.ImageVector, val label: String, val count: String, val onClick: () -> Unit)
-    val tiles = listOf(Tile(Icons.Rounded.Favorite, stringResource(R.string.music_favorites), favorites.toString()) { onOpen("fav") }) +
-        playlists.map { p -> Tile(Icons.AutoMirrored.Rounded.QueueMusic, p.name, p.count.toString()) { onOpen("playlist:${p.id}") } } +
-        Tile(Icons.Rounded.Add, stringResource(R.string.music_playlist_add), " ") { onNewPlaylist() }
-    LazyRow(Modifier.fillMaxWidth(), contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp), reverseLayout = !left) {
-        items(tiles, key = { it.label + it.count }) { tile ->
-            Surface(onClick = tile.onClick, modifier = Modifier.width(84.dp), shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f)) {
-                Column(Modifier.padding(vertical = 10.dp, horizontal = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(Modifier.size(44.dp).background(MaterialTheme.colorScheme.primaryContainer, RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
-                        Icon(tile.icon, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                    }
-                    Text(tile.label, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
-                    Text(tile.count, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+fun MusicPlaylists(viewModel: MusicViewModel) {
+    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+    val navigation = LocalMusicNavigation.current
+    var creating by remember { mutableStateOf(false) }
+    if (creating) PlaylistPicker(null, viewModel) { creating = false }
+    Column(Modifier.fillMaxSize()) {
+        ScreenHeader(stringResource(R.string.music_playlists))
+        LazyColumn(Modifier.weight(1f)) {
+            items(playlists, key = { it.id }) { playlist ->
+                ListItem(headlineContent = { Text(playlist.name) }, trailingContent = { Text(playlist.count.toString()) },
+                    modifier = Modifier.clickable { navigation?.openCollection("playlist:${playlist.id}") })
             }
+        }
+        TextButton(onClick = { creating = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
+            Text(stringResource(R.string.music_playlist_add))
         }
     }
 }

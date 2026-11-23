@@ -257,6 +257,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                     SettingsChoice(stringResource(R.string.settings_music_limit), limits.map { stringResource(R.string.settings_music_gb, it) },
                         limits.indexOf(preferences.musicLimitGb).coerceAtLeast(0), left) { viewModel.musicLimit(limits[it]) }
                     listOf(
+                        Triple(AppFeature.SeparateFavorites, R.string.separate_favorites, R.string.separate_favorites_hint),
                         Triple(AppFeature.MusicInApp, R.string.settings_music_in_app, R.string.settings_music_in_app_hint),
                         Triple(AppFeature.MusicEar, R.string.settings_music_ear, R.string.settings_music_ear_hint),
                         Triple(AppFeature.MusicResumeOnConnect, R.string.settings_music_resume, R.string.settings_music_resume_hint),

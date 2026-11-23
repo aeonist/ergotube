@@ -51,4 +51,32 @@ class FullscreenZoomIntegrationTest {
         compose.onNodeWithTag("full").performTouchInput { swipe(Offset(width * 0.5f, height * 0.15f), Offset(width * 0.55f, height * 0.25f)) }
         compose.runOnIdle { assertEquals(0, pauses); assertEquals(0, seeks) }
     }
+    /** A 16:9 picture on a wider screen sticks to the left and right edges once the pinch gets near them. */
+    @Test fun pinchNearTheEdgesSticksThereAndAWiderPinchLeaves() {
+        var sticks = 0
+        val zoom = VideoZoom()
+        compose.setContent {
+            // 400 × 180: the fitted picture is 320 wide, so it fills the width at 1.25×.
+            Box(Modifier.size(400.dp, 180.dp).testTag("wide").videoZoom(zoom, true, 16f / 9f, onStick = { sticks++ }))
+        }
+        compose.onNodeWithTag("wide").performTouchInput {
+            down(0, Offset(width * 0.4f, height * 0.5f)); down(1, Offset(width * 0.6f, height * 0.5f))
+            // 1.3× apart: a little past the fill scale, still inside the hold.
+            moveTo(0, Offset(width * 0.37f, height * 0.5f)); moveTo(1, Offset(width * 0.63f, height * 0.5f))
+            up(0); up(1)
+        }
+        // Pixel rounding of the box moves the fill scale a little off 1.25, so compare with the real size.
+        val px = compose.onNodeWithTag("wide").fetchSemanticsNode().size
+        val fill = VideoZoom.fillScale(Offset(px.width.toFloat(), px.height.toFloat()), 16f / 9f)
+        compose.runOnIdle {
+            assertEquals(1.25f, fill, 0.01f); assertEquals(fill, zoom.scale, 0.001f); assertEquals(0f, zoom.offset.x, 0.001f)
+            assertTrue(zoom.filled); assertEquals(1, sticks)
+        }
+        compose.onNodeWithTag("wide").performTouchInput {
+            down(0, Offset(width * 0.4f, height * 0.5f)); down(1, Offset(width * 0.6f, height * 0.5f))
+            moveTo(0, Offset(width * 0.35f, height * 0.5f)); moveTo(1, Offset(width * 0.65f, height * 0.5f))
+            up(0); up(1)
+        }
+        compose.runOnIdle { assertTrue(zoom.scale > 1.5f); assertFalse(zoom.filled); assertEquals(1, sticks) }
+    }
 }
