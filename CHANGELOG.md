@@ -4,6 +4,10 @@ What changed in each ErgoTube build, newest first. Release APKs are on the [Rele
 
 Builds are numbered by `versionCode`. A release tag or APK name that contains `buildNN` is what the in-app update banner compares against.
 
+## Build 42 · 1.3.1 · 24 Nov 2026
+
+- Fullscreen video has **plain black sides**, like YouTube. On screens longer than 16:9 the glow from bright video edges no longer shows up as white bars.
+
 ## Build 41 · 1.3 · 24 Nov 2026
 
 - Music has its own dock while you are in it: **Video · Search · Library · Listen**.

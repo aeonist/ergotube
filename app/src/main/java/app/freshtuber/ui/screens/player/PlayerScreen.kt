@@ -381,7 +381,8 @@ fun PlayerScreen(
                 if (classic || (tapControls && !fullscreen)) point.y < viewport.y - with(density) { 72.dp.toPx() } else !fullscreen || !FanGeometry(viewport.x / density.density, viewport.y / density.density, left)
                     .inFan(point.x / density.density, point.y / density.density)
             }, onStick = { zoomHaptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.SegmentTick) })
-            .background(if (inPip || tabletop) Color.Black else Color.Transparent)
+            // Fullscreen sides are plain black, like YouTube: the light's mirrored video edges read as white bars on bright videos.
+            .background(if (inPip || tabletop || fullscreen) Color.Black else Color.Transparent)
             .onGloballyPositioned { c ->
                 // Not while the page is pulled: the light behind the page would chase the video every frame.
                 if (!fullscreen && !inPip && pull.offsetPx == 0f && pull.exit == 0f) {
