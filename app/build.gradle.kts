@@ -44,9 +44,9 @@ android {
         minSdk = 26
         targetSdk = 37
         // Test build number: bump with every build handed to the user (file name and Settings show it).
-        versionCode = 40
+        versionCode = 41
         // Release builds show a plain version (4PDA wants it exactly as in the manifest); debug adds the commit.
-        versionName = "1.2.1"
+        versionName = "1.3"
         // Public GitHub repository whose releases the app checks for updates ("owner/name").
         buildConfigField("String", "UPDATE_REPO", "\"aeonist/ergotube\"")
 
