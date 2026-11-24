@@ -526,4 +526,12 @@
     <string name="music_find">Search music</string>
     <string name="music_likes_retry">Could not load YouTube Music likes. Retry</string>
     <string name="favorites_empty">No favourites yet</string>
+    <!-- Music, variant B (24 Nov 2026) -->
+    <string name="music_jams_title">Jams</string>
+    <string name="music_jams_source_music">Music</string>
+    <string name="music_jams_source_home">All of Home</string>
+    <string name="music_my_jam_endless">endless</string>
+    <string name="music_shelf_downloads">Downloaded</string>
+    <string name="music_shelf_phone">From phone</string>
+    <string name="music_playlist_new">New playlist</string>
 </resources>

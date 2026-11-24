@@ -4,6 +4,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -36,7 +43,12 @@ import app.freshtuber.ui.util.formatDuration
 import java.time.LocalDateTime
 import java.time.format.TextStyle
 
-/** Personal collections first, followed by jams and daily mixes. */
+/**
+ * «Слушать» (variant B, 24 Nov 2026): pressed to the bottom like Home. Far from the thumb only the
+ * title and the jam shelf, which is swiped anywhere; right above the dock the big «Микс дня» with
+ * its play and shuffle at the hand edge, and «Мой джем» as one wide button below it.
+ * Favourites, phone files and playlists live in the music dock's «Библиотека».
+ */
 @Composable
 fun MusicListenScreen(viewModel: MusicViewModel = hiltViewModel()) {
     MusicNotes(viewModel)
@@ -48,38 +60,28 @@ fun MusicListenScreen(viewModel: MusicViewModel = hiltViewModel()) {
     val left = app.freshtuber.ui.components.LocalLeftHanded.current
     val dailyTitle = stringResource(R.string.music_daily_mix)
     val jamTitle = stringResource(R.string.music_my_jam)
+    // Which jams the shelf shows: from Home's «Музыка» filter or from the whole Home page.
+    var fromMusic by rememberSaveable { mutableStateOf(true) }
+    val jams = when {
+        home.jams.music.isEmpty() -> home.jams.home
+        home.jams.home.isEmpty() -> home.jams.music
+        fromMusic -> home.jams.music
+        else -> home.jams.home
+    }
+    val both = home.jams.music.isNotEmpty() && home.jams.home.isNotEmpty()
 
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 16.dp)) {
-        item(key = "header") { ScreenHeader(stringResource(R.string.nav_music), dayPart()) }
-        item(key = "collections") {
-            Column(Modifier.padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                val links = listOf(
-                    R.string.music_favorites to { navigation?.openCollection("fav"); Unit },
-                    R.string.music_on_device to { navigation?.openCollection("device"); Unit },
-                    R.string.music_playlists to { navigation?.openCollection("playlists"); Unit },
-                    R.string.music_find to { navigation?.search(); Unit },
-                )
-                links.chunked(2).forEach { row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        row.forEach { (label, open) ->
-                            FilledTonalButton(onClick = open, modifier = Modifier.weight(1f).heightIn(min = 48.dp)) { Text(stringResource(label)) }
-                        }
-                    }
-                }
-            }
-        }
-        // Two labelled shelves of jams; both stay, each says where YouTube showed it.
-        listOf(
-            Triple("jamsMusic", home.jams.music, R.string.music_jams_music),
-            Triple("jamsHome", home.jams.home, if (home.signedIn) R.string.music_jams else R.string.music_jams_anon),
-        ).forEach { (key, jams, label) ->
-            if (jams.isNotEmpty()) item(key = key) {
-                Label(stringResource(label))
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val viewport = maxHeight
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).heightIn(min = viewport).padding(bottom = 12.dp)) {
+            ScreenHeader(stringResource(R.string.music_listen_title))
+            Spacer(Modifier.weight(1f))
+            if (jams.isNotEmpty()) {
+                JamSourceRow(both, fromMusic, left, onPick = { fromMusic = it })
                 LazyRow(Modifier.alpha(if (online) 1f else 0.38f), contentPadding = PaddingValues(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(jams, key = { it.id }) { jam ->
-                        Column(Modifier.width(150.dp).clip(RoundedCornerShape(16.dp)).clickable(enabled = online) { viewModel.playJam(jam); navigation?.openPlayer() }.padding(4.dp)) {
-                            Cover(jam.thumbnailUrl, Modifier.size(142.dp).lightSource(jam.thumbnailUrl), corner = 14.dp)
-                            Text(jam.title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
+                        Column(Modifier.width(120.dp).clip(RoundedCornerShape(16.dp)).clickable(enabled = online) { viewModel.playJam(jam); navigation?.openPlayer() }.padding(4.dp)) {
+                            Cover(jam.thumbnailUrl, Modifier.size(112.dp).lightSource(jam.thumbnailUrl), corner = 14.dp)
+                            Text(jam.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 6.dp))
                             (jam.channelName ?: jam.videoCountText)?.let {
                                 Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
@@ -87,75 +89,57 @@ fun MusicListenScreen(viewModel: MusicViewModel = hiltViewModel()) {
                     }
                 }
             }
-        }
-        item(key = "playNow") {
-            Label(stringResource(R.string.music_play_now))
-            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                val tiles: List<@Composable RowScope.() -> Unit> = listOf(
-                    { DailyTile(home, online, Modifier.weight(1f), onPlay = { viewModel.playDaily(dailyTitle); navigation?.openPlayer() },
-                        onShuffle = { viewModel.playDaily(dailyTitle, shuffle = true); navigation?.openPlayer() }) },
-                    { JamTile(home.jams.mine, jamTitle, online, Modifier.weight(1f)) { mine -> viewModel.playJam(mine.copy(title = jamTitle)); navigation?.openPlayer() } },
-                )
-                // The tile of the working hand sits nearest the thumb.
-                (if (left) tiles else tiles.reversed()).forEach { it() }
+            if (home.daily == null && !home.dailyLoading && home.jams.isEmpty && !online) {
+                Box(Modifier.fillMaxWidth().height(160.dp)) { MessageState(stringResource(R.string.music_listen_empty)) }
             }
-        }
-        if (home.daily == null && !home.dailyLoading && home.jams.isEmpty && !online) item(key = "empty") {
-            Box(Modifier.height(160.dp)) { MessageState(stringResource(R.string.music_listen_empty)) }
+            Column(Modifier.padding(start = 12.dp, end = 12.dp, top = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                DailyHero(home, online, left,
+                    onPlay = { viewModel.playDaily(dailyTitle); navigation?.openPlayer() },
+                    onShuffle = { viewModel.playDaily(dailyTitle, shuffle = true); navigation?.openPlayer() })
+                MyJamButton(home.jams.mine, jamTitle, online, left) { mine -> viewModel.playJam(mine.copy(title = jamTitle)); navigation?.openPlayer() }
+            }
         }
     }
 }
 
+/** «Джемы» with a two-way switch at the working-hand edge: «Музыка» / «Вся Главная». */
 @Composable
-private fun Label(text: String) {
-    Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 6.dp))
-}
-
-@Composable
-fun MusicPlaylists(viewModel: MusicViewModel) {
-    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
-    val navigation = LocalMusicNavigation.current
-    var creating by remember { mutableStateOf(false) }
-    if (creating) PlaylistPicker(null, viewModel) { creating = false }
-    Column(Modifier.fillMaxSize()) {
-        ScreenHeader(stringResource(R.string.music_playlists))
-        LazyColumn(Modifier.weight(1f)) {
-            items(playlists, key = { it.id }) { playlist ->
-                ListItem(headlineContent = { Text(playlist.name) }, trailingContent = { Text(playlist.count.toString()) },
-                    modifier = Modifier.clickable { navigation?.openCollection("playlist:${playlist.id}") })
+private fun JamSourceRow(both: Boolean, fromMusic: Boolean, left: Boolean, onPick: (Boolean) -> Unit) {
+    val title: @Composable () -> Unit = {
+        Text(stringResource(R.string.music_jams_title), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 12.dp))
+    }
+    val toggle: @Composable () -> Unit = {
+        if (both) Row(Modifier.clip(RoundedCornerShape(24.dp)).background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f)).padding(3.dp)) {
+            listOf(true to R.string.music_jams_source_music, false to R.string.music_jams_source_home).forEach { (music, label) ->
+                val on = music == fromMusic
+                Box(Modifier.heightIn(min = 42.dp).clip(RoundedCornerShape(21.dp))
+                    .background(if (on) MaterialTheme.colorScheme.primary else androidx.compose.ui.graphics.Color.Transparent)
+                    .semantics { selected = on }
+                    .clickable(role = Role.Tab) { onPick(music) }
+                    .padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
+                    Text(stringResource(label), style = MaterialTheme.typography.labelLarge,
+                        color = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
-        TextButton(onClick = { creating = true }, modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp)) {
-            Text(stringResource(R.string.music_playlist_add))
-        }
+    }
+    Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween) {
+        if (left) { toggle(); title() } else { title(); toggle() }
     }
 }
 
-/** «Вторник, вечер». */
+/** «Микс дня»: a 2x2 collage, the title, and play + shuffle at the bottom corner by the thumb. */
 @Composable
-private fun dayPart(): String {
-    val now = remember { LocalDateTime.now() }
-    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
-    val day = now.dayOfWeek.getDisplayName(TextStyle.FULL_STANDALONE, locale).replaceFirstChar { it.titlecase(locale) }
-    val part = stringResource(when (now.hour) {
-        in 5..11 -> R.string.music_part_morning
-        in 12..16 -> R.string.music_part_day
-        in 17..22 -> R.string.music_part_evening
-        else -> R.string.music_part_night
-    })
-    return stringResource(R.string.music_day_part, day, part)
-}
-
-/** «Микс дня»: play at once, with a shuffle button. */
-@Composable
-private fun DailyTile(home: HomeMusic, online: Boolean, modifier: Modifier, onPlay: () -> Unit, onShuffle: () -> Unit) {
+private fun DailyHero(home: HomeMusic, online: Boolean, left: Boolean, onPlay: () -> Unit, onShuffle: () -> Unit) {
     val mix = home.daily
     val enabled = mix != null && online
-    Surface(modifier.alpha(if (online) 1f else 0.38f), shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f)) {
-        Column(Modifier.clickable(enabled = enabled, onClick = onPlay).padding(12.dp)) {
+    Surface(onClick = onPlay, enabled = enabled, modifier = Modifier.fillMaxWidth().alpha(if (online) 1f else 0.38f), shape = RoundedCornerShape(26.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f)) {
+        val collage: @Composable () -> Unit = {
             val covers = mix?.tracks.orEmpty().mapNotNull { it.artwork }.distinct().take(4)
-            Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
+            Box(Modifier.size(156.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
                 if (covers.isEmpty()) {
                     if (home.dailyLoading && online) CircularProgressIndicator(Modifier.align(Alignment.Center))
                 } else Column(Modifier.fillMaxSize()) {
@@ -167,37 +151,83 @@ private fun DailyTile(home: HomeMusic, online: Boolean, modifier: Modifier, onPl
                     }
                 }
             }
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.music_daily_mix), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (mix != null) Text(songsAndMinutes(mix.tracks.size, mix.tracks.sumOf { it.durationMs }, known = mix.tracks.all { it.durationMs > 0 }),
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        val text: @Composable RowScope.() -> Unit = {
+            Column(Modifier.weight(1f).height(156.dp), horizontalAlignment = if (left) Alignment.End else Alignment.Start) {
+                Text(stringResource(R.string.music_play_now), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.music_daily_mix), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
+                if (mix != null) Text(songsAndMinutes(mix.tracks.size, mix.tracks.sumOf { it.durationMs }, known = mix.tracks.all { it.durationMs > 0 }),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.weight(1f))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    val shuffle: @Composable () -> Unit = {
+                        FilledTonalIconButton(onClick = onShuffle, enabled = enabled, modifier = Modifier.size(48.dp)) {
+                            Icon(Icons.Rounded.Shuffle, stringResource(R.string.music_shuffle))
+                        }
+                    }
+                    val play: @Composable () -> Unit = {
+                        FilledIconButton(onClick = onPlay, enabled = enabled, modifier = Modifier.size(64.dp)) {
+                            Icon(Icons.Rounded.PlayArrow, stringResource(R.string.player_play), Modifier.size(32.dp))
+                        }
+                    }
+                    // Play sits in the very corner by the thumb.
+                    if (left) { play(); shuffle() } else { shuffle(); play() }
                 }
-                IconButton(onClick = onShuffle, enabled = enabled) { Icon(Icons.Rounded.Shuffle, stringResource(R.string.music_shuffle)) }
             }
+        }
+        Row(Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            if (left) { text(); collage() } else { collage(); text() }
         }
     }
 }
 
-/** «Мой джем»: endless, starts at once. */
+/** «Мой джем»: endless, starts at once; its play mark is at the working-hand edge. */
 @Composable
-private fun JamTile(mine: app.freshtuber.domain.model.PlaylistSummary?, title: String, online: Boolean, modifier: Modifier, onPlay: (app.freshtuber.domain.model.PlaylistSummary) -> Unit) {
+private fun MyJamButton(mine: app.freshtuber.domain.model.PlaylistSummary?, title: String, online: Boolean, left: Boolean, onPlay: (app.freshtuber.domain.model.PlaylistSummary) -> Unit) {
     val enabled = mine != null && online
-    Surface(modifier.alpha(if (online) 1f else 0.38f), shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.72f)) {
-        Column(Modifier.clickable(enabled = enabled) { mine?.let(onPlay) }.padding(12.dp)) {
-            Box(Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
-                if (mine?.thumbnailUrl != null) Cover(mine.thumbnailUrl, Modifier.fillMaxSize().lightSource(mine.thumbnailUrl), corner = 0.dp)
-                else Icon(Icons.Rounded.AllInclusive, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
-            }
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(stringResource(R.string.music_my_jam_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                Box(Modifier.size(40.dp).background(MaterialTheme.colorScheme.primary, CircleShape), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.PlayArrow, stringResource(R.string.player_play), tint = MaterialTheme.colorScheme.onPrimary)
-                }
+    Surface(onClick = { mine?.let(onPlay) }, enabled = enabled, modifier = Modifier.fillMaxWidth().height(56.dp).alpha(if (enabled) 1f else 0.38f),
+        shape = RoundedCornerShape(28.dp), color = MaterialTheme.colorScheme.primaryContainer, contentColor = MaterialTheme.colorScheme.onPrimaryContainer) {
+        val playMark: @Composable () -> Unit = {
+            Box(Modifier.size(44.dp).background(MaterialTheme.colorScheme.primary, CircleShape), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.PlayArrow, null, tint = MaterialTheme.colorScheme.onPrimary)
             }
         }
+        val text = "$title · ${stringResource(R.string.music_my_jam_endless)}"
+        Row(Modifier.padding(start = if (left) 6.dp else 18.dp, end = if (left) 18.dp else 6.dp), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (left) playMark() else Icon(Icons.Rounded.AllInclusive, null)
+            Text(text, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f), textAlign = if (left) TextAlign.End else TextAlign.Start)
+            if (left) Icon(Icons.Rounded.AllInclusive, null) else playMark()
+        }
+    }
+}
+
+/**
+ * Playlists, bottom-up like the rest of the library, «Новый плейлист» under the thumb.
+ * Inside the «Библиотека» tab the shelf of sections sits right above that button.
+ */
+@Composable
+fun MusicPlaylists(viewModel: MusicViewModel, title: String? = null, subtitle: String? = null, shelf: (@Composable ColumnScope.() -> Unit)? = null) {
+    val playlists by viewModel.playlists.collectAsStateWithLifecycle()
+    val navigation = LocalMusicNavigation.current
+    val left = app.freshtuber.ui.components.LocalLeftHanded.current
+    val preferences = app.freshtuber.ui.theme.LocalAppPreferences.current
+    val fromBottom = !preferences.enabled(app.freshtuber.data.settings.AppFeature.TraditionalScroll)
+    var creating by remember { mutableStateOf(false) }
+    if (creating) PlaylistPicker(null, viewModel) { creating = false }
+    Column(Modifier.fillMaxSize()) {
+        ScreenHeader(title ?: stringResource(R.string.music_playlists), subtitle)
+        LazyColumn(Modifier.weight(1f), reverseLayout = fromBottom) {
+            items(playlists, key = { it.id }) { playlist ->
+                ListItem(headlineContent = { Text(playlist.name) }, trailingContent = { Text(playlist.count.toString()) },
+                    colors = ListItemDefaults.colors(containerColor = androidx.compose.ui.graphics.Color.Transparent),
+                    modifier = Modifier.heightIn(min = 64.dp).clickable { navigation?.openCollection("playlist:${playlist.id}") })
+            }
+            if (playlists.isEmpty()) item(key = "empty") { Box(Modifier.height(220.dp)) { MessageState(stringResource(R.string.music_library_empty)) } }
+        }
+        app.freshtuber.ui.components.ContextBar(listOf(app.freshtuber.ui.components.ContextAction(Icons.Rounded.Add, stringResource(R.string.music_playlist_new), primary = true) { creating = true }),
+            left, above = shelf)
     }
 }

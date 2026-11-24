@@ -136,6 +136,13 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
     val videoFavorites = destination?.hasRoute<MusicLibraryRoute>() == true && backStackEntry?.toRoute<MusicLibraryRoute>()?.collection == "video-fav"
     val inMusic = !videoFavorites && destination?.let { it.hasRoute<MusicListenRoute>() || it.hasRoute<MusicLibraryRoute>() || it.hasRoute<MusicSearchRoute>() } == true
     val onPlayer = destination?.hasRoute<PlayerRoute>() == true || onMusicPlayer
+    // Variant B: inside music the dock becomes Видео · Поиск · Библиотека · Слушать.
+    val musicDockTab = when {
+        destination?.hasRoute<MusicListenRoute>() == true -> DockTab.Listen
+        destination?.hasRoute<MusicLibraryRoute>() == true -> DockTab.Library
+        destination?.hasRoute<MusicSearchRoute>() == true -> DockTab.Search
+        else -> null
+    }
     val inFlow = destination == null || destination.hasRoute<WelcomeRoute>() || destination.hasRoute<LoginRoute>()
     val pageLayer = rememberGraphicsLayer()
     var recordedPage by remember(profile?.id, profile?.activePageId) { mutableStateOf<String?>(null) }
@@ -221,7 +228,9 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
             mineOpen = false
             navController.navigate(MusicSearchRoute) { launchSingleTop = true }
         }
-        else if (tab == DockTab.Music) { mineOpen = false; openSection(MusicListenRoute) }
+        else if (tab == DockTab.Music || tab == DockTab.Listen) { mineOpen = false; openSection(MusicListenRoute) }
+        else if (tab == DockTab.Library) { mineOpen = false; openSection(MusicLibraryRoute()) }
+        else if (tab == DockTab.Video) { mineOpen = false; openSection(HomeRoute) }
         else {
             mineOpen = false
             if (tab == DockTab.Home) homeScrollPending = destination?.hasRoute<HomeRoute>() == true
@@ -479,7 +488,8 @@ fun AppRoot(inPictureInPicture: Boolean, viewModel: MainViewModel = hiltViewMode
                 if (line != null) androidx.compose.material3.Surface(color = MaterialTheme.colorScheme.surfaceContainer) { line() }
                 app.freshtuber.ui.classic.ClassicNavBar(if (inMusic) null else currentTab, mineOpen, shortsEnabled, overVideo = false, onSelect = selectTab)
             }
-            else AppDock(selected = if (inMusic) null else currentTab, mineOpen = mineOpen, left = leftHanded, shorts = shortsEnabled, onSelect = selectTab, music = musicTab, line = line, ear = ear)
+            else AppDock(selected = if (inMusic) musicDockTab else currentTab, mineOpen = mineOpen, left = leftHanded, shorts = shortsEnabled, onSelect = selectTab,
+                music = musicTab, line = line, ear = ear, musicMode = inMusic && musicInApp)
         }
     }
     // Over a Short the dock is a slim row of icons drawn on the video itself.

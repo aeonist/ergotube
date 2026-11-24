@@ -48,6 +48,12 @@ enum class DockTab(val icon: ImageVector, val selectedIcon: ImageVector, @param:
     Mine(Icons.Outlined.OutlinedVideoLibrary, Icons.Rounded.VideoLibrary, R.string.nav_mine),
     /** Takes Shorts' place when «Музыка вместо Shorts» is on. */
     Music(Icons.Rounded.Headphones, Icons.Rounded.Headphones, R.string.nav_music),
+    /** Music dock (variant B): back to the video app. */
+    Video(Icons.Rounded.SmartDisplay, Icons.Rounded.SmartDisplay, R.string.music_tab_video),
+    /** Music dock: favourites, downloads, phone files and playlists. */
+    Library(Icons.Rounded.LibraryMusic, Icons.Rounded.LibraryMusic, R.string.music_tab_library),
+    /** Music dock: the «Слушать» page. */
+    Listen(Icons.Rounded.Headphones, Icons.Rounded.Headphones, R.string.music_tab_listen),
 }
 
 /** Tiles of «Моё», most used first: the first one sits lowest, on the working-hand side. */
@@ -93,6 +99,15 @@ object DockLayout {
         return if (inverted) base.reversed() else base
     }
 
+    /**
+     * The music dock: Видео · Поиск · Библиотека · Слушать. «Слушать» sits at the working-hand
+     * edge, «Видео» furthest away; the Mine/Home swap mirrors it the same way.
+     */
+    fun musicOrder(left: Boolean, swapHomeMine: Boolean = false): List<DockTab> {
+        val base = listOf(DockTab.Video, DockTab.Search, DockTab.Library, DockTab.Listen)
+        return if (left xor swapHomeMine) base.reversed() else base
+    }
+
 }
 
 /**
@@ -101,10 +116,11 @@ object DockLayout {
  */
 @Composable
 fun AppDock(selected: DockTab?, mineOpen: Boolean, left: Boolean, shorts: Boolean, onSelect: (DockTab) -> Unit, modifier: Modifier = Modifier,
-    music: Boolean = false, line: (@Composable () -> Unit)? = null, ear: (@Composable () -> Unit)? = null) {
+    music: Boolean = false, line: (@Composable () -> Unit)? = null, ear: (@Composable () -> Unit)? = null, musicMode: Boolean = false) {
     val preferences = app.freshtuber.ui.theme.LocalAppPreferences.current
+    val swap = preferences.enabled(app.freshtuber.data.settings.AppFeature.SwapHomeMine)
     DockDrop(left, modifier, line, ear) {
-        DockLayout.order(left, shorts, preferences.enabled(app.freshtuber.data.settings.AppFeature.SwapHomeMine), music).forEach { tab ->
+        (if (musicMode) DockLayout.musicOrder(left, swap) else DockLayout.order(left, shorts, swap, music)).forEach { tab ->
             val active = if (tab == DockTab.Mine) mineOpen || (selected == DockTab.Mine) else selected == tab && !mineOpen
             DockButton(tab.labelRes, if (active) tab.selectedIcon else tab.icon, active, "dock:${tab.name}",
                 if (tab == DockTab.Mine) stringResource(R.string.nav_mine_description) else null, Modifier.weight(1f)) { onSelect(tab) }

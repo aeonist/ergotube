@@ -532,4 +532,12 @@
     <string name="music_find">Поиск музыки</string>
     <string name="music_likes_retry">Не удалось загрузить лайки YouTube Music. Повторить</string>
     <string name="favorites_empty">В избранном пока ничего нет</string>
+    <!-- Music, variant B (24 Nov 2026) -->
+    <string name="music_jams_title">Джемы</string>
+    <string name="music_jams_source_music">Музыка</string>
+    <string name="music_jams_source_home">Вся Главная</string>
+    <string name="music_my_jam_endless">без конца</string>
+    <string name="music_shelf_downloads">Скачанное</string>
+    <string name="music_shelf_phone">С телефона</string>
+    <string name="music_playlist_new">Новый плейлист</string>
 </resources>

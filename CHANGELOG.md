@@ -4,6 +4,12 @@ What changed in each ErgoTube build, newest first. Release APKs are on the [Rele
 
 Builds are numbered by `versionCode`. A release tag or APK name that contains `buildNN` is what the in-app update banner compares against.
 
+## Build 41 · 24 Nov 2026
+
+- Music has its own dock while you are in it: **Video · Search · Library · Listen**.
+- **Listen** is built from the bottom up: a big Daily mix by the thumb with play and shuffle at the hand edge, a wide My jam button, and a jam shelf that switches between Music and all of Home.
+- **Library** opens with a shelf of four sections: Favourites, Downloads, On this phone and Playlists.
+
 ## Build 40 · 1.2.1 · 23 Nov 2026
 
 - Favourites opens from Music and Mine. Music hearts, saved videos and the signed-in YouTube Music account’s liked songs share one list. Settings → Music can split it into Music and Video. A recording saved twice appears once in the combined list.

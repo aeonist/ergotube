@@ -25,6 +25,9 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
@@ -52,7 +55,58 @@ import kotlinx.coroutines.launch
 @Composable
 fun MusicLibraryScreen(collection: String?, viewModel: MusicViewModel = hiltViewModel()) {
     MusicNotes(viewModel)
+    if (collection == null) { MusicLibraryTab(viewModel); return }
     if (collection == "playlists") { MusicPlaylists(viewModel); return }
+    MusicCollection(collection, viewModel)
+}
+
+/** The four sections of the «Библиотека» tab, most used first: the first lands by the thumb. */
+private enum class LibraryShelf(val collection: String, val labelRes: Int, val icon: androidx.compose.ui.graphics.vector.ImageVector) {
+    Favorites("fav", R.string.music_favorites, Icons.Rounded.Favorite),
+    Downloads("downloads", R.string.music_shelf_downloads, Icons.Rounded.DownloadDone),
+    Phone("phone", R.string.music_shelf_phone, Icons.Rounded.PhoneAndroid),
+    Playlists("playlists", R.string.music_playlists, Icons.AutoMirrored.Rounded.QueueMusic),
+}
+
+/**
+ * The music dock's «Библиотека» (variant B): one list, bottom-up, with a shelf of four tiles right
+ * above its play/shuffle/sort bar. A tile swaps the list in place instead of opening a new page.
+ */
+@Composable
+private fun MusicLibraryTab(viewModel: MusicViewModel) {
+    var shelf by rememberSaveable { mutableStateOf(LibraryShelf.Favorites) }
+    val left = LocalLeftHanded.current
+    val tiles: @Composable ColumnScope.() -> Unit = { LibraryShelfRow(shelf, left) { shelf = it } }
+    key(shelf) {
+        if (shelf == LibraryShelf.Playlists) MusicPlaylists(viewModel, title = stringResource(R.string.music_library),
+            subtitle = stringResource(shelf.labelRes), shelf = tiles)
+        else MusicCollection(shelf.collection, viewModel, shelf = tiles, tabLabel = stringResource(shelf.labelRes))
+    }
+}
+
+@Composable
+private fun LibraryShelfRow(current: LibraryShelf, left: Boolean, onPick: (LibraryShelf) -> Unit) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        app.freshtuber.ui.components.handOrder(LibraryShelf.entries, left).forEach { item ->
+            val on = item == current
+            val fg = if (on) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+            Column(Modifier.weight(1f).height(72.dp).clip(RoundedCornerShape(18.dp))
+                .background(if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHigh)
+                .semantics { selected = on }
+                .clickable(role = androidx.compose.ui.semantics.Role.Tab) { onPick(item) }
+                .padding(horizontal = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                Icon(item.icon, null, Modifier.size(22.dp), tint = fg)
+                Text(stringResource(item.labelRes), style = MaterialTheme.typography.labelMedium, color = fg, maxLines = 1,
+                    overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 4.dp))
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MusicCollection(collection: String, viewModel: MusicViewModel, shelf: (@Composable ColumnScope.() -> Unit)? = null, tabLabel: String? = null) {
     val device = collection in listOf("device", "phone", "downloads")
     if (device) MusicFolderAccess(viewModel)
     val left = LocalLeftHanded.current
@@ -140,7 +194,7 @@ fun MusicLibraryScreen(collection: String?, viewModel: MusicViewModel = hiltView
     // The four big buttons step aside while the list is read and come back on the way back.
     val hide = app.freshtuber.ui.components.rememberScrollHide(inverted = fromBottom)
     Column(Modifier.fillMaxSize()) {
-        ScreenHeader(title, subtitle)
+        if (tabLabel != null) ScreenHeader(stringResource(R.string.music_library), "$tabLabel · $subtitle") else ScreenHeader(title, subtitle)
         if (likes.failed) TextButton(onClick = { retry++ }) { Text(stringResource(R.string.music_likes_retry)) }
         Box(Modifier.weight(1f).fillMaxWidth()) {
             LazyColumn(Modifier.fillMaxSize().nestedScroll(hide.connection), state = list, reverseLayout = fromBottom, contentPadding = PaddingValues(vertical = 8.dp)) {
@@ -167,7 +221,7 @@ fun MusicLibraryScreen(collection: String?, viewModel: MusicViewModel = hiltView
             app.freshtuber.ui.components.ChipItem(stringResource(R.string.search_source_music), chosen == FavoriteSection.Music) { chosen = FavoriteSection.Music },
             app.freshtuber.ui.components.ChipItem(stringResource(R.string.search_source_video), chosen == FavoriteSection.Video) { chosen = FavoriteSection.Video },
         ), left)
-        if (device) app.freshtuber.ui.components.HandChips(LibraryFilter.entries.map { option ->
+        if (device && shelf == null) app.freshtuber.ui.components.HandChips(LibraryFilter.entries.map { option ->
             app.freshtuber.ui.components.ChipItem(stringResource(option.labelRes), option == filter) { filter = option }
         }, left)
         val actions = buildList {
@@ -183,7 +237,7 @@ fun MusicLibraryScreen(collection: String?, viewModel: MusicViewModel = hiltView
             if (playlistId == null) add(ContextAction(Icons.Rounded.Sort, stringResource(R.string.music_sort)) { sortOpen = true })
             if (device || playlistId != null) add(ContextAction(Icons.Rounded.MoreHoriz, stringResource(R.string.music_more)) { moreOpen = true })
         }
-        app.freshtuber.ui.motion.BlurVisibility(hide.visible, collapse = true) { ContextBar(actions, left) }
+        app.freshtuber.ui.motion.BlurVisibility(hide.visible, collapse = true) { ContextBar(actions, left, above = shelf) }
     }
     if (sortOpen) app.freshtuber.ui.components.BlurSheet(onDismissRequest = { sortOpen = false }) {
         Column(Modifier.padding(bottom = 16.dp)) {

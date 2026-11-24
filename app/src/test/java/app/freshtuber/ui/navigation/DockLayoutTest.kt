@@ -54,4 +54,10 @@ class DockLayoutTest {
         assertEquals(listOf(DockTab.Home, DockTab.Music, DockTab.Search, DockTab.Subscriptions, DockTab.Mine),
             DockLayout.order(left = true, shorts = false, music = true))
     }
+
+    @Test fun musicDockPutsListenByTheThumb() {
+        assertEquals(listOf(DockTab.Video, DockTab.Search, DockTab.Library, DockTab.Listen), DockLayout.musicOrder(left = false))
+        assertEquals(listOf(DockTab.Listen, DockTab.Library, DockTab.Search, DockTab.Video), DockLayout.musicOrder(left = true))
+        assertEquals(listOf(DockTab.Listen, DockTab.Library, DockTab.Search, DockTab.Video), DockLayout.musicOrder(left = false, swapHomeMine = true))
+    }
 }
