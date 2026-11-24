@@ -65,15 +65,13 @@ Menus appear through a soft blur. The background glows in the colors of the vide
 
 **Extremely flexible.** Left hand, right hand, five themes, and the classic YouTube layout for people who enjoy suffering.
 
-**Fast.** One request to YouTube instead of seven. The video is ready before you've decided to watch it.
+**Playback.** Pressing a video card starts preparing the stream before you open the player.
 
 **The best design known to mankind.** Obviously.
 
-**Private.** No servers, no analytics. We couldn't sell your data even if we wanted to. We don't.
+**Private.** No ErgoTube servers or in-app analytics.
 
 **Free.** No ads, no subscription, open source. You're welcome.
-
-**Saves data.** Uses VP9 when your phone supports it: about a third less traffic for the same picture. Sorry, carriers.
 
 ## Features
 
@@ -131,16 +129,20 @@ NewPipe and LibreTube are good YouTube clients. ErgoTube differs mainly in layou
 
 1. Open [Releases](https://github.com/aeonist/ergotube/releases/latest) on your phone and download `ErgoTube-buildNN-release.apk`.
 2. Open the file. Android asks to allow installs from this source; allow it.
-3. Android 8.0 (API 26) or newer is required. No Google Play Services needed.
+3. Open ErgoTube and choose **Continue without an account** to start watching.
+
+ErgoTube requires Android 8.0 (API 26) or newer. Google Play Services are not required.
 
 The app shows a banner when a new release is published here.
 
 > [!WARNING]
-> Signing in through any unofficial client breaks YouTube's Terms of Service. Google may show captchas, limit access for a while or suspend the account. The risk is small, but use a spare account rather than your main one, or use ErgoTube without signing in.
+> Signing in through an unofficial client can lead to CAPTCHAs or account restrictions. [YouTube Terms of Service](https://www.youtube.com/t/terms)
 
 ## Privacy
 
-ErgoTube has no servers and collects no data. Account cookies are encrypted with a key in the Android Keystore and are sent only to `youtube.com` and `googlevideo.com`. Cloud backup of app data is turned off. The only other network calls are the optional SponsorBlock, DeArrow and Return YouTube Dislike lookups, song lyrics from LRCLIB, and the update check against this repository's releases.
+ErgoTube connects to YouTube for search, feeds and playback. If you sign in, ErgoTube stores your session cookies encrypted on your device and sends them only to `youtube.com` and `googlevideo.com`. Cloud backup of app data is turned off.
+
+SponsorBlock, DeArrow and Return YouTube Dislike receive a video ID or part of its hash when their features are enabled. You can turn each feature off in Settings. Lyrics searches send track information such as the title and artist to LRCLIB. Update checks contact GitHub for this repository's releases.
 
 ## Build from source
 
