@@ -535,12 +535,15 @@ private object ScreenMotion {
     private fun <T> exitSpec() = tween<T>(Motion.EXIT_MS, easing = Motion.Accelerate)
 
     fun enter(from: NavBackStackEntry, to: NavBackStackEntry): EnterTransition = when {
+        from.isPlayer() && app.freshtuber.ui.player.MinimizeDrag.swapsAtOnce() -> EnterTransition.None
         to.isPlayer() -> fadeIn(enterSpec(40)) + slideInVertically(enterSpec()) { (it * 0.06f).toInt() }
         from.isSection() && to.isSection() -> fadeIn(tween(300, 70, Motion.Decelerate)) + scaleIn(tween(360, easing = Motion.Decelerate), 0.985f)
         else -> fadeIn(enterSpec(40)) + scaleIn(enterSpec(), 0.95f)
     }
 
     fun exit(from: NavBackStackEntry, to: NavBackStackEntry): ExitTransition = when {
+        // The pulled-off page has already left over a picture of this screen: swap at once.
+        from.isPlayer() && app.freshtuber.ui.player.MinimizeDrag.swapsAtOnce() -> ExitTransition.None
         // A page pulled down that has nothing to go back to is replaced: it only finishes its fade too.
         from.isPlayer() && app.freshtuber.ui.player.MinimizeDrag.recentlyDismissed() -> fadeOut(tween(app.freshtuber.ui.player.MinimizeDrag.DISMISS_MS), targetAlpha = 1f)
         to.isPlayer() -> fadeOut(exitSpec()) + scaleOut(enterSpec(), 0.94f)
@@ -549,6 +552,7 @@ private object ScreenMotion {
     }
 
     fun popEnter(from: NavBackStackEntry, to: NavBackStackEntry): EnterTransition = when {
+        from.isPlayer() && app.freshtuber.ui.player.MinimizeDrag.swapsAtOnce() -> EnterTransition.None
         // After a pull-down the page has already blurred away: what was under it comes into focus at once.
         from.isPlayer() && app.freshtuber.ui.player.MinimizeDrag.recentlyDismissed() ->
             fadeIn(tween(120, easing = Motion.Decelerate))
@@ -557,6 +561,7 @@ private object ScreenMotion {
     }
 
     fun popExit(from: NavBackStackEntry, to: NavBackStackEntry): ExitTransition = when {
+        from.isPlayer() && app.freshtuber.ui.player.MinimizeDrag.swapsAtOnce() -> ExitTransition.None
         // Pulled down by the finger, the page has already blurred away: no second exit on top.
         from.isPlayer() && app.freshtuber.ui.player.MinimizeDrag.recentlyDismissed() -> fadeOut(tween(app.freshtuber.ui.player.MinimizeDrag.DISMISS_MS), targetAlpha = 1f)
         from.isPlayer() -> fadeOut(exitSpec()) + slideOutVertically(tween(Motion.EXIT_MS + 60, easing = Motion.Accelerate)) { (it * 0.08f).toInt() }

@@ -74,21 +74,25 @@ class MinimizeDragTest {
         assertFalse(MinimizeDrag.shouldMinimize(distanceDp = 300f, velocityDpPerSec = -900f, heightDp = height))
     }
 
-    @Test fun pulledToTheThresholdThePageRecedes() {
+    @Test fun pulledToTheThresholdThePageRecedesIntoABlur() {
         assertEquals(1f, MinimizeDrag.scaleFor(0f), 0.0001f)
         assertEquals(1f, MinimizeDrag.alphaFor(0f), 0.0001f)
+        assertEquals(0f, MinimizeDrag.blurDpFor(0f), 0.0001f)
         assertEquals(0.94f, MinimizeDrag.scaleFor(1f), 0.0001f)
         assertEquals(0.7f, MinimizeDrag.alphaFor(1f), 0.0001f)
+        assertEquals(14f, MinimizeDrag.blurDpFor(1f), 0.0001f)
         // Past the threshold it stays there.
         assertEquals(1f, MinimizeDrag.pullFor(500f, 100f), 0f)
         assertEquals(0.5f, MinimizeDrag.pullFor(50f, 100f), 0.0001f)
     }
 
-    @Test fun releasedItFadesAwayWhereverItWas() {
+    @Test fun releasedItBlursAwayWhereverItWas() {
         for (pull in listOf(0f, 0.3f, 1f)) {
-            assertEquals(0.9f, MinimizeDrag.scaleFor(pull, 1f), 0.0001f)
+            assertEquals(0.88f, MinimizeDrag.scaleFor(pull, 1f), 0.0001f)
             assertEquals(0f, MinimizeDrag.alphaFor(pull, 1f), 0.0001f)
+            assertEquals(28f, MinimizeDrag.blurDpFor(pull, 1f), 0.0001f)
         }
+        assertTrue(MinimizeDrag.blurDpFor(1f, 0.5f) > 14f)
         assertTrue(MinimizeDrag.alphaFor(1f, 0.5f) < 0.7f)
     }
 
