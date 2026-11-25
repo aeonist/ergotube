@@ -92,6 +92,13 @@ class MinimizeDrag internal constructor(private val scope: CoroutineScope) {
     /** Room below the finger where the current gesture started, px (the whole page until known). */
     private var roomPx by mutableFloatStateOf(Float.NaN)
     private val room: Float get() = if (roomPx.isNaN()) heightPx else roomPx
+    /**
+     * The finger on screen (px, page coordinates before its transform) and its downward speed at
+     * the last lift. Lists inside the page measure the finger in their own moving, shrinking
+     * coordinates; the page follows this instead, exactly as for a pull outside a list.
+     */
+    internal var fingerY = Float.NaN
+    internal var fingerVelocity = 0f
     /** A still picture of the screen below is drawn under this page (see [playerUnderlay]). */
     internal var underlayReady = false
     /** One dp in px, known from the first gesture. */
@@ -358,6 +365,25 @@ fun Modifier.minimizeDrag(drag: MinimizeDrag, enabled: Boolean, onMinimize: () -
         val latest by rememberUpdatedState(onMinimize)
         val lists = remember(drag, density) { MinimizeNestedScroll(drag, density) { latest() } }
         nestedScroll(lists).pointerInput(drag) {
+            // Watches every finger first (Initial pass, nothing consumed), so a list's nested
+            // scroll below reads where the finger really is on screen.
+            awaitEachGesture {
+                val first = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                val tracker = VelocityTracker()
+                drag.fingerY = first.position.y
+                tracker.addPosition(first.uptimeMillis, first.position)
+                while (true) {
+                    val change = awaitPointerEvent(PointerEventPass.Initial).changes.firstOrNull { it.id == first.id } ?: break
+                    drag.fingerY = change.position.y
+                    tracker.addPosition(change.uptimeMillis, change.position)
+                    if (!change.pressed) {
+                        drag.fingerVelocity = MinimizeDrag.flingVelocity(tracker.calculateVelocity().y,
+                            change.position.y - first.position.y, change.uptimeMillis - first.uptimeMillis)
+                        break
+                    }
+                }
+            }
+        }.pointerInput(drag) {
             awaitEachGesture {
                 val down = awaitFirstDown(requireUnconsumed = false)
                 if (drag.dismissing) return@awaitEachGesture
@@ -420,35 +446,35 @@ fun Modifier.minimizeDrag(drag: MinimizeDrag, enabled: Boolean, onMinimize: () -
  * release decides as for [minimizeDrag]. Attach with `Modifier.nestedScroll` around the lists.
  */
 class MinimizeNestedScroll(private val drag: MinimizeDrag, private val density: Float, private val onMinimize: () -> Unit) : NestedScrollConnection {
-    /** The finger's movement as the list saw it while pulling, px; the page's own offset is added back. */
-    private var local = 0f
-    private val pulled get() = if (local > 0f) local + drag.offsetPx else 0f
+    /** Where the finger was on screen when the list handed the drag to the page, px; NaN while the list has it. */
+    private var anchor = Float.NaN
+    private val pulling get() = !anchor.isNaN()
 
     override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-        if (source != NestedScrollSource.UserInput || drag.dismissing) return Offset.Zero
-        val take = MinimizeDrag.listTakes(available.y, pulled, afterList = false)
-        if (take == 0f) return Offset.Zero
-        local = (local + take).coerceAtLeast(0f)
-        drag.follow(if (local > 0f) local + drag.offsetPx else 0f)
-        return Offset(0f, take)
+        if (source != NestedScrollSource.UserInput || drag.dismissing || !pulling) return Offset.Zero
+        // The page has the drag: it follows the finger on screen, both ways, until the finger is
+        // back above where the pull began; then the list scrolls again.
+        val distance = drag.fingerY - anchor
+        if (distance <= 0f) { anchor = Float.NaN; drag.follow(0f); return Offset(0f, available.y.coerceAtLeast(0f)) }
+        drag.follow(distance)
+        return Offset(0f, available.y)
     }
 
     override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-        if (source != NestedScrollSource.UserInput || drag.dismissing) return Offset.Zero
-        val take = MinimizeDrag.listTakes(available.y, pulled, afterList = true)
-        if (take == 0f) return Offset.Zero
-        // The list moves with the page, so it reports the finger less the page's own movement.
-        val finger = local + take + drag.offsetPx
-        local += take
-        drag.follow(finger)
+        if (source != NestedScrollSource.UserInput || drag.dismissing || pulling) return Offset.Zero
+        val take = MinimizeDrag.listTakes(available.y, 0f, afterList = true)
+        if (take == 0f || drag.fingerY.isNaN()) return Offset.Zero
+        // The list is at its top: from here the page takes over, starting with what is left over.
+        anchor = drag.fingerY - take
+        drag.follow(take)
         return Offset(0f, take)
     }
 
     override suspend fun onPreFling(available: Velocity): Velocity {
-        if (local <= 0f) return Velocity.Zero
-        val distance = pulled
-        local = 0f
-        drag.release(distance, available.y, density, onMinimize)
+        if (!pulling) return Velocity.Zero
+        val distance = drag.fingerY - anchor
+        anchor = Float.NaN
+        drag.release(distance, drag.fingerVelocity, density, onMinimize)
         // A page let go does not also fling the list.
         return available
     }
