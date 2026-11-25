@@ -74,28 +74,34 @@ class MinimizeDragTest {
         assertFalse(MinimizeDrag.shouldMinimize(distanceDp = 300f, velocityDpPerSec = -900f, heightDp = height))
     }
 
-    @Test fun pulledToTheThresholdThePageRecedesIntoABlur() {
+    @Test fun pulledToTheThresholdThePageRecedes() {
         assertEquals(1f, MinimizeDrag.scaleFor(0f), 0.0001f)
         assertEquals(1f, MinimizeDrag.alphaFor(0f), 0.0001f)
-        assertEquals(0f, MinimizeDrag.blurDpFor(0f), 0.0001f)
         assertEquals(0.94f, MinimizeDrag.scaleFor(1f), 0.0001f)
         assertEquals(0.7f, MinimizeDrag.alphaFor(1f), 0.0001f)
-        assertEquals(14f, MinimizeDrag.blurDpFor(1f), 0.0001f)
-        assertEquals(7f, MinimizeDrag.blurDpFor(0.5f), 0.0001f)
         // Past the threshold it stays there.
         assertEquals(1f, MinimizeDrag.pullFor(500f, 100f), 0f)
         assertEquals(0.5f, MinimizeDrag.pullFor(50f, 100f), 0.0001f)
     }
 
-    @Test fun releasedItBlursAwayWhereverItWas() {
+    @Test fun releasedItFadesAwayWhereverItWas() {
         for (pull in listOf(0f, 0.3f, 1f)) {
-            assertEquals(0.88f, MinimizeDrag.scaleFor(pull, 1f), 0.0001f)
+            assertEquals(0.9f, MinimizeDrag.scaleFor(pull, 1f), 0.0001f)
             assertEquals(0f, MinimizeDrag.alphaFor(pull, 1f), 0.0001f)
-            assertEquals(28f, MinimizeDrag.blurDpFor(pull, 1f), 0.0001f)
         }
-        // Halfway out it is blurrier and fainter than at the threshold.
-        assertTrue(MinimizeDrag.blurDpFor(1f, 0.5f) > 14f)
         assertTrue(MinimizeDrag.alphaFor(1f, 0.5f) < 0.7f)
+    }
+
+    @Test fun releasedThePageKeepsTheFingersSpeed() {
+        val h = 2400f
+        // Ease-out starts at twice the average speed: travel * 2 / duration == finger speed.
+        val travel = MinimizeDrag.exitTravel(3000f, 600f, h)
+        assertEquals(3000f, travel * 2f / (MinimizeDrag.DISMISS_MS / 1000f), 1f)
+        // A slow release still glides a little, and nothing goes past the bottom.
+        assertEquals(h * MinimizeDrag.MIN_EXIT_SHARE, MinimizeDrag.exitTravel(0f, 600f, h), 0.01f)
+        assertEquals(100f, MinimizeDrag.exitTravel(20000f, h - 100f, h), 0.01f)
+        assertEquals(0f, MinimizeDrag.easeOut(0f), 0f)
+        assertEquals(1f, MinimizeDrag.easeOut(1f), 0f)
     }
 
     @Test fun resistanceLagsTheFingerSlightly() {

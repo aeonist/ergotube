@@ -1,10 +1,11 @@
 package app.freshtuber.ui.player
 
 import android.os.SystemClock
-import android.os.Build
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.runtime.Composable
@@ -23,14 +24,11 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.BlurEffect
-import androidx.compose.ui.graphics.TileMode
-import androidx.compose.ui.unit.dp
-import app.freshtuber.ui.motion.Motion
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.input.pointer.pointerInput
+import app.freshtuber.ui.motion.Motion
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.composed
 import androidx.compose.ui.input.nestedscroll.nestedScroll
@@ -56,8 +54,8 @@ internal fun Modifier.playerUnderlay(pull: MinimizeDrag): Modifier {
 
 /**
  * Pulling the portrait video down, as in YouTube: the whole watch page follows the finger,
- * recedes into a blur (slightly smaller, fainter), then either blurs away into the mini-player
- * or springs back into focus. Nothing slides off: the app's motion language is the blur.
+ * recedes (slightly smaller, fainter), then either glides on at the finger's speed and fades
+ * into the mini-player or springs back.
  * The decision and the curves are plain functions in the companion so they can be unit tested.
  */
 @Stable
@@ -122,10 +120,8 @@ class MinimizeDrag internal constructor(private val scope: CoroutineScope) {
         layer.scaleX = s
         layer.scaleY = s
         layer.alpha = alphaFor(p, e)
-        if (Build.VERSION.SDK_INT >= 31) {
-            val r = with(layer) { blurDpFor(p, e).dp.toPx() }
-            if (r > 0.5f) layer.renderEffect = BlurEffect(r, r, TileMode.Decal)
-        }
+        // No live blur: re-blurring a full page with a playing video every frame dropped frames
+        // on phones, and a pull has to stay glued to the finger. Scale and fade cost nothing.
     }
 
     /** Where [rect] (root px, inside a page [widthPx] wide at the top of the screen) is drawn now. */
@@ -163,10 +159,12 @@ class MinimizeDrag internal constructor(private val scope: CoroutineScope) {
         onMinimize()
         job = scope.launch {
             val start = offsetPx
-            val travel = minOf(heightPx - start, heightPx * 0.18f + velocityPxPerSec.coerceAtLeast(0f) * 0.07f).coerceAtLeast(0f)
-            animate(0f, 1f, animationSpec = tween(DISMISS_MS, easing = Motion.Decelerate)) { fraction, _ ->
-                exit = fraction
-                offsetPx = start + travel * fraction
+            val travel = exitTravel(velocityPxPerSec, start, heightPx)
+            // Linear time, shaped here: the page keeps the finger's speed and eases to a stop
+            // while it fades, instead of jumping ahead the moment the finger lifts.
+            animate(0f, 1f, animationSpec = tween(DISMISS_MS, easing = LinearEasing)) { t, _ ->
+                exit = FastOutSlowInEasing.transform(t)
+                offsetPx = start + travel * easeOut(t)
             }
             // Normally the page is gone by now. If it stayed (nothing to go back to), bring it back into focus.
             delay(460)
@@ -211,15 +209,28 @@ class MinimizeDrag internal constructor(private val scope: CoroutineScope) {
         const val CANCEL_DP_S = -600f
         /** The shortest movement a fling still counts for, dp. */
         const val MIN_FLING_DP = 12f
-        /** The blur-away after a release, ms. */
-        const val DISMISS_MS = 240
-        /** At the release distance the page is this small, this faint and this blurred (dp)... */
+        /** The fade-away after a release, ms. */
+        const val DISMISS_MS = 320
+        /** At the release distance the page is this small and this faint... */
         const val PULL_SCALE = 0.94f
         const val PULL_ALPHA = 0.7f
-        const val PULL_BLUR_DP = 14f
-        /** ...and blurring away it ends this small and this blurred, fully transparent. */
-        const val EXIT_SCALE = 0.88f
-        const val EXIT_BLUR_DP = 28f
+        /** ...and fading away it ends this small, fully transparent. */
+        const val EXIT_SCALE = 0.9f
+        /** The shortest way the page still travels after a slow release, as a share of its height. */
+        const val MIN_EXIT_SHARE = 0.06f
+
+        /** Ease-out (quadratic): starts at twice the average speed and comes to rest. */
+        fun easeOut(t: Float): Float { val u = 1f - t.coerceIn(0f, 1f); return 1f - u * u }
+
+        /**
+         * How much further a page released at [startPx] travels while it fades: with [easeOut] over
+         * [DISMISS_MS] it starts exactly at the finger's [velocityPxPerSec], never less than
+         * [MIN_EXIT_SHARE] of the page and never past the bottom.
+         */
+        fun exitTravel(velocityPxPerSec: Float, startPx: Float, heightPx: Float): Float {
+            val matched = velocityPxPerSec.coerceAtLeast(0f) * DISMISS_MS / 1000f / 2f
+            return minOf(maxOf(matched, heightPx * MIN_EXIT_SHARE), (heightPx - startPx).coerceAtLeast(0f))
+        }
 
         /** Last time a drag or flick handed the page to the mini-player, for the navigation exit. */
         @Volatile var lastDismissAt = 0L
@@ -265,9 +276,6 @@ class MinimizeDrag internal constructor(private val scope: CoroutineScope) {
         fun scaleFor(pull: Float, exit: Float = 0f): Float = mix(mix(1f, PULL_SCALE, pull), EXIT_SCALE, exit)
 
         fun alphaFor(pull: Float, exit: Float = 0f): Float = mix(mix(1f, PULL_ALPHA, pull), 0f, exit)
-
-        /** Blur radius in dp. */
-        fun blurDpFor(pull: Float, exit: Float = 0f): Float = mix(mix(0f, PULL_BLUR_DP, pull), EXIT_BLUR_DP, exit)
 
         /** The tracker's velocity, or for a gesture under 250 ms the average speed when that is higher (px/s). */
         fun flingVelocity(trackedPxPerSec: Float, distancePx: Float, durationMs: Long): Float {
