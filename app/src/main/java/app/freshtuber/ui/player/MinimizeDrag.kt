@@ -52,10 +52,12 @@ internal fun Modifier.playerUnderlay(pull: MinimizeDrag): Modifier {
     return drawBehind {
         val fits = page != null && page.width == size.width.toInt() && page.height == size.height.toInt()
         pull.underlayReady = fits
-        if (fits && (pull.offsetPx > 0f || pull.exit > 0f)) {
-            // While the page leaves, the screen below stays a still picture under it: the real
+        if (fits && pull.exit > 0f) {
+            // While the page leaves, the screen below fades in as a still picture under it: the real
             // screen comes back only once the page is gone, so its first heavy frame is never seen.
-            drawImage(page!!, alpha = if (pull.exit > 0f) 1f else (pull.pull * 3f).coerceIn(0f, 1f))
+            // Not while the finger pulls: the page is see-through over its light, and the feed
+            // showing through its text the moment a pull began read as a jolt.
+            drawImage(page!!, alpha = pull.exit)
         }
     }
 }
