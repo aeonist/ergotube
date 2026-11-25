@@ -8,7 +8,7 @@ Builds are numbered by `versionCode`. A release tag or APK name that contains `b
 
 - Fullscreen video has **plain black sides**, like YouTube. On screens longer than 16:9 the glow from bright video edges no longer shows up as white bars.
 - **Zoom to fill sticks.** Stretch one video to the edges and the next fullscreen videos open stretched too, until you pinch one back. A stretched picture is held at the centre, and a zoomed one snaps to the centre line as you drag it near.
-- **Smoother pull-down.** The video and music players leave at the speed of your finger and fade into the mini-player, with no jump when you let go and no heavy blur slowing the frames.
+- **Smoother pull-down.** The video and music players follow the finger on screen wherever you grab them, lists included, then glide on at your speed and blur away. The screen below fades in as a still picture and the real one, with the mini-player, takes over once the page is gone, so nothing heavy lands mid-motion.
 
 ## Build 41 · 1.3 · 24 Nov 2026
 
